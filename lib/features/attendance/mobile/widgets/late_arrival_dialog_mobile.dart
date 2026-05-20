@@ -35,7 +35,8 @@ class _LateArrivalDialogMobileState extends State<LateArrivalDialogMobile> {
     return Dialog(
       backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(16), // Reduced inset
+      insetPadding: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+      alignment: Alignment.bottomCenter,
       child: GlassContainer(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32), // Unified padding
         borderRadius: 24,
@@ -88,7 +89,7 @@ class _LateArrivalDialogMobileState extends State<LateArrivalDialogMobile> {
                 // 3. Input Field
                 Container(
                    decoration: BoxDecoration(
-                     color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
+                     color: isDark ? const Color(0xFF30363D).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
                      borderRadius: BorderRadius.circular(16), // Consistent rounded corners
                      border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
                    ),

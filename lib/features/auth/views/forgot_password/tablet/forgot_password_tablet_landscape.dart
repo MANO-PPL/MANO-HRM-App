@@ -18,7 +18,7 @@ class ForgotPasswordTabletLandscape extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 550),
         child: Card(
-          color: const Color(0xFF1E2939), // Card Color
+          color: const Color(0xFF161B22), // Card Color
           elevation: 4,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Padding(
@@ -53,7 +53,7 @@ class ForgotPasswordTabletLandscape extends StatelessWidget {
                       labelText: 'Email Address',
                       labelStyle: const TextStyle(color: Colors.grey),
                       filled: true,
-                      fillColor: const Color(0xFF101828), // Background Color
+                      fillColor: const Color(0xFF0D1117), // Background Color
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide.none,

@@ -7,6 +7,7 @@ import 'mobile/views/login_mobile_portrait.dart';
 import 'tablet/views/login_tablet_portrait.dart';
 import 'tablet/views/login_tablet_landscape.dart';
 import '../../shared/services/auth_service.dart';
+import '../../shared/widgets/toast_helper.dart';
 import '../../main.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -66,7 +67,13 @@ class LoginScreenState extends State<LoginScreen> {
       );
 
       if (!mounted) return;
-      // Removed Navigator.pushReplacement as AuthWrapper handles this automatically
+      context.showToast("Logged in successfully!", isSuccess: true);
+      // Navigate to AuthWrapper to ensure clean state and proper redirection
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const AuthWrapper()),
+        (route) => false,
+      );
     } catch (e) {
       _showError(e.toString());
       // Refresh captcha on error? Ideally yes, but WordCaptcha handles its own refresh.

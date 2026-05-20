@@ -94,30 +94,37 @@ class AttendanceApp extends StatelessWidget {
       brightness: brightness,
       colorScheme: ColorScheme.fromSeed(
         brightness: brightness, // Explicitly match the brightness
-        seedColor: const Color(0xFF5B60F6),
-        primary: const Color(0xFF5B60F6),
+        seedColor: isDark ? const Color(0xFF2F81F7) : const Color(0xFF5B60F6),
+        primary: isDark ? const Color(0xFF2F81F7) : const Color(0xFF5B60F6),
 
-        surface: isDark ? const Color(0xFF1E2939) : const Color(0xFFFFFFFF),
-        onSurface: isDark ? const Color(0xFFE5E7EB) : const Color(0xFF0F172A),
-        secondary: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+        surface: isDark ? const Color(0xFF161B22) : const Color(0xFFFFFFFF),
+        onSurface: isDark ? const Color(0xFFE6EDF3) : const Color(0xFF0D1117),
+        secondary: isDark ? const Color(0xFF8D96A0) : const Color(0xFF64748B),
       ),
-      scaffoldBackgroundColor: isDark ? const Color(0xFF101828) : const Color(0xFFF8FAFC),
+      scaffoldBackgroundColor: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
       fontFamily: GoogleFonts.poppins().fontFamily,
-      cardColor: isDark ? const Color(0xFF1E2939) : const Color(0xFFFFFFFF),
+      cardColor: isDark ? const Color(0xFF161B22) : const Color(0xFFFFFFFF),
       cardTheme: CardThemeData(
-        color: isDark ? const Color(0xFF1E2939) : const Color(0xFFFFFFFF),
+        color: isDark ? const Color(0xFF161B22) : const Color(0xFFFFFFFF),
         surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          side: BorderSide(
+            color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+            width: 1,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: isDark ? const Color(0xFF101828) : const Color(0xFFFFFFFF),
+        backgroundColor: isDark ? const Color(0xFF0D1117) : const Color(0xFFFFFFFF),
         surfaceTintColor: Colors.transparent,
       ),
-      dividerColor: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+      dividerColor: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
       textTheme: GoogleFonts.poppinsTextTheme(
         isDark ? ThemeData.dark().textTheme : ThemeData.light().textTheme
       ).apply(
-        bodyColor: isDark ? const Color(0xFFE5E7EB) : const Color(0xFF0F172A),
-        displayColor: isDark ? const Color(0xFFE5E7EB) : const Color(0xFF0F172A),
+        bodyColor: isDark ? const Color(0xFFE6EDF3) : const Color(0xFF0D1117),
+        displayColor: isDark ? const Color(0xFFE6EDF3) : const Color(0xFF0D1117),
       ),
     );
   }

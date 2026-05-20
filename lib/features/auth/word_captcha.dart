@@ -94,7 +94,7 @@ class _WordCaptchaState extends State<WordCaptcha> {
               child: Container(
                 height: 60,
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  color: isDark ? const Color(0xFF30363D) : Colors.white,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: isDark ? Colors.white10 : Colors.grey[300]!,
@@ -133,7 +133,7 @@ class _WordCaptchaState extends State<WordCaptcha> {
                 height: 60,
                 width: 50,
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  color: isDark ? const Color(0xFF30363D) : Colors.white,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: isDark ? Colors.white10 : Colors.grey[300]!,
@@ -156,7 +156,7 @@ class _WordCaptchaState extends State<WordCaptcha> {
             hintStyle: GoogleFonts.poppins(fontSize: 14),
             prefixIcon: const Icon(Icons.security, size: 20),
             filled: true,
-            fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+            fillColor: isDark ? const Color(0xFF30363D) : Colors.white,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
