@@ -23,7 +23,7 @@ class BulkUploadReportDialog extends StatelessWidget {
     final textColor = isDark ? Colors.white : Colors.black87;
     
     return Dialog(
-      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF30363D) : Colors.white,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Container(

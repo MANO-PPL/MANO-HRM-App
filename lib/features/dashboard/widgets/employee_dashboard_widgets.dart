@@ -5,16 +5,28 @@ class EmployeeHero extends StatelessWidget {
   final String userName;
   final VoidCallback onAttendanceTap;
   final VoidCallback onHolidayTap;
+  final VoidCallback onLeaveTap;
 
   const EmployeeHero({
     super.key,
     required this.userName,
     required this.onAttendanceTap,
     required this.onHolidayTap,
+    required this.onLeaveTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final hour = DateTime.now().hour;
+    String greeting;
+    if (hour < 12) {
+      greeting = 'Good Morning';
+    } else if (hour < 18) {
+      greeting = 'Good Afternoon';
+    } else {
+      greeting = 'Good Evening';
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -26,7 +38,7 @@ class EmployeeHero extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Good Afternoon, $userName!',
+            '$greeting, $userName!',
             style: GoogleFonts.poppins(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -73,6 +85,19 @@ class EmployeeHero extends StatelessWidget {
                   ),
                 ),
               ),
+              OutlinedButton.icon(
+                onPressed: onLeaveTap,
+                icon: const Icon(Icons.coffee, size: 18),
+                label: const Text('Apply Leave'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white54),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
             ],
           ),
         ],
@@ -104,7 +129,7 @@ class EmployeeStatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E2939) : Colors.white,
+        color: isDark ? const Color(0xFF161B22) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: isDark ? const <BoxShadow>[] : [
            BoxShadow(
@@ -124,7 +149,7 @@ class EmployeeStatCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF334155) : iconColor.withValues(alpha: 0.1),
+                  color: isDark ? const Color(0xFF30363D) : iconColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, color: iconColor, size: 20),
@@ -145,7 +170,7 @@ class EmployeeStatCard extends StatelessWidget {
             style: GoogleFonts.poppins(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : const Color(0xFF1E293B),
+              color: isDark ? Colors.white : const Color(0xFF30363D),
             ),
           ),
           Text(
@@ -180,7 +205,7 @@ class EmployeeInfoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E2939) : Colors.white,
+        color: isDark ? const Color(0xFF161B22) : Colors.white,
         borderRadius: BorderRadius.circular(16),
          boxShadow: isDark ? const <BoxShadow>[] : [
           BoxShadow(
@@ -202,7 +227,7 @@ class EmployeeInfoCard extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : const Color(0xFF1E293B),
+                  color: isDark ? Colors.white : const Color(0xFF30363D),
                 ),
               ),
             ],

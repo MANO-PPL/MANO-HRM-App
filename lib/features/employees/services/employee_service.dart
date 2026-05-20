@@ -15,7 +15,7 @@ class EmployeeService {
   // 1. Get All Employees
   Future<List<Employee>> getEmployees() async {
     try {
-      final response = await _dio.get(ApiConstants.users);
+      final response = await _dio.get('${ApiConstants.users}?workLocation=true');
       if (response.statusCode == 200 && response.data['success'] == true) { // Check success flag if API returns it
         // Adjust based on actual API response structure. Postman says:
         // { "success": true, "users": [...] }
@@ -56,6 +56,33 @@ class EmployeeService {
       await _dio.put('${ApiConstants.user}/$id', data: updates);
     } catch (e) {
       throw Exception('Failed to update employee: ${e.toString()}');
+    }
+  }
+
+  // Toggle Active/Inactive Status
+  Future<void> toggleUserStatus(int userId, bool isActive) async {
+    try {
+      await _dio.put('${ApiConstants.user}/$userId/status', data: {'is_active': isActive});
+    } catch (e) {
+      throw Exception('Failed to toggle status: $e');
+    }
+  }
+
+  // Restore Soft-Deleted User
+  Future<void> restoreUser(int userId) async {
+    try {
+      await _dio.post('${ApiConstants.user}/$userId/restore');
+    } catch (e) {
+      throw Exception('Failed to restore user: $e');
+    }
+  }
+
+  // Force Delete (Permanently Cascade Delete)
+  Future<void> forceDeleteUser(int userId) async {
+    try {
+      await _dio.delete('${ApiConstants.user}/$userId/force');
+    } catch (e) {
+      throw Exception('Failed to force delete user: $e');
     }
   }
 

@@ -24,7 +24,7 @@ class EmployeeActionSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF1E2939) : Colors.white;
+    final bgColor = isDark ? const Color(0xFF161B22) : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
 
     return Container(

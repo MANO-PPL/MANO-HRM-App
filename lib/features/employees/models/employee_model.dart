@@ -10,8 +10,16 @@ class Employee {
   final int? departmentId;
   final String? shift;
   final int? shiftId;
-
   final String? profileImage;
+  final bool? _isActive;
+  final bool? _isDeleted;
+  final List<EmployeeWorkLocation>? _workLocations;
+
+  bool get isActive => _isActive ?? true;
+  bool get isDeleted => _isDeleted ?? false;
+  List<EmployeeWorkLocation> get workLocations => _workLocations ?? const [];
+
+  String get status => isDeleted ? 'Deleted' : (isActive ? 'Active' : 'Inactive');
 
   Employee({
     required this.userId,
@@ -26,7 +34,12 @@ class Employee {
     this.shift,
     this.shiftId,
     this.profileImage,
-  });
+    bool? isActive,
+    bool? isDeleted,
+    List<EmployeeWorkLocation>? workLocations,
+  })  : _isActive = isActive,
+        _isDeleted = isDeleted,
+        _workLocations = workLocations;
 
   factory Employee.fromJson(Map<String, dynamic> json) {
     return Employee(
@@ -42,6 +55,13 @@ class Employee {
       shift: json['shift_name'],
       shiftId: json['shift_id'],
       profileImage: json['profile_image'] ?? json['profile_image_url'] ?? json['avatar_url'],
+      isActive: json['is_active'] == true || json['is_active'] == 1 || json['is_active'] == 'true',
+      isDeleted: json['is_deleted'] == true || json['is_deleted'] == 1 || json['is_deleted'] == 'true',
+      workLocations: json['work_locations'] != null
+          ? (json['work_locations'] as List)
+              .map<EmployeeWorkLocation>((x) => EmployeeWorkLocation.fromJson(x as Map<String, dynamic>))
+              .toList()
+          : <EmployeeWorkLocation>[],
     );
   }
 
@@ -56,7 +76,29 @@ class Employee {
       'dept_id': departmentId,
       'shift_id': shiftId,
       'profile_image': profileImage,
+      'is_active': isActive,
+      'is_deleted': isDeleted,
     };
+  }
+}
+
+class EmployeeWorkLocation {
+  final int id;
+  final String name;
+  final bool isActive;
+
+  EmployeeWorkLocation({
+    required this.id,
+    required this.name,
+    required this.isActive,
+  });
+
+  factory EmployeeWorkLocation.fromJson(Map<String, dynamic> json) {
+    return EmployeeWorkLocation(
+      id: json['location_id'] ?? json['loc_id'] ?? 0,
+      name: json['loc_name'] ?? json['location_name'] ?? '',
+      isActive: json['is_active'] == true || json['is_active'] == 1 || json['is_active'] == 'true',
+    );
   }
 }
 

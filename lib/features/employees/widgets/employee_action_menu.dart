@@ -18,7 +18,7 @@ class EmployeeActionMenu extends StatelessWidget {
 
     return PopupMenuButton<String>(
       icon: Icon(Icons.more_vert, color: isDark ? Colors.white70 : Colors.grey),
-      color: isDark ? const Color(0xFF1E2939) : Colors.white,
+      color: isDark ? const Color(0xFF161B22) : Colors.white,
       elevation: 4,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),

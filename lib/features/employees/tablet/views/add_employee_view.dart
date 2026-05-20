@@ -5,6 +5,7 @@ import '../../../../shared/widgets/glass_container.dart';
 import '../../models/employee_model.dart';
 import '../../services/employee_service.dart';
 import '../../../../shared/services/auth_service.dart';
+import '../../../../shared/widgets/toast_helper.dart';
 
 class AddEmployeeView extends StatefulWidget {
   final VoidCallback onCancel;
@@ -103,7 +104,7 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
       if (widget.employeeToEdit == null) {
         // Create Mode - Password Required
         if (_passwordController.text.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password is required for new users')));
+          context.showToast('Password is required for new users', isWarning: true);
           setState(() => _isLoading = false);
           return;
         }
@@ -118,14 +119,15 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(widget.employeeToEdit == null ? 'Employee Created' : 'Employee Updated')
-        ));
+        context.showToast(
+          widget.employeeToEdit == null ? 'Employee Created' : 'Employee Updated',
+          isSuccess: true,
+        );
         widget.onSuccess?.call();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        context.showToast('Error: $e', isError: true);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -304,7 +306,7 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
         Container(
           // height: 50, // Remove fixed height to allow error message
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF0F172A) : Colors.white,
+            color: isDark ? const Color(0xFF0D1117) : Colors.white,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey[300]!,
@@ -352,7 +354,7 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
           height: 50,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF0F172A) : Colors.white,
+            color: isDark ? const Color(0xFF0D1117) : Colors.white,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey[300]!,
@@ -367,7 +369,7 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
                  color: Theme.of(context).textTheme.bodyLarge?.color,
                  fontSize: 14,
               ),
-              dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+              dropdownColor: isDark ? const Color(0xFF30363D) : Colors.white,
               items: items,
               onChanged: onChanged,
             ),
