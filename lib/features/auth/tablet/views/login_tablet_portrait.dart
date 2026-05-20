@@ -49,7 +49,7 @@ class LoginTabletPortrait extends StatelessWidget {
 
               Card(
                 elevation: 4,
-                color: isDark ? const Color(0xFF1E2939) : Colors.white,
+                color: isDark ? const Color(0xFF161B22) : Colors.white,
                 shadowColor: Colors.black.withOpacity(0.1),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -83,7 +83,7 @@ class LoginTabletPortrait extends StatelessWidget {
                                 hintText: 'Mano',
                                 hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black38),
                                 filled: true,
-                                fillColor: isDark ? const Color(0xFF101828) : const Color(0xFFF0F4FA),
+                                fillColor: isDark ? const Color(0xFF0D1117) : const Color(0xFFF0F4FA),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide.none,
@@ -146,7 +146,7 @@ class LoginTabletPortrait extends StatelessWidget {
                                 hintText: '••••••',
                                 hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black38, letterSpacing: 2),
                                 filled: true,
-                                fillColor: isDark ? const Color(0xFF101828) : const Color(0xFFF0F4FA),
+                                fillColor: isDark ? const Color(0xFF0D1117) : const Color(0xFFF0F4FA),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide.none,

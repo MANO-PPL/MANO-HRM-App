@@ -65,7 +65,7 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     // Lock orientation handling not needed here as LayoutBuilder handles it, 
     // but SystemUI mode can be set if needed.
     return Scaffold(
-      // backgroundColor: const Color(0xFF101828), // Removed hardcoded color
+      // backgroundColor: const Color(0xFF0D1117), // Removed hardcoded color
       body: LayoutBuilder(
         builder: (context, constraints) {
           if (constraints.maxWidth < 600) {
