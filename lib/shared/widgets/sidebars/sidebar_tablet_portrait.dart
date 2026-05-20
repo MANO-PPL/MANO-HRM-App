@@ -22,7 +22,7 @@ class SidebarTabletPortrait extends StatelessWidget {
         height: double.infinity,
         blur: 0, 
         color: Theme.of(context).brightness == Brightness.dark 
-            ? const Color(0xFF101828) // Standardized Dark Mode Color
+            ? const Color(0xFF0D1117) // Standardized Dark Mode Color
             : const Color(0xFFFFFFFF),
         borderRadius: 0, 
         child: _SidebarContent(onLinkTap: onLinkTap),
@@ -50,7 +50,13 @@ class _SidebarContent extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 alignment: Alignment.centerLeft,
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: Theme.of(context).brightness == Brightness.dark 
+                          ? const Color(0xFF30363D) 
+                          : Colors.grey[300]!,
+                    ),
+                  ),
                 ),
                 child: Row(
                   children: [

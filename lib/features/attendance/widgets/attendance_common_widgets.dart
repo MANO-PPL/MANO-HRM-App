@@ -40,7 +40,7 @@ class MonthlyReportHeader extends StatelessWidget {
       children: [
         _buildIcon(),
         const SizedBox(width: 16),
-        _buildTitle(),
+        _buildTitle(context),
         const Spacer(),
         _buildActions(context),
       ],
@@ -55,7 +55,7 @@ class MonthlyReportHeader extends StatelessWidget {
           children: [
             _buildIcon(),
             const SizedBox(width: 12),
-            _buildTitle(),
+            _buildTitle(context),
           ],
         ),
         const SizedBox(height: 16),
@@ -75,13 +75,21 @@ class MonthlyReportHeader extends StatelessWidget {
     );
   }
 
-  Widget _buildTitle() {
+  Widget _buildTitle(BuildContext context) {
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Monthly Report', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16), overflow: TextOverflow.ellipsis),
+          Text(
+            'Monthly Report', 
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.bold, 
+              fontSize: 16,
+              color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+            ), 
+            overflow: TextOverflow.ellipsis,
+          ),
           Text('Download and view your logs', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey), overflow: TextOverflow.ellipsis),
         ],
       ),
@@ -225,8 +233,14 @@ class AttendanceSummaryCard extends StatelessWidget {
                  )
             ],
           ),
-          const SizedBox(height: 12),
-          Text(value, style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.bold)),
+          Text(
+            value, 
+            style: GoogleFonts.poppins(
+              fontSize: 24, 
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+            ),
+          ),
         ],
       ),
     );

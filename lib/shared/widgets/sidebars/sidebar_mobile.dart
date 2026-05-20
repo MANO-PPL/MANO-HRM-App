@@ -21,9 +21,8 @@ class SidebarMobile extends StatelessWidget {
         width: double.infinity,
         height: double.infinity,
         blur: 20, // Blur for Mobile Drawer overlay feel
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
         color: Theme.of(context).brightness == Brightness.dark 
-            ? const Color(0xFF101828) // Standardized Dark Mode Color (Solid)
+            ? const Color(0xFF0D1117) // Standardized Dark Mode Color (Solid)
             : const Color(0xFFFFFFFF),
         borderRadius: 0, 
         child: _SidebarContent(onLinkTap: onLinkTap),

@@ -1,19 +1,12 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:open_filex/open_filex.dart';
-import '../../services/attendance_service.dart';
 import '../../providers/attendance_provider.dart';
 import '../widgets/mark_attendance_mobile.dart';
 import '../../widgets/attendance_history_tab.dart';
 import '../../widgets/attendance_analytics_tab.dart';
 import 'package:flutter_application/features/attendance/admin/views/admin_correction_requests.dart';
-import '../../widgets/correction_request_form.dart';
-import '../../../../shared/services/auth_service.dart';
-import '../../../../shared/widgets/glass_container.dart';
+import '../../widgets/attendance_header_widget.dart';
 
 class MobileMyAttendanceContent extends StatefulWidget {
   const MobileMyAttendanceContent({super.key});
@@ -38,74 +31,22 @@ class _MobileMyAttendanceContentState extends State<MobileMyAttendanceContent> {
             child: NestedScrollView(
               headerSliverBuilder: (context, innerBoxIsScrolled) {
                 return [
-                  SliverToBoxAdapter(
-                    child: Container(
-                       margin: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-                       child: Row(
-                         children: [
-                           Expanded(
-                             child: Container(
-                               height: 48,
-                               padding: const EdgeInsets.all(4),
-                               decoration: BoxDecoration(
-                                 color: Theme.of(context).brightness == Brightness.dark
-                                     ? const Color(0xFF1E293B)
-                                     : const Color(0xFFF1F5F9),
-                                 borderRadius: BorderRadius.circular(12),
-                               ),
-                                child: TabBar(
-                                  indicatorSize: TabBarIndicatorSize.tab,
-                                  indicator: BoxDecoration(
-                                    color: Theme.of(context).brightness == Brightness.dark
-                                        ? const Color(0xFF334155)
-                                        : Colors.white,
-                                    borderRadius: BorderRadius.circular(10),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.05),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 1),
-                                      ),
-                                    ],
-                                  ),
-                                  dividerColor: Colors.transparent,
-                                  labelColor: Theme.of(context).brightness == Brightness.dark
-                                      ? const Color(0xFF818CF8)
-                                      : const Color(0xFF4338CA),
-                                  unselectedLabelColor: Colors.grey[600],
-                                  labelStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
-                                  tabs: const [
-                                    Tab(
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.touch_app_outlined, size: 16),
-                                          SizedBox(width: 4),
-                                          Flexible(child: Text("Attendance", overflow: TextOverflow.ellipsis)),
-                                        ],
-                                      ),
-                                    ),
-                                    Tab(
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.history, size: 16),
-                                          SizedBox(width: 4),
-                                          Flexible(child: Text("My Attendance", overflow: TextOverflow.ellipsis)),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                             ),
-                            ),
-                         ],
-                       ),
+                    const SliverToBoxAdapter(
+                      child: AttendanceHeaderWidget(showTabBar: false),
                     ),
-                  ),
-                ];
+                    // Separate sliver for the tab bar so it sits above the body and receives taps
+                    SliverToBoxAdapter(
+                      child: Transform.translate(
+                        offset: const Offset(0, -28),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 480),
+                            child: AttendanceTabBar(maxWidth: 480),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ];
               },
               body: TabBarView(
                 children: [
@@ -163,9 +104,7 @@ class _MyAttendanceReportsTabState extends State<_MyAttendanceReportsTab> {
                 ? const AttendanceAnalyticsTab()
                 : Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: AdminCorrectionRequests(
-                      userId: Provider.of<AuthService>(context, listen: false).user?.employeeId,
-                    ),
+                    child: const AdminCorrectionRequests(),
                   ),
           ),
         ],

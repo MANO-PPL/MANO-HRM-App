@@ -2,9 +2,11 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
-import 'package:mime/mime.dart';
+
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import '../../../../shared/constants/api_constants.dart';
 import '../models/attendance_record.dart';
 import '../models/correction_request.dart';
@@ -62,25 +64,26 @@ class AttendanceService {
     String? lateReason,
   }) async {
     try {
-      String fileName = p.basename(imageFile.path);
-      final mimeType = lookupMimeType(imageFile.path) ?? 'image/jpeg';
-      final mimeSplit = mimeType.split('/');
-      
+      final fixedFile = await _fixOrientationAndCompress(imageFile);
+      final fileName = p.basenameWithoutExtension(imageFile.path) + '.jpg';
+
       FormData formData = FormData.fromMap({
         "latitude": latitude.toStringAsFixed(4),
-        "longitude": longitude.toStringAsFixed(4), 
-        "accuracy": accuracy.toStringAsFixed(2), // Re-added
+        "longitude": longitude.toStringAsFixed(4),
+        "accuracy": accuracy.toStringAsFixed(2),
         if (lateReason != null) "late_reason": lateReason,
         "image": await MultipartFile.fromFile(
-          imageFile.path, 
+          fixedFile.path,
           filename: fileName,
+          contentType: MediaType('image', 'jpeg'),
         ),
       });
 
-      debugPrint("AttService: TimeIn Request Data: ${formData.fields.map((e) => "${e.key}: ${e.value}")}");
+      debugPrint("AttService: TimeIn upload size=${await fixedFile.length()} bytes (orientation-fixed JPEG)");
+      debugPrint("AttService: TimeIn fields: ${formData.fields.map((e) => '${e.key}: ${e.value}')}");
 
       final response = await _dio.post(ApiConstants.attendanceTimeIn, data: formData);
-      debugPrint("AttService: TimeIn Success Response Data: ${response.data}"); 
+      debugPrint("AttService: TimeIn Success: ${response.data}");
       return response.data;
     } catch (e) {
       throw _parseError(e);
@@ -95,21 +98,21 @@ class AttendanceService {
     required File imageFile,
   }) async {
     try {
-      String fileName = p.basename(imageFile.path);
-      final mimeType = lookupMimeType(imageFile.path) ?? 'image/jpeg';
-      final mimeSplit = mimeType.split('/');
-      
+      final fixedFile = await _fixOrientationAndCompress(imageFile);
+      final fileName = p.basenameWithoutExtension(imageFile.path) + '.jpg';
+
       FormData formData = FormData.fromMap({
         "latitude": latitude.toStringAsFixed(4),
         "longitude": longitude.toStringAsFixed(4),
-        "accuracy": accuracy.toStringAsFixed(2), // Re-added
+        "accuracy": accuracy.toStringAsFixed(2),
         "image": await MultipartFile.fromFile(
-          imageFile.path, 
+          fixedFile.path,
           filename: fileName,
+          contentType: MediaType('image', 'jpeg'),
         ),
       });
 
-      debugPrint("AttService: TimeOut Request Data: ${formData.fields}");
+      debugPrint("AttService: TimeOut upload size=${await fixedFile.length()} bytes (orientation-fixed JPEG)");
 
       final response = await _dio.post(ApiConstants.attendanceTimeOut, data: formData);
       return response.data;
@@ -117,14 +120,53 @@ class AttendanceService {
       throw _parseError(e);
     }
   }
-  
+
+  // Fix EXIF orientation and compress before upload.
+  // - Reads EXIF orientation and physically rotates pixels to match
+  // - Caps longest side at 1280px (well under any nginx limit)
+  // - Re-encodes as JPEG at 75% quality
+  // - Strips EXIF so viewers don't re-apply rotation
+  Future<File> _fixOrientationAndCompress(File imageFile) async {
+    final originalSize = await imageFile.length();
+    debugPrint('_fixOrientationAndCompress: input=${originalSize} bytes path=${imageFile.path}');
+
+    final tmpDir = await getTemporaryDirectory();
+    final outPath = p.join(
+      tmpDir.path,
+      '${p.basenameWithoutExtension(imageFile.path)}_fixed.jpg',
+    );
+
+    final result = await FlutterImageCompress.compressAndGetFile(
+      imageFile.path,
+      outPath,
+      minWidth: 1280,   // cap longest side — handles both portrait & landscape
+      minHeight: 1280,  // flutter_image_compress scales proportionally to fit
+      quality: 75,      // 75% JPEG: visually indistinguishable, ~200-500KB
+      keepExif: false,  // bake orientation into pixels, strip EXIF tag
+    );
+
+    if (result == null) {
+      // Don't silently swallow — propagate so the caller can show an error
+      throw Exception('Image compression failed: flutter_image_compress returned null');
+    }
+
+    final outFile = File(result.path);
+    final compressedSize = await outFile.length();
+    debugPrint(
+      '_fixOrientationAndCompress: done — '
+      '${originalSize} bytes → ${compressedSize} bytes '
+      '(${(compressedSize / 1024).toStringAsFixed(0)} KB)',
+    );
+    return outFile;
+  }
   // 4. Correction Requests (New)
 
   // Submit Request (Employee)
+  // proposed_data must be an array of sessions: [{time_in: "HH:MM:SS", time_out: "HH:MM:SS"}]
   Future<void> submitCorrectionRequest({
     required String requestDate, // YYYY-MM-DD
-    required String correctionType, // missed_punch, incorrect_time, regularization
-    required String correctionMethod, // add_session, reset
+    required String correctionType, // correction, missed_punch, overtime, other
+    required String correctionMethod, // add_session, reset, fix
     required String reason,
     required Map<String, dynamic> correctionData,
     double? latitude,
@@ -132,47 +174,59 @@ class AttendanceService {
     List<dynamic>? attachments, // PlatformFile or File
   }) async {
     try {
-      final Map<String, dynamic> dataMap = {
+      // Build proposed_data array from correctionData:
+      // correctionData may have:
+      //   sessions: [{time_in, time_out}]      (addSession method)
+      //   requested_time_in / requested_time_out (reset/fix method)
+      List<Map<String, String>> proposedData = [];
+
+      if (correctionData['sessions'] != null && correctionData['sessions'] is List) {
+        proposedData = (correctionData['sessions'] as List).map<Map<String, String>>((s) {
+          final timeIn = (s['time_in'] ?? s['in'] ?? '').toString();
+          final timeOut = (s['time_out'] ?? s['out'] ?? '').toString();
+          return {'time_in': timeIn, 'time_out': timeOut};
+        }).toList();
+      } else if (correctionData['requested_time_in'] != null || correctionData['requested_time_out'] != null) {
+        proposedData = [
+          {
+            'time_in': (correctionData['requested_time_in'] ?? '').toString(),
+            'time_out': (correctionData['requested_time_out'] ?? '').toString(),
+          }
+        ];
+      }
+
+      final Map<String, dynamic> payload = {
         "request_date": requestDate,
         "correction_type": correctionType,
-        "correction_method": correctionMethod,
         "reason": reason,
+        "original_data": [],
+        "proposed_data": proposedData,
         if (latitude != null) "latitude": latitude,
         if (longitude != null) "longitude": longitude,
-        ...correctionData,
       };
 
-      dynamic data = dataMap;
+      dynamic data = payload;
 
-      // Handle Attachments
+      // Handle Attachments via FormData
       if (attachments != null && attachments.isNotEmpty) {
-        final formData = FormData.fromMap(dataMap.map((key, value) {
-          // Flatten lists/maps for FormData if needed, or send as JSON string if API expects it.
-          // Dio FormData handles primitive types well. Complex nested objects might need JSON encoding.
-          if (value is List || value is Map) {
-            return MapEntry(key, value); // Dio might not serialize this automatically for FormData
-            // If API expects 'sessions' as JSON string inside FormData:
-            // return MapEntry(key, jsonEncode(value));
-            // Assuming Dio handles it or backend handles array indices correction_data[sessions][0]...
-          }
-          return MapEntry(key, value);
-        }));
-
-        // Manually handle complex correctionData for FormData if strictly required by Dio/Backend
-        // For now, attempting standard Dio FormData structure. 
-        // Note: Dio's FormData.fromMap might NOT recursively process nested Lists/Maps into array syntax.
-        // If correctionData contains 'sessions', we might need to be careful.
-        // Safe bet: If using FormData, ensure complex fields are handled correctly.
-        
+        final formData = FormData.fromMap({
+          "request_date": requestDate,
+          "correction_type": correctionType,
+          "reason": reason,
+          if (latitude != null) "latitude": latitude,
+          if (longitude != null) "longitude": longitude,
+        });
+        // Add sessions as indexed fields
+        for (var i = 0; i < proposedData.length; i++) {
+          formData.fields.add(MapEntry('proposed_data[$i][time_in]', proposedData[i]['time_in'] ?? ''));
+          formData.fields.add(MapEntry('proposed_data[$i][time_out]', proposedData[i]['time_out'] ?? ''));
+        }
         // Add files
-        for (var i = 0; i < attachments.length; i++) {
-          final attachment = attachments[i];
-          // Check if it's PlatformFile (from file_picker)
-           if (attachment.path != null) {
-            final filename = attachment.name;
+        for (var attachment in attachments) {
+          if (attachment.path != null) {
             formData.files.add(MapEntry(
-              'attachments[]', // Array syntax common for multiple files
-              await MultipartFile.fromFile(attachment.path!, filename: filename),
+              'attachments[]',
+              await MultipartFile.fromFile(attachment.path!, filename: attachment.name),
             ));
           }
         }
@@ -239,25 +293,31 @@ class AttendanceService {
     }
   }
 
-  // Process Request (Admin Only)
+  // Process Request (Admin/HR Only)
+  // Backend PATCH /attendance/correct-request/:acr_id expects:
+  //   status: 'approved' | 'rejected'
+  //   review_comments?: string
+  //   sessions?: [{time_in, time_out}]  (admin override)
   Future<void> processCorrectionRequest(String id, {
     required String status, // approved, rejected
     String? reviewComments,
     String? overrideMethod,
     String? requestDate,
-    List<Map<String, String>>? sessions, // for add_session
-    String? resetTimeIn, // for reset
-    String? resetTimeOut, // for reset
+    List<Map<String, String>>? sessions, // admin override sessions
+    String? resetTimeIn, // for building override session
+    String? resetTimeOut, // for building override session
   }) async {
     try {
+      // Build override sessions array if times are provided
+      List<Map<String, String>>? overrideSessions = sessions;
+      if (overrideSessions == null && resetTimeIn != null && resetTimeOut != null) {
+        overrideSessions = [{'time_in': resetTimeIn, 'time_out': resetTimeOut}];
+      }
+
       final payload = {
         "status": status,
-        if (reviewComments != null) "review_comments": reviewComments,
-        if (overrideMethod != null) "correction_method": overrideMethod,
-        if (requestDate != null) "request_date": requestDate,
-        if (sessions != null) "sessions": sessions,
-        if (resetTimeIn != null) "reset_time_in": resetTimeIn,
-        if (resetTimeOut != null) "reset_time_out": resetTimeOut,
+        if (reviewComments != null && reviewComments.isNotEmpty) "review_comments": reviewComments,
+        if (overrideSessions != null) "sessions": overrideSessions,
       };
 
       await _dio.patch('${ApiConstants.attendanceCorrectRequestUpdate}/$id', data: payload);

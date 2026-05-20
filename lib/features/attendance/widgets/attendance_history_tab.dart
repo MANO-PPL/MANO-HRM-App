@@ -11,6 +11,7 @@ import '../providers/attendance_provider.dart';
 import '../services/attendance_service.dart';
 import '../models/attendance_record.dart';
 import 'attendance_common_widgets.dart';
+import '../../../../shared/widgets/interactive_image_viewer.dart';
 
 class AttendanceHistoryTab extends StatefulWidget {
   final bool shrinkWrap;
@@ -281,9 +282,9 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildTimeColumn('IN', displayIn),
+                  _buildTimeColumn('IN', displayIn, imageUrl: record.timeInImage),
                   const SizedBox(width: 8),
-                  _buildTimeColumn('OUT', displayOut),
+                  _buildTimeColumn('OUT', displayOut, imageUrl: record.timeOutImage),
                   const SizedBox(width: 8),
                   _buildTimeColumn('HRS', hrs),
                 ],
@@ -295,12 +296,35 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
     );
   }
 
-  Widget _buildTimeColumn(String label, String value) {
+  Widget _buildTimeColumn(String label, String value, {String? imageUrl}) {
+    final isUndefined = value == '-' || value.isEmpty;
+
     return Column(
       children: [
         Text(label, style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
-        Text(value, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
+        if (imageUrl != null && !isUndefined)
+          InkWell(
+            onTap: () => InteractiveImageViewerDialog.show(context, imageUrl, title: "$label Image"),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    decoration: TextDecoration.underline,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
+                const SizedBox(width: 2),
+                Icon(Icons.remove_red_eye_outlined, size: 12, color: Theme.of(context).primaryColor),
+              ],
+            ),
+          )
+        else
+          Text(value, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
       ],
     );
   }

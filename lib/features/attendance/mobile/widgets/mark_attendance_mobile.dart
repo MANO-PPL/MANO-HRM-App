@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -9,13 +10,14 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../shared/widgets/glass_container.dart';
 import '../../../../shared/widgets/glass_date_picker.dart';
-import '../../../../shared/widgets/attendance_success_dialog.dart';
 import '../../../../shared/services/auth_service.dart';
 import '../../models/attendance_record.dart';
 import '../../services/attendance_service.dart';
 import 'late_arrival_dialog_mobile.dart';
 import 'correction_request_dialog_mobile.dart';
 import '../../providers/attendance_provider.dart';
+import '../../../../shared/widgets/toast_helper.dart';
+import '../../../../shared/widgets/interactive_image_viewer.dart';
 
 class MarkAttendanceMobile extends StatefulWidget {
   const MarkAttendanceMobile({super.key});
@@ -76,15 +78,12 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera, 
         preferredCameraDevice: CameraDevice.front,
-        maxWidth: 600, 
-        imageQuality: 80,
       );
       
       if (photo == null) return;
 
       if (!mounted) return;
       
-      // Helper to show loading
       void showLoading() {
         showDialog(
           context: context,
@@ -93,7 +92,6 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
         );
       }
 
-      // Helper to perform API call
       Future<void> performApiCall(String? lateReason) async {
         if (isTimeIn) {
           await _attendanceService.timeIn(
@@ -113,7 +111,6 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
         }
       }
 
-      // 1. First Attempt
       showLoading();
       bool success = false;
       String? caughtReasonError;
@@ -122,51 +119,48 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
         await performApiCall(null);
         success = true;
       } catch (e) {
-        // Check for specific "reason" error
         final msg = e.toString().toLowerCase();
         if (isTimeIn && msg.contains("reason")) {
            caughtReasonError = msg;
         } else {
            if (mounted) {
-             Navigator.pop(context); // Pop Loading 1
+             Navigator.pop(context); // Pop Loading
              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed: $e"), backgroundColor: Colors.red));
            }
-           return; // Stop here
+           return;
         }
       }
 
       if (success) {
         if (mounted) {
-          Navigator.pop(context); // Pop Loading 1
+          Navigator.pop(context); // Pop Loading
           await _showSuccessDialog(isTimeIn);
         }
         return;
       }
 
-      // 2. Handle Late Reason (if applicable)
       if (caughtReasonError != null) {
-        if (mounted) Navigator.pop(context); // Pop Loading 1
+        if (mounted) Navigator.pop(context); // Pop Loading
         
-        // Show Reason Dialog
         if (!mounted) return;
         final reason = await LateArrivalDialogMobile.show(context);
         
-        if (reason == null || reason.isEmpty) return; // User cancelled
+        if (reason == null || reason.isEmpty) return;
 
-        // 3. Second Attempt with Reason
         if (!mounted) return;
-        showLoading(); // Show Loading 2
+        showLoading();
 
         try {
           await performApiCall(reason);
           
           if (mounted) {
-             Navigator.pop(context); // Pop Loading 2
+             Navigator.pop(context); // Pop Loading
+             context.showToast("Late arrival reason submitted successfully.", isSuccess: true);
              await _showSuccessDialog(isTimeIn);
           }
         } catch (e) {
           if (mounted) {
-            Navigator.pop(context); // Pop Loading 2
+            Navigator.pop(context); // Pop Loading
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed with reason: $e"), backgroundColor: Colors.red));
           }
         }
@@ -178,17 +172,26 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
   }
 
   Future<void> _showSuccessDialog(bool isTimeIn) async {
-    final timeStr = DateFormat('hh:mm a').format(DateTime.now());
-    await AttendanceSuccessDialog.show(
-      context, 
-      type: isTimeIn ? 'Time In' : 'Time Out', 
-      time: timeStr
-    );
+    if (mounted) {
+      context.showToast(
+        isTimeIn ? "Checked in successfully!" : "Checked out successfully!",
+        isSuccess: true,
+      );
+    }
     
     if (mounted) {
       Provider.of<AttendanceProvider>(context, listen: false).invalidateCache(DateTime.now());
       _fetchRecords(); 
     }
+  }
+
+  List<DateTime> _generateScrollerDates() {
+    final today = DateTime.now();
+    final list = <DateTime>[];
+    for (int i = -15; i <= 15; i++) {
+      list.add(today.add(Duration(days: i)));
+    }
+    return list;
   }
 
   @override
@@ -207,14 +210,30 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           physics: const BouncingScrollPhysics(),
           children: [
+            // 1. Action Buttons
             _buildActionButtons(context, isCheckedIn),
-            const SizedBox(height: 32),
-            _buildDateSelector(context, records),
+            const SizedBox(height: 24),
+            
+            // 2. Select Date Header
+            _buildSelectDateHeader(context),
+            const SizedBox(height: 12),
+            
+            // 3. Horizontal Date Scroller
+            _buildHorizontalDateScroller(context),
+            const SizedBox(height: 24),
+            
+            // 4. Logs Header (with + Correction)
+            _buildLogsHeader(context, records),
             const SizedBox(height: 16),
+            
+            // 5. Logs List or Empty State
             if (isLoading)
-               const Center(child: CircularProgressIndicator())
+               const Center(child: Padding(
+                 padding: EdgeInsets.symmetric(vertical: 40),
+                 child: CircularProgressIndicator(),
+               ))
             else if (records.isEmpty)
-               Center(child: Text("No records for this date", style: GoogleFonts.poppins(color: Colors.grey)))
+               _buildEmptyState(context)
             else
                ...records.map((record) => Padding(
                  padding: const EdgeInsets.only(bottom: 12),
@@ -232,8 +251,8 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
         _buildLargeActionButton(
           context,
           label: 'Time In',
-          subLabel: isCheckedIn ? 'You are currently checked in' : 'Start your shift',
-          icon: Icons.login,
+          subLabel: isCheckedIn ? 'You are currently checked in' : 'Start shift for today',
+          icon: Icons.arrow_forward_rounded,
           color: const Color(0xFF10B981),
           isActive: !isCheckedIn, 
           onTap: () => _handleAttendanceAction(true),
@@ -242,8 +261,8 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
         _buildLargeActionButton(
           context,
           label: 'Time Out',
-          subLabel: isCheckedIn ? 'End current shift' : 'Not checked in',
-          icon: Icons.logout,
+          subLabel: isCheckedIn ? 'End current shift' : 'No active session',
+          icon: Icons.logout_rounded,
           color: const Color(0xFFEF4444),
           isActive: isCheckedIn,
           onTap: () => _handleAttendanceAction(false),
@@ -260,37 +279,62 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
     required bool isActive,
     required VoidCallback onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return InkWell(
       onTap: isActive ? onTap : null,
       borderRadius: BorderRadius.circular(20),
       child: GlassContainer(
-        height: 100,
+        height: 84,
         width: double.infinity,
         borderRadius: 20,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
             children: [
               Container(
-                width: 56,
-                height: 56,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  color: isActive ? color.withOpacity(0.2) : color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(16),
+                  color: isActive ? color.withOpacity(0.15) : Colors.grey.withOpacity(0.1),
+                  shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: isActive ? color : color.withOpacity(0.7), size: 28),
+                child: Icon(
+                  icon, 
+                  color: isActive ? color : Colors.grey, 
+                  size: 24
+                ),
               ),
-              const SizedBox(width: 20),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(isActive ? 1.0 : 0.5))),
-                  Text(subLabel, style: GoogleFonts.poppins(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color)),
-                ],
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label, 
+                      style: GoogleFonts.poppins(
+                        fontSize: 16, 
+                        fontWeight: FontWeight.bold, 
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subLabel, 
+                      style: GoogleFonts.poppins(
+                        fontSize: 11, 
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const Spacer(),
-              if (isActive) Icon(Icons.chevron_right, color: Theme.of(context).textTheme.bodySmall?.color),
+              Icon(
+                Icons.chevron_right, 
+                color: isDark ? Colors.white38 : Colors.grey[400],
+              ),
             ],
           ),
         ),
@@ -298,85 +342,273 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
     );
   }
 
-  Widget _buildDateSelector(BuildContext context, List<AttendanceRecord> records) {
-    // Fixed Layout for Mobile to prevent overflow
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildSelectDateHeader(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
-          'Activity',
+          'SELECT DATE',
           style: GoogleFonts.poppins(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: isDark ? Colors.white : Colors.black87,
+            letterSpacing: 1.0,
           ),
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: InkWell(
-                 onTap: () {
-                   final attendanceId = records.isNotEmpty ? records.first.attendanceId : null;
-                   CorrectionRequestDialogMobile.show(context, date: _selectedDate, attendanceId: attendanceId);
-                 },
-                 child: GlassContainer(
-                   height: 44,
-                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                   borderRadius: 12,
-                   child: Row(
-                     mainAxisAlignment: MainAxisAlignment.center,
-                     children: [
-                       Icon(Icons.edit_note, size: 18, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Theme.of(context).primaryColor),
-                       const SizedBox(width: 8),
-                       Text('Correction', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
-                     ],
-                   ),
-                 ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: InkWell(
-                onTap: () async {
-                  await showDialog(
-                    context: context,
-                    builder: (context) => GlassDatePicker(
-                      initialDate: _selectedDate,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
-                      onDateSelected: (newDate) {
-                        setState(() => _selectedDate = newDate);
-                        _fetchRecords();
-                      },
-                    ),
-                  );
+        IconButton(
+          icon: Icon(
+            Icons.calendar_month_outlined,
+            color: const Color(0xFF4F46E5),
+            size: 20,
+          ),
+          onPressed: () async {
+            await showDialog(
+              context: context,
+              builder: (context) => GlassDatePicker(
+                initialDate: _selectedDate,
+                firstDate: DateTime(2020),
+                lastDate: DateTime.now(),
+                onDateSelected: (newDate) {
+                  setState(() => _selectedDate = newDate);
+                  _fetchRecords();
                 },
-                child: GlassContainer(
-                  height: 44,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  borderRadius: 12,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.calendar_today, size: 16, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Theme.of(context).primaryColor),
-                      const SizedBox(width: 8),
-                      // Flexible Date Text
-                      Flexible(
-                        child: Text(
-                          DateFormat('dd MMM').format(_selectedDate),
-                          style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500),
-                          overflow: TextOverflow.ellipsis,
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHorizontalDateScroller(BuildContext context) {
+    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final selectedStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final dates = _generateScrollerDates();
+    
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: dates.map((date) {
+          final dateStr = DateFormat('yyyy-MM-dd').format(date);
+          final isSelected = dateStr == selectedStr;
+          final isToday = dateStr == todayStr;
+          final dayName = DateFormat('EEE').format(date).toUpperCase();
+          final dayNum = date.day.toString();
+          
+          return Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  _selectedDate = date;
+                });
+                _fetchRecords();
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: 68,
+                height: 90,
+                decoration: BoxDecoration(
+                  gradient: isSelected
+                      ? const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+                        )
+                      : null,
+                  color: isSelected
+                      ? null
+                      : (Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF161B22)
+                          : Colors.white),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isSelected
+                        ? const Color(0xFF6366F1)
+                        : (Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white.withOpacity(0.05)
+                            : Colors.black12),
+                    width: 1.5,
+                  ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF4F46E5).withOpacity(0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          )
+                        ]
+                      : [
+                          const BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          )
+                        ],
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          dayName,
+                          style: GoogleFonts.poppins(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: isSelected
+                                ? const Color(0xFFC7D2FE)
+                                : Colors.grey,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          dayNum,
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: isSelected
+                                ? Colors.white
+                                : (Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : Colors.black87),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (isToday && !isSelected)
+                      Positioned(
+                        bottom: 8,
+                        child: Container(
+                          width: 5,
+                          height: 5,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF4F46E5),
+                            shape: BoxShape.circle,
+                          ),
                         ),
                       ),
-                    ],
-                  ),
+                  ],
                 ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildLogsHeader(BuildContext context, List<AttendanceRecord> records) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final selectedStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final isToday = todayStr == selectedStr;
+    
+    final title = isToday
+        ? "TODAY'S LOGS"
+        : "LOGS FOR ${DateFormat('MMM dd').format(_selectedDate).toUpperCase()}";
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 5,
+              height: 24,
+              decoration: BoxDecoration(
+                color: const Color(0xFF4F46E5),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white : Colors.black87,
+                letterSpacing: 0.5,
               ),
             ),
           ],
         ),
+        
+        InkWell(
+          onTap: () {
+            final attendanceId = records.isNotEmpty ? records.first.attendanceId : null;
+            CorrectionRequestDialogMobile.show(context, date: _selectedDate, attendanceId: attendanceId);
+          },
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E1E38) : const Color(0xFFEEF2FF),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: const Color(0xFF4F46E5).withOpacity(0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.add, size: 14, color: Color(0xFF4F46E5)),
+                const SizedBox(width: 4),
+                Text(
+                  'CORRECTION',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF4F46E5),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: double.infinity,
+      height: 140,
+      margin: const EdgeInsets.only(top: 8),
+      child: CustomPaint(
+        painter: DashedRectPainter(
+          color: isDark ? Colors.white24 : Colors.grey[300]!,
+          gap: 6,
+          radius: 16,
+          strokeWidth: 1.5,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.calendar_today_outlined,
+              size: 32,
+              color: isDark ? Colors.white30 : Colors.grey[400],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No records found for today',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white54 : Colors.grey[500],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -391,8 +623,6 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
   }
 
   Widget _buildSessionCard(BuildContext context, AttendanceRecord record) {
-     // Reusing session card logic but ensured generic
-
     return GlassContainer(
       padding: const EdgeInsets.all(20),
       borderRadius: 24,
@@ -451,7 +681,7 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
           style: GoogleFonts.poppins(
             fontSize: 14, 
             fontWeight: FontWeight.bold,
-            color: Theme.of(context).textTheme.bodyLarge?.color
+            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87
           )
         ),
         const SizedBox(height: 4),
@@ -475,7 +705,7 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
       }
 
       return InkWell(
-        onTap: () => _showImagePreview(context, imageUrl, "Attendance Image"),
+        onTap: () => InteractiveImageViewerDialog.show(context, imageUrl, title: "Attendance Image"),
         child: Container(
           width: 40,
           height: 40,
@@ -487,73 +717,63 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
           ),
           child: CachedNetworkImage(
             imageUrl: imageUrl, 
-            fit: BoxFit.cover, // Fixed: Use cover to fill the box (portrait look)
+            fit: BoxFit.cover,
             errorWidget: (_,__,___) => const Icon(Icons.person, color: Colors.white),
             placeholder: (_,__) => const Center(child: SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))),
           ),
         ),
       );
   }
+}
 
-  void _showImagePreview(BuildContext context, String imageUrl, String title) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E2939) : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(title, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16)),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  )
-                ],
-              ),
-              const SizedBox(height: 16),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    height: 200,
-                    color: Colors.grey[200],
-                    alignment: Alignment.center,
-                    child: Column(
-                       mainAxisAlignment: MainAxisAlignment.center,
-                       children: [
-                         const Icon(Icons.broken_image, color: Colors.grey, size: 40),
-                         const SizedBox(height: 8),
-                         Text("Image not available", style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
-                       ],
-                    ),
-                  ),
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      height: 200,
-                      alignment: Alignment.center,
-                      child: const CircularProgressIndicator(),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+class DashedRectPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double gap;
+  final double radius;
+
+  DashedRectPainter({
+    this.color = Colors.grey,
+    this.strokeWidth = 1.0,
+    this.gap = 5.0,
+    this.radius = 12.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke;
+
+    final path = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+        Radius.circular(radius),
+      ));
+
+    final dashPath = Path();
+    double distance = 0.0;
+    for (final metric in path.computeMetrics()) {
+      while (distance < metric.length) {
+        final len = gap;
+        if (distance + len > metric.length) {
+          dashPath.addPath(
+            metric.extractPath(distance, metric.length),
+            Offset.zero,
+          );
+        } else {
+          dashPath.addPath(
+            metric.extractPath(distance, distance + len),
+            Offset.zero,
+          );
+        }
+        distance += len * 2;
+      }
+    }
+    canvas.drawPath(dashPath, paint);
   }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

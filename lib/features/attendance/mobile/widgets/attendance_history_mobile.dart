@@ -7,9 +7,9 @@ import 'package:open_filex/open_filex.dart';
 import 'dart:io';
 import '../../../../shared/widgets/glass_container.dart';
 import '../../../../shared/services/auth_service.dart';
-import '../providers/attendance_provider.dart';
-import '../services/attendance_service.dart';
-import '../models/attendance_record.dart';
+import '../../providers/attendance_provider.dart';
+import '../../services/attendance_service.dart';
+import '../../models/attendance_record.dart';
 import 'attendance_mobile_common_widgets.dart';
 
 class AttendanceHistoryMobile extends StatefulWidget {
@@ -173,12 +173,12 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+          Text(
           title, 
           style: GoogleFonts.poppins(
             fontSize: 14, 
             fontWeight: FontWeight.bold, 
-            color: Theme.of(context).textTheme.bodyLarge?.color?.withValues(alpha: 0.7) ?? Colors.grey[600]
+            color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.7) ?? Colors.grey[600]
           )
         ),
         const SizedBox(height: 16),
@@ -231,7 +231,7 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
                   height: 44,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
+                    color: const Color(0xFF5B60F6).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text('$day', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF5B60F6))),
@@ -263,7 +263,7 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
                       const SizedBox(height: 4),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(color: statusColor?.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
+                        decoration: BoxDecoration(color: statusColor?.withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
                         child: Text(status, style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.bold, color: statusText)),
                       ),
                     ],
@@ -338,10 +338,12 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
       context: context,
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+        alignment: Alignment.bottomCenter,
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E2939) : Colors.white,
+            color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF161B22) : Colors.white,
             borderRadius: BorderRadius.circular(20),
           ),
           child: Column(

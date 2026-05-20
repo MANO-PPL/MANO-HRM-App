@@ -37,6 +37,8 @@ class AttendanceSuccessDialog extends StatelessWidget {
     return Dialog(
       backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
+      insetPadding: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+      alignment: Alignment.bottomCenter,
       child: GlassContainer(
         padding: const EdgeInsets.all(32),
         borderRadius: 24,

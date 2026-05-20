@@ -15,10 +15,13 @@ import '../../models/attendance_record.dart';
 import '../../services/attendance_service.dart';
 import '../widgets/correction_request_dialog.dart';
 import '../../widgets/late_arrival_dialog.dart';
-import '../../../../shared/widgets/attendance_success_dialog.dart';
+import '../../../../shared/widgets/toast_helper.dart';
 import '../../widgets/attendance_history_tab.dart';
 import '../../widgets/attendance_analytics_tab.dart';
 import '../../providers/attendance_provider.dart'; // Import Provider
+import '../../admin/views/admin_correction_requests.dart';
+import '../../widgets/attendance_header_widget.dart';
+import '../../../../shared/widgets/interactive_image_viewer.dart';
 
 class MyAttendanceView extends StatefulWidget {
   const MyAttendanceView({super.key});
@@ -108,8 +111,6 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera, 
         preferredCameraDevice: CameraDevice.front,
-        maxWidth: 600, 
-        imageQuality: 80,
       );
       
       if (photo == null) return; // User canceled
@@ -158,6 +159,9 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
                       builder: (_) => const Center(child: CircularProgressIndicator()),
                    );
                    await performTimeIn(reason: reason); // Retry
+                   if (mounted) {
+                     context.showToast("Late arrival reason submitted successfully.", isSuccess: true);
+                   }
                 } else {
                    return; // Cancelled
                 }
@@ -177,12 +181,10 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
         if (mounted) {
           Navigator.pop(context); // Close loading
           
-           // Show Success Popup
-          final timeStr = DateFormat('hh:mm a').format(DateTime.now());
-          await AttendanceSuccessDialog.show(
-            context, 
-            type: isTimeIn ? 'Time In' : 'Time Out', 
-            time: timeStr
+          // Show toaster
+          context.showToast(
+            isTimeIn ? "Checked in successfully!" : "Checked out successfully!",
+            isSuccess: true,
           );
 
           Provider.of<AttendanceProvider>(context, listen: false).invalidateCache(DateTime.now());
@@ -215,67 +217,13 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
 
         return DefaultTabController(
           length: 2,
-          child: Column(
+              child: Column(
             children: [
-              // Tab Bar (Unchanged)
-               Container(
-                margin: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark 
-                      ? const Color(0xFF0F172A) 
-                      : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Theme.of(context).brightness == Brightness.dark 
-                        ? Colors.white.withOpacity(0.1) 
-                        : Colors.grey[300]!
-                  ),
-                ),
-                child: TabBar(
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  indicator: BoxDecoration(
-                    color: Theme.of(context).brightness == Brightness.dark 
-                        ? const Color(0xFF334155) 
-                        : Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  dividerColor: Colors.transparent,
-                  labelColor: const Color(0xFF5B60F6),
-                  unselectedLabelColor: Theme.of(context).brightness == Brightness.dark 
-                      ? const Color(0xFF94A3B8)
-                      : const Color(0xFF64748B),
-                  labelStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
-                  tabs: const [
-                    Tab(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.touch_app_outlined, size: 16),
-                          SizedBox(width: 8),
-                          Text("Mark Attendance"),
-                        ],
-                      ),
-                    ),
-                    Tab(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.history, size: 16),
-                          SizedBox(width: 8),
-                          Text("My Attendance"),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+              AttendanceHeaderWidget(showTabBar: false),
+              // Render the tab bar separately so it remains above the body and accepts taps
+              Transform.translate(
+                offset: const Offset(0, -28),
+                child: Center(child: AttendanceTabBar(maxWidth: 480)),
               ),
 
               Expanded(
@@ -645,7 +593,7 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E2939) : Colors.white, // Use White instead of grey[100] for cleaner look
+          color: isDark ? const Color(0xFF161B22) : Colors.white, // Use White instead of grey[100] for cleaner look
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: accentColor.withOpacity(0.3)), // Increased from 0.1
         ),
@@ -672,36 +620,7 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
                 // Avatar / Photo Placeholder
                 GestureDetector(
                   onTap: imageUrl != null && imageUrl.isNotEmpty ? () {
-                    showDialog(
-                      context: context,
-                      builder: (ctx) => Dialog(
-                        backgroundColor: Colors.transparent,
-                        surfaceTintColor: Colors.transparent,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              clipBehavior: Clip.antiAlias,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(16),
-                                color: Colors.black,
-                              ),
-                              child: CachedNetworkImage(
-                                imageUrl: imageUrl,
-                                fit: BoxFit.contain,
-                                placeholder: (context, url) => const SizedBox(height: 200, width: 200, child: Center(child: CircularProgressIndicator())),
-                                errorWidget: (context, url, error) => const SizedBox(height: 200, width: 200, child: Icon(Icons.error, color: Colors.white)),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            IconButton(
-                              onPressed: () => Navigator.pop(ctx),
-                              icon: const CircleAvatar(backgroundColor: Colors.white, child: Icon(Icons.close, color: Colors.black)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
+                    InteractiveImageViewerDialog.show(context, imageUrl, title: "$type Image");
                   } : null,
                   child: Container(
                     width: 40,
@@ -780,6 +699,8 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
+        insetPadding: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+        alignment: Alignment.bottomCenter,
         child: GlassContainer(
           width: 400,
           padding: const EdgeInsets.all(24),
@@ -818,15 +739,24 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
               
               // Image
               if (imageUrl != null && imageUrl.isNotEmpty)
-                Container(
-                  height: 200,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withOpacity(0.1)),
-                    image: DecorationImage(
-                      image: NetworkImage(imageUrl),
-                      fit: BoxFit.cover,
+                GestureDetector(
+                  onTap: () => InteractiveImageViewerDialog.show(context, imageUrl, title: "$type Image"),
+                  child: Container(
+                    height: 200,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: CachedNetworkImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.contain,
+                        placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                        errorWidget: (context, url, error) => const Icon(Icons.broken_image, size: 48, color: Colors.grey),
+                      ),
                     ),
                   ),
                 )
@@ -891,33 +821,40 @@ class _MyAttendanceReportsTab extends StatefulWidget {
 }
 
 class _MyAttendanceReportsTabState extends State<_MyAttendanceReportsTab> {
-  int _selectedIndex = 0; // 0: History, 1: Analytics
+  int _selectedIndex = 0; // 0: History, 1: Analytics, 2: Corrections
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView( // Make whole tab scrollable
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Sub-tabs
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildSubTab('History', 0, Icons.history),
-                const SizedBox(width: 32),
-                _buildSubTab('Analytics', 1, Icons.analytics_outlined),
-              ],
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Sub-tabs
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildSubTab('History', 0, Icons.history),
+              const SizedBox(width: 32),
+              _buildSubTab('Analytics', 1, Icons.analytics_outlined),
+              const SizedBox(width: 32),
+              _buildSubTab('Corrections', 2, Icons.edit_calendar_outlined),
+            ],
           ),
-          
-          // Content
-          _selectedIndex == 0 
-            ? const AttendanceHistoryTab(shrinkWrap: true, physics: NeverScrollableScrollPhysics()) 
-            : const AttendanceAnalyticsTab(shrinkWrap: true, physics: NeverScrollableScrollPhysics()),
-        ],
-      ),
+        ),
+        
+        // Content
+        Expanded(
+          child: _selectedIndex == 0 
+            ? const AttendanceHistoryTab() 
+            : _selectedIndex == 1
+              ? const AttendanceAnalyticsTab()
+              : Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: const AdminCorrectionRequests(),
+                ),
+        ),
+      ],
     );
   }
 

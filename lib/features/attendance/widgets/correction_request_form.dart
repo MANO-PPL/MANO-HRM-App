@@ -132,10 +132,10 @@ class _CorrectionRequestFormState extends State<CorrectionRequestForm> {
         correctionType: _type.toString().split('.').last.replaceAll(RegExp(r'(?=[A-Z])'), '_').toLowerCase(),
         correctionMethod: _method.toString().split('.').last.replaceAll(RegExp(r'(?=[A-Z])'), '_').toLowerCase(),
         reason: _reasonController.text,
-        correctionData: correctionData,
+        correctionData: correctionData, // service now auto-converts to proposed_data array
         latitude: position?.latitude,
         longitude: position?.longitude,
-        attachments: _selectedFiles,
+        attachments: _selectedFiles.isNotEmpty ? _selectedFiles : null,
       );
       
       widget.onSuccess();
@@ -239,253 +239,283 @@ class _CorrectionRequestFormState extends State<CorrectionRequestForm> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E2939) : Colors.white, // Adjusted to 1E2939
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF161B22) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border(
+            top: BorderSide(
+              color: isDark ? const Color(0xFF30363D) : Colors.grey[300]!,
+              width: 1,
+            ),
+          ),
+        ),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            CorrectionHeader(
-              title: 'Apply Correction',
-              onClose: widget.onClose, // Pass onClose
+            const SizedBox(height: 12),
+            // Drag handle
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF30363D) : Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-            
-            const CorrectionLabel(label: 'Date'),
-            CorrectionInputField(
-              value: DateFormat('dd-MM-yyyy').format(_requestDate),
-              suffixIcon: Icons.calendar_today_outlined,
-              isLoading: _isLoadingRecords,
-              onTap: () async {
-                final date = await showDialog<DateTime>(
-                  context: context,
-                  builder: (context) => CustomDatePickerDialog(
-                    initialDate: _requestDate,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime.now(),
-                  ),
-                );
-                if (date != null) {
-                  setState(() => _requestDate = date);
-                  _fetchExistingRecords(date);
-                }
-              },
-            ),
-
-            const CorrectionLabel(label: 'Type'),
-            CorrectionInputField(
-              value: {
-                CorrectionType.correction: 'Correction',
-                CorrectionType.missedPunch: 'Missed Punch',
-                CorrectionType.overtime: 'Overtime',
-                CorrectionType.other: 'Other',
-              }[_type]!,
-              suffixIcon: Icons.keyboard_arrow_down,
-              onTap: () async {
-                final result = await showModalBottomSheet<CorrectionType>(
-                  context: context,
-                  backgroundColor: isDark ? const Color(0xFF1E2939) : Colors.white,
-                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-                  builder: (context) => Container(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: CorrectionType.values.map((e) => ListTile(
-                        title: Text(
-                          {
-                            CorrectionType.correction: 'Correction',
-                            CorrectionType.missedPunch: 'Missed Punch',
-                            CorrectionType.overtime: 'Overtime',
-                            CorrectionType.other: 'Other',
-                          }[e]!,
-                          style: TextStyle(color: isDark ? Colors.white : Colors.black87),
-                        ),
-                        onTap: () => Navigator.pop(context, e),
-                        selected: _type == e,
-                        selectedTileColor: const Color(0xFF4F46E5).withValues(alpha: 0.1),
-                        selectedColor: const Color(0xFF4F46E5),
-                      )).toList(),
+            const SizedBox(height: 12),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    CorrectionHeader(
+                      title: 'Apply Correction',
+                      onClose: widget.onClose, // Pass onClose
                     ),
-                  ),
-                );
-                if (result != null) setState(() => _type = result);
-              },
-            ),
+                    
+                    const CorrectionLabel(label: 'Date'),
+                    CorrectionInputField(
+                      value: DateFormat('dd-MM-yyyy').format(_requestDate),
+                      suffixIcon: Icons.calendar_today_outlined,
+                      isLoading: _isLoadingRecords,
+                      onTap: () async {
+                        final date = await showDialog<DateTime>(
+                          context: context,
+                          builder: (context) => CustomDatePickerDialog(
+                            initialDate: _requestDate,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                          ),
+                        );
+                        if (date != null) {
+                          setState(() => _requestDate = date);
+                          _fetchExistingRecords(date);
+                        }
+                      },
+                    ),
 
-            const CorrectionLabel(label: 'Method'),
-            CorrectionSegmentedControl<CorrectionMethod>(
-              value: _method == CorrectionMethod.fix ? CorrectionMethod.addSession : _method,
-              items: {
-                CorrectionMethod.addSession: 'Manual Correction',
-                CorrectionMethod.reset: 'Reset Day',
-              },
-              onChanged: (val) => setState(() => _method = val),
-            ),
+                    const CorrectionLabel(label: 'Type'),
+                    CorrectionInputField(
+                      value: {
+                        CorrectionType.correction: 'Correction',
+                        CorrectionType.missedPunch: 'Missed Punch',
+                        CorrectionType.overtime: 'Overtime',
+                        CorrectionType.other: 'Other',
+                      }[_type]!,
+                      suffixIcon: Icons.keyboard_arrow_down,
+                      onTap: () async {
+                        final result = await showModalBottomSheet<CorrectionType>(
+                          context: context,
+                          backgroundColor: isDark ? const Color(0xFF161B22) : Colors.white,
+                          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                          builder: (context) => Container(
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: CorrectionType.values.map((e) => ListTile(
+                                title: Text(
+                                  {
+                                    CorrectionType.correction: 'Correction',
+                                    CorrectionType.missedPunch: 'Missed Punch',
+                                    CorrectionType.overtime: 'Overtime',
+                                    CorrectionType.other: 'Other',
+                                  }[e]!,
+                                  style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                                ),
+                                onTap: () => Navigator.pop(context, e),
+                                selected: _type == e,
+                                selectedTileColor: const Color(0xFF4F46E5).withValues(alpha: 0.1),
+                                selectedColor: const Color(0xFF4F46E5),
+                              )).toList(),
+                            ),
+                          ),
+                        );
+                        if (result != null) setState(() => _type = result);
+                      },
+                    ),
 
-            if (_method == CorrectionMethod.addSession) ...[
-              const CorrectionLabel(label: 'Sessions'),
-              ..._sessions.asMap().entries.map((entry) {
-                final index = entry.key;
-                final session = entry.value;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: CorrectionInputField(
-                          value: _formatTime(session['in']),
-                          suffixIcon: Icons.access_time,
-                          onTap: () => _pickTime(true, sessionIndex: index),
-                        ),
+                    const CorrectionLabel(label: 'Method'),
+                    CorrectionSegmentedControl<CorrectionMethod>(
+                      value: _method == CorrectionMethod.fix ? CorrectionMethod.addSession : _method,
+                      items: {
+                        CorrectionMethod.addSession: 'Manual Correction',
+                        CorrectionMethod.reset: 'Reset Day',
+                      },
+                      onChanged: (val) => setState(() => _method = val),
+                    ),
+
+                    if (_method == CorrectionMethod.addSession) ...[
+                      const CorrectionLabel(label: 'Sessions'),
+                      ..._sessions.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final session = entry.value;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: CorrectionInputField(
+                                  value: _formatTime(session['in']),
+                                  suffixIcon: Icons.access_time,
+                                  onTap: () => _pickTime(true, sessionIndex: index),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: CorrectionInputField(
+                                  value: _formatTime(session['out']),
+                                  suffixIcon: Icons.access_time,
+                                  onTap: () => _pickTime(false, sessionIndex: index),
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.remove_circle_outline, color: isDark ? Colors.redAccent : Colors.red),
+                                onPressed: () => setState(() => _sessions.removeAt(index)),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                      CorrectionDashedButton(
+                        label: 'Add Another Session',
+                        onTap: () => setState(() => _sessions.add({'in': const TimeOfDay(hour: 9, minute: 0), 'out': const TimeOfDay(hour: 18, minute: 0)})),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: CorrectionInputField(
-                          value: _formatTime(session['out']),
-                          suffixIcon: Icons.access_time,
-                          onTap: () => _pickTime(false, sessionIndex: index),
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.remove_circle_outline, color: isDark ? Colors.redAccent : Colors.red),
-                        onPressed: () => setState(() => _sessions.removeAt(index)),
+                    ] else ...[
+                      const CorrectionLabel(label: 'Timings'),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CorrectionInputField(
+                              value: _formatTime(_timeIn),
+                              hintText: 'In Time',
+                              suffixIcon: Icons.access_time,
+                              onTap: () => _pickTime(true),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: CorrectionInputField(
+                              value: _formatTime(_timeOut),
+                              hintText: 'Out Time',
+                              suffixIcon: Icons.access_time,
+                              onTap: () => _pickTime(false),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
-                  ),
-                );
-              }),
-              CorrectionDashedButton(
-                label: 'Add Another Session',
-                onTap: () => setState(() => _sessions.add({'in': const TimeOfDay(hour: 9, minute: 0), 'out': const TimeOfDay(hour: 18, minute: 0)})),
-              ),
-            ] else ...[
-              const CorrectionLabel(label: 'Timings'),
-              Row(
-                children: [
-                  Expanded(
-                    child: CorrectionInputField(
-                      value: _formatTime(_timeIn),
-                      hintText: 'In Time',
-                      suffixIcon: Icons.access_time,
-                      onTap: () => _pickTime(true),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: CorrectionInputField(
-                      value: _formatTime(_timeOut),
-                      hintText: 'Out Time',
-                      suffixIcon: Icons.access_time,
-                      onTap: () => _pickTime(false),
-                    ),
-                  ),
-                ],
-              ),
-            ],
 
-            const CorrectionLabel(label: 'Reason'),
-            CorrectionInputField(
-              value: _reasonController.text,
-              hintText: 'Why is this correction needed?',
-              isMultiline: true,
-              onTap: () async {
-                final result = await showDialog<String>(
-                  context: context,
-                  builder: (context) => _ReasonInputDialog(initialValue: _reasonController.text),
-                );
-                if (result != null) setState(() => _reasonController.text = result);
-              },
-            ),
-
-            const SizedBox(height: 16),
-            
-            // Attachments Section
-            InkWell(
-              onTap: _pickFile,
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                decoration: BoxDecoration(
-                  border: Border.all(color: isDark ? Colors.white24 : Colors.black12),
-                  borderRadius: BorderRadius.circular(12),
-                  color: isDark ? Colors.black12 : Colors.grey.shade50,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.attach_file,
-                      color: isDark ? Colors.white70 : Colors.black54,
+                    const CorrectionLabel(label: 'Reason'),
+                    CorrectionInputField(
+                      value: _reasonController.text,
+                      hintText: 'Why is this correction needed?',
+                      isMultiline: true,
+                      onTap: () async {
+                        final result = await showDialog<String>(
+                          context: context,
+                          builder: (context) => _ReasonInputDialog(initialValue: _reasonController.text),
+                        );
+                        if (result != null) setState(() => _reasonController.text = result);
+                      },
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Attach Documents (PDF, Images)',
-                        style: GoogleFonts.poppins(
-                          color: isDark ? Colors.white70 : Colors.black54,
-                          fontSize: 14,
+
+                    const SizedBox(height: 16),
+                    
+                    // Attachments Section
+                    InkWell(
+                      onTap: _pickFile,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: isDark ? Colors.white24 : Colors.black12),
+                          borderRadius: BorderRadius.circular(12),
+                          color: isDark ? Colors.black12 : Colors.grey.shade50,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.attach_file,
+                              color: isDark ? Colors.white70 : Colors.black54,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Attach Documents (PDF, Images)',
+                                style: GoogleFonts.poppins(
+                                  color: isDark ? Colors.white70 : Colors.black54,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              Icons.add_circle_outline,
+                              size: 20,
+                              color: Theme.of(context).primaryColor,
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                    Icon(
-                      Icons.add_circle_outline,
-                      size: 20,
-                      color: Theme.of(context).primaryColor,
+                    
+                    if (_selectedFiles.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _selectedFiles.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final file = entry.value;
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    file.name,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: isDark ? Colors.white : Colors.black87,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                InkWell(
+                                  onTap: () => setState(() => _selectedFiles.removeAt(index)),
+                                  child: const Icon(Icons.close, size: 14, color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+
+                    const SizedBox(height: 24),
+
+                    CorrectionSubmitButton(
+                      label: 'Submit Request',
+                      isLoading: _isLoading,
+                      onTap: _submit,
                     ),
                   ],
                 ),
               ),
-            ),
-            
-            if (_selectedFiles.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _selectedFiles.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final file = entry.value;
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            file.name,
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: isDark ? Colors.white : Colors.black87,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        InkWell(
-                          onTap: () => setState(() => _selectedFiles.removeAt(index)),
-                          child: const Icon(Icons.close, size: 14, color: Colors.red),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
-
-            const SizedBox(height: 24),
-
-            CorrectionSubmitButton(
-              label: 'Submit Request',
-              isLoading: _isLoading,
-              onTap: _submit,
             ),
           ],
         ),

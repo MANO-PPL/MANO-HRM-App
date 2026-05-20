@@ -8,9 +8,9 @@ import 'package:open_filex/open_filex.dart';
 import 'dart:io';
 import '../../../../shared/widgets/glass_container.dart';
 import '../../../../shared/services/auth_service.dart';
-import '../providers/attendance_provider.dart';
-import '../services/attendance_service.dart';
-import '../models/attendance_record.dart';
+import '../../providers/attendance_provider.dart';
+import '../../services/attendance_service.dart';
+import '../../models/attendance_record.dart';
 import '../../widgets/attendance_common_widgets.dart'; // Keep for SummaryCard
 import 'attendance_mobile_common_widgets.dart'; // Mobile Header
 
@@ -264,40 +264,39 @@ class _AttendanceAnalyticsMobileState extends State<AttendanceAnalyticsMobile> {
           const SizedBox(height: 24),
           SizedBox(
             height: 200,
-            child: RadarChart(
-              RadarChartData(
-                radarBackgroundColor: Colors.transparent,
-                borderData: FlBorderData(show: false),
-                radarBorderData: const BorderSide(color: Colors.transparent),
-                titlePositionPercentageOffset: 0.2,
-                titleTextStyle: GoogleFonts.poppins(fontSize: 10, color: Colors.grey),
-                tickCount: 1,
-                ticksTextStyle: const TextStyle(color: Colors.transparent),
-                gridBorderData: BorderSide(color: Colors.grey.withValues(alpha: 0.1), width: 1),
-                radarShape: RadarShape.polygon,
-                getTitle: (index, angle) {
-                  const titles = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                  if (index < titles.length) return RadarChartTitle(text: titles[index]);
-                  return const RadarChartTitle(text: '');
-                },
-                dataSets: [
-                  RadarDataSet(
-                    fillColor: const Color(0xFF5B60F6).withValues(alpha: 0.2),
-                    borderColor: const Color(0xFF5B60F6),
-                    entryRadius: 2,
-                    dataEntries: [
-                       const RadarEntry(value: 3),
-                       const RadarEntry(value: 5),
-                       const RadarEntry(value: 2),
-                       const RadarEntry(value: 4),
-                       const RadarEntry(value: 1),
-                       const RadarEntry(value: 0),
-                       const RadarEntry(value: 0),
-                    ],
-                    borderWidth: 2,
+            child: Column(
+              children: [
+                Text('Weekly Activity (summary)', style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey)),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final labels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+                      final values = [3.0,5.0,2.0,4.0,1.0,0.0,0.0];
+                      final maxVal = values.fold<double>(0, (prev, e) => e > prev ? e : prev);
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: List.generate(labels.length, (i) {
+                          final heightFactor = maxVal > 0 ? values[i] / maxVal : 0.0;
+                          return Column(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Container(
+                                width: (constraints.maxWidth - 24) / 14,
+                                height: constraints.maxHeight * 0.65 * heightFactor,
+                                decoration: BoxDecoration(color: const Color(0xFF5B60F6).withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(labels[i], style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey)),
+                            ],
+                          );
+                        }),
+                      );
+                    },
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
@@ -348,7 +347,7 @@ class _LineChartWidget extends StatelessWidget {
             barWidth: 2,
             isStrokeCapRound: true,
             dotData: const FlDotData(show: false),
-            belowBarData: BarAreaData(show: true, color: const Color(0xFF5B60F6).withValues(alpha: 0.1)),
+            belowBarData: BarAreaData(show: true, color: const Color(0xFF5B60F6).withOpacity(0.1)),
           ),
         ],
       ),
