@@ -153,7 +153,7 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
         width: widget.width,
         padding: widget.padding,
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF101828) : Colors.white,
+          color: isDark ? const Color(0xFF0D1117) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -209,7 +209,7 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1E2939) : const Color(0xFFF8FAFC),
+                        color: isDark ? const Color(0xFF161B22) : const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFE2E8F0)),
                       ),
@@ -222,7 +222,7 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
                               att.fileKey.split('/').last, 
                               style: GoogleFonts.poppins(
                                 fontSize: 13,
-                                color: isDark ? Colors.white : const Color(0xFF334155),
+                                color: isDark ? Colors.white : const Color(0xFF30363D),
                                 decoration: TextDecoration.underline,
                               ),
                               maxLines: 1,
@@ -274,7 +274,7 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
                 style: GoogleFonts.poppins(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : const Color(0xFF1E293B),
+                  color: isDark ? Colors.white : const Color(0xFF30363D),
                 ),
               ),
               Text(
@@ -350,7 +350,7 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
       width: isFullWidth ? double.infinity : null,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E2939) : const Color(0xFFF8FAFC),
+        color: isDark ? const Color(0xFF161B22) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFE2E8F0)),
       ),
@@ -364,7 +364,7 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white : const Color(0xFF0F172A),
+              color: isDark ? Colors.white : const Color(0xFF0D1117),
             ),
           ),
         ],
@@ -406,7 +406,7 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E2939) : const Color(0xFFF8FAFC),
+        color: isDark ? const Color(0xFF161B22) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFE2E8F0)),
       ),
@@ -426,7 +426,7 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     fontStyle: FontStyle.italic,
-                    color: isDark ? Colors.white70 : const Color(0xFF334155),
+                    color: isDark ? Colors.white70 : const Color(0xFF30363D),
                   ),
                 ),
               ],
@@ -445,7 +445,7 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E2939) : const Color(0xFFF8FAFC),
+        color: isDark ? const Color(0xFF161B22) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFE2E8F0)),
       ),
@@ -517,7 +517,7 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF0F172A) : Colors.white,
+            color: isDark ? const Color(0xFF0D1117) : Colors.white,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
           ),
@@ -578,7 +578,7 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E2939) : const Color(0xFFF8FAFC),
+        color: isDark ? const Color(0xFF161B22) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFE2E8F0)),
       ),
@@ -591,7 +591,7 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
               value: value,
               isExpanded: true,
               isDense: true,
-              dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+              dropdownColor: isDark ? const Color(0xFF30363D) : Colors.white,
               icon: const Icon(Icons.keyboard_arrow_down, size: 18),
               items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: GoogleFonts.poppins(fontSize: 13, color: isDark ? Colors.white : Colors.black87)))).toList(),
               onChanged: onChanged,
@@ -607,7 +607,7 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E2939) : const Color(0xFFF8FAFC),
+        color: isDark ? const Color(0xFF161B22) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFE2E8F0)),
       ),

@@ -3,8 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../../shared/navigation/navigation_controller.dart';
 import '../../../../shared/services/auth_service.dart';
-import '../../../auth/login_screen.dart';
+import '../../../../main.dart';
 import '../../../../shared/widgets/glass_container.dart';
+import '../../../../shared/widgets/toast_helper.dart';
 
 class ProfileView extends StatelessWidget {
   const ProfileView({super.key});
@@ -222,7 +223,7 @@ class ProfileView extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF334155) : Colors.grey[100],
+            color: isDark ? const Color(0xFF30363D) : Colors.grey[100],
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, size: 20, color: Colors.grey[400]),
@@ -268,9 +269,11 @@ class ProfileView extends StatelessWidget {
             if (context.mounted) {
                // Reset internal navigation state
                navigationNotifier.value = PageType.dashboard;
+               
+               context.showToast('Logged out successfully', isSuccess: true);
 
               Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                MaterialPageRoute(builder: (_) => const AuthWrapper()),
                 (route) => false,
               );
             }

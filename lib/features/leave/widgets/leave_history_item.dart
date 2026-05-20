@@ -44,7 +44,7 @@ class LeaveHistoryItem extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E2939) : Colors.white,
+          color: isDark ? const Color(0xFF161B22) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFE2E8F0),
@@ -87,7 +87,7 @@ class LeaveHistoryItem extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : const Color(0xFF1E293B),
+                color: isDark ? Colors.white : const Color(0xFF30363D),
               ),
             ),
             const SizedBox(height: 4),

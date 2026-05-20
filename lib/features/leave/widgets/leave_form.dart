@@ -91,7 +91,7 @@ class _LeaveFormState extends State<LeaveForm> {
               filled: true,
               fillColor: inputFillColor,
             ),
-            dropdownColor: isDark ? const Color(0xFF1E2939) : Colors.white,
+            dropdownColor: isDark ? const Color(0xFF161B22) : Colors.white,
             icon: Icon(Icons.keyboard_arrow_down, color: labelColor),
           ),
           
@@ -209,7 +209,7 @@ class _LeaveFormState extends State<LeaveForm> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-               color: isDark ? const Color(0xFF1E2939).withOpacity(0.5) : const Color(0xFFF8FAFC),
+               color: isDark ? const Color(0xFF161B22).withOpacity(0.5) : const Color(0xFFF8FAFC),
                borderRadius: BorderRadius.circular(12),
                border: Border.all(color: borderColor),
             ),

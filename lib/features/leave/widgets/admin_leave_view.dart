@@ -37,13 +37,13 @@ class _AdminLeaveViewState extends State<AdminLeaveView> with SingleTickerProvid
           child: Container(
             height: 36,
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : Colors.grey[100],
+              color: isDark ? const Color(0xFF30363D) : Colors.grey[100],
               borderRadius: BorderRadius.circular(8),
             ),
             child: TabBar(
               controller: _adminTabController,
               indicator: BoxDecoration(
-                color: isDark ? const Color(0xFF334155) : Colors.white,
+                color: isDark ? const Color(0xFF30363D) : Colors.white,
                 borderRadius: BorderRadius.circular(6),
                 boxShadow: [
                   BoxShadow(
