@@ -221,8 +221,8 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
             children: [
               AttendanceHeaderWidget(showTabBar: false),
               // Render the tab bar separately so it remains above the body and accepts taps
-              Transform.translate(
-                offset: const Offset(0, -28),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 child: Center(child: AttendanceTabBar(maxWidth: 480)),
               ),
 
@@ -851,7 +851,7 @@ class _MyAttendanceReportsTabState extends State<_MyAttendanceReportsTab> {
               ? const AttendanceAnalyticsTab()
               : Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: const AdminCorrectionRequests(),
+                  child: const AdminCorrectionRequests(isPersonalView: true),
                 ),
         ),
       ],

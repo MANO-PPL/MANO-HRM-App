@@ -175,12 +175,12 @@ class _CorrectionDetailDialogState extends State<CorrectionDetailDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final size = MediaQuery.of(context).size;
     final req = _fullRequest ?? widget.request;
-    final isAdmin = Provider.of<AuthService>(context, listen: false).user?.isAdmin ?? false;
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final isOwnRequest = req.userId == authService.user?.id;
+    final isAdmin = (authService.user?.isAdmin ?? false) && !isOwnRequest;
 
     final bgColor = isDark ? const Color(0xFF161B22) : Colors.white;
-    final dividerColor = isDark ? const Color(0xFF30363D) : Colors.grey[200]!;
 
     // Bottom sheet container that sizes to its content (max 92% of screen height)
     final sheetContent = Container(
@@ -224,7 +224,7 @@ class _CorrectionDetailDialogState extends State<CorrectionDetailDialog> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Request #${req.id}',
+                                    '${req.typeLabel} Request',
                                       style: GoogleFonts.poppins(
                                         fontSize: 20,
                                         fontWeight: FontWeight.bold,

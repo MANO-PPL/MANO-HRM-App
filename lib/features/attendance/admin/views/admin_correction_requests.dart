@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../shared/services/auth_service.dart';
 import '../../models/correction_request.dart';
 import '../../services/attendance_service.dart';
+import '../../providers/attendance_provider.dart';
 import '../widgets/correction_detail_dialog.dart';
 
 /// Role-aware correction requests list.
@@ -16,8 +17,9 @@ class AdminCorrectionRequests extends StatefulWidget {
   /// If provided, filters requests to this userId (for employee self-view).
   /// Admin view passes null to fetch all.
   final String? userId;
+  final bool isPersonalView;
 
-  const AdminCorrectionRequests({super.key, this.userId});
+  const AdminCorrectionRequests({super.key, this.userId, this.isPersonalView = false});
 
   @override
   State<AdminCorrectionRequests> createState() => _AdminCorrectionRequestsState();
@@ -29,13 +31,15 @@ class _AdminCorrectionRequestsState extends State<AdminCorrectionRequests> {
   List<AttendanceCorrectionRequest> _requests = [];
   String _filterStatus = 'Pending'; // 'Pending' or 'History'
   bool _isAdmin = false;
+  String? _userId;
 
   @override
   void initState() {
     super.initState();
     final authService = Provider.of<AuthService>(context, listen: false);
     _service = AttendanceService(authService.dio);
-    _isAdmin = authService.user?.isAdmin ?? false;
+    _userId = widget.userId ?? (widget.isPersonalView ? authService.user?.id : null);
+    _isAdmin = (authService.user?.isAdmin ?? false) && !widget.isPersonalView;
     _fetchRequests();
   }
 
@@ -45,20 +49,31 @@ class _AdminCorrectionRequestsState extends State<AdminCorrectionRequests> {
       final status = _filterStatus.toLowerCase();
       final allRequests = await _service.getCorrectionRequests(
         status: status == 'pending' ? 'pending' : null,
-        userId: widget.userId,
+        userId: _userId,
       );
 
       setState(() {
+        var filtered = allRequests;
+        if (widget.isPersonalView && _userId != null) {
+          filtered = filtered.where((r) => r.userId == _userId).toList();
+        }
+
         if (status == 'history') {
-          _requests = allRequests
+          _requests = filtered
               .where((r) => r.status != RequestStatus.pending)
               .toList();
         } else {
-          _requests = allRequests
+          _requests = filtered
               .where((r) => r.status == RequestStatus.pending)
               .toList();
         }
         _isLoading = false;
+
+        // Reactive update to tab bar badge
+        if (mounted) {
+          final pendingCount = filtered.where((r) => r.status == RequestStatus.pending).length;
+          Provider.of<AttendanceProvider>(context, listen: false).updatePendingCorrectionCount(pendingCount);
+        }
       });
     } catch (e) {
       if (!mounted) return;
@@ -255,26 +270,23 @@ class _AdminCorrectionRequestsState extends State<AdminCorrectionRequests> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Show employee name for admin view
-                  if (_isAdmin)
-                    Text(
-                      req.userName,
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        color: isDark ? Colors.white : const Color(0xFF111827),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  // Always show employee name prominently as the main title
+                  Text(
+                    req.userName,
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: isDark ? Colors.white : const Color(0xFF111827),
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   Text(
                     '${req.typeLabel} • ${DateFormat('MMM dd, yyyy').format(req.requestDate)}',
                     style: GoogleFonts.poppins(
-                      fontSize: _isAdmin ? 12 : 13,
-                      fontWeight: _isAdmin ? FontWeight.normal : FontWeight.w600,
-                      color: _isAdmin
-                          ? (isDark ? Colors.white54 : Colors.grey[600])
-                          : (isDark ? Colors.white : const Color(0xFF111827)),
+                      fontSize: 12,
+                      fontWeight: FontWeight.normal,
+                      color: isDark ? Colors.white54 : Colors.grey[600],
                     ),
                   ),
                   const SizedBox(height: 4),

@@ -413,17 +413,11 @@ class _CorrectionRequestFormState extends State<CorrectionRequestForm> {
                     ],
 
                     const CorrectionLabel(label: 'Reason'),
-                    CorrectionInputField(
-                      value: _reasonController.text,
+                    CorrectionTextField(
+                      controller: _reasonController,
                       hintText: 'Why is this correction needed?',
-                      isMultiline: true,
-                      onTap: () async {
-                        final result = await showDialog<String>(
-                          context: context,
-                          builder: (context) => _ReasonInputDialog(initialValue: _reasonController.text),
-                        );
-                        if (result != null) setState(() => _reasonController.text = result);
-                      },
+                      maxLines: 3,
+                      isDark: isDark,
                     ),
 
                     const SizedBox(height: 16),
@@ -528,58 +522,5 @@ extension StringExtension on String {
   String capitalize() {
     if (isEmpty) return this;
     return "${this[0].toUpperCase()}${substring(1).toLowerCase()}";
-  }
-}
-
-class _ReasonInputDialog extends StatefulWidget {
-  final String initialValue;
-  const _ReasonInputDialog({required this.initialValue});
-
-  @override
-  State<_ReasonInputDialog> createState() => _ReasonInputDialogState();
-}
-
-class _ReasonInputDialogState extends State<_ReasonInputDialog> {
-  late TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initialValue);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    return AlertDialog(
-      backgroundColor: isDark ? const Color(0xFF1F2937) : Colors.white,
-      title: Text('Enter Reason', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
-      content: TextField(
-        controller: _controller,
-        maxLines: 4,
-        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
-        decoration: InputDecoration(
-          hintText: 'Why is this correction needed?',
-          hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.grey.shade300),
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context), 
-          child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white70 : Colors.grey[600])),
-        ),
-        ElevatedButton(
-          onPressed: () => Navigator.pop(context, _controller.text),
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4F46E5)),
-          child: const Text('Done', style: TextStyle(color: Colors.white)),
-        ),
-      ],
-    );
   }
 }

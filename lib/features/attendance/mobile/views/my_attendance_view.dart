@@ -34,13 +34,13 @@ class _MobileMyAttendanceContentState extends State<MobileMyAttendanceContent> {
                     const SliverToBoxAdapter(
                       child: AttendanceHeaderWidget(showTabBar: false),
                     ),
-                    // Separate sliver for the tab bar so it sits above the body and receives taps
+                    // Render the tab bar inside a standard padding container
                     SliverToBoxAdapter(
-                      child: Transform.translate(
-                        offset: const Offset(0, -28),
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 480),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 480),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                             child: AttendanceTabBar(maxWidth: 480),
                           ),
                         ),
@@ -104,7 +104,7 @@ class _MyAttendanceReportsTabState extends State<_MyAttendanceReportsTab> {
                 ? const AttendanceAnalyticsTab()
                 : Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: const AdminCorrectionRequests(),
+                    child: const AdminCorrectionRequests(isPersonalView: true),
                   ),
           ),
         ],

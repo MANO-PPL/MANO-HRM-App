@@ -369,10 +369,10 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> {
         ),
       );
     } else if (isMobile) {
-      // Mobile Portrait Layout
+      // Mobile Portrait Layout - Made more compact for smaller mobile devices
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 60),
+        padding: EdgeInsets.fromLTRB(16, 12, 16, widget.showTabBar ? 48 : 12),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -382,8 +382,8 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> {
                 : [const Color(0xFF4F46E5), const Color(0xFF3730A3)],
           ),
           borderRadius: const BorderRadius.only(
-            bottomLeft: Radius.circular(24),
-            bottomRight: Radius.circular(24),
+            bottomLeft: Radius.circular(20),
+            bottomRight: Radius.circular(20),
           ),
         ),
         child: Stack(
@@ -395,27 +395,27 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> {
                 Text(
                   '$greeting, $firstName!',
                   style: GoogleFonts.poppins(
-                    fontSize: 22,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   dateStr,
                   style: GoogleFonts.poppins(
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: Colors.white.withOpacity(0.7),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 // Clock & Location Card
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     color: cardBgColor,
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: cardBorderColor, width: 1.5),
                   ),
                   child: Row(
@@ -424,19 +424,19 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> {
                         child: Row(
                           children: [
                             Container(
-                              width: 44,
-                              height: 44,
+                              width: 38,
+                              height: 38,
                               decoration: BoxDecoration(
                                 color: isDark ? const Color(0xFF232644) : Colors.white.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               child: const Icon(
                                 Icons.access_time_rounded,
                                 color: Colors.white,
-                                size: 24,
+                                size: 20,
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -445,20 +445,20 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> {
                                   Text(
                                     'CURRENT TIME',
                                     style: GoogleFonts.poppins(
-                                      fontSize: 9,
+                                      fontSize: 8,
                                       fontWeight: FontWeight.w800,
                                       color: Colors.white.withOpacity(0.5),
-                                      letterSpacing: 1.2,
+                                      letterSpacing: 1.0,
                                     ),
                                   ),
-                                  const SizedBox(height: 2),
+                                  const SizedBox(height: 1),
                                   FittedBox(
                                     fit: BoxFit.scaleDown,
                                     alignment: Alignment.centerLeft,
                                     child: Text(
                                       timeStr,
                                       style: GoogleFonts.poppins(
-                                        fontSize: 16,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.w700,
                                         color: Colors.white,
                                       ),
@@ -470,7 +470,7 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
@@ -479,13 +479,13 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> {
                             Text(
                               'LOCATION',
                               style: GoogleFonts.poppins(
-                                fontSize: 9,
+                                fontSize: 8,
                                 fontWeight: FontWeight.w800,
                                 color: Colors.white.withOpacity(0.5),
-                                letterSpacing: 1.2,
+                                letterSpacing: 1.0,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 3),
                             _buildLocationPill(isDark),
                           ],
                         ),
@@ -493,13 +493,13 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 36),
+                if (widget.showTabBar) const SizedBox(height: 28),
               ],
             ),
 
             if (widget.showTabBar)
               Positioned(
-                bottom: -30,
+                bottom: -24,
                 left: 0,
                 right: 0,
                 child: Center(
@@ -660,27 +660,30 @@ class AttendanceTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final child = ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xAA0F111E) : Colors.white.withOpacity(0.06),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06),
-              width: 1,
-            ),
+    final child = Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.05),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-          child: TabBar(
+        ],
+      ),
+      child: TabBar(
         indicatorSize: TabBarIndicatorSize.tab,
         indicator: BoxDecoration(
-          color: isDark ? const Color(0xFF1B1D36) : Colors.white,
+          color: isDark ? const Color(0xFF0F172A) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isDark ? const Color(0xFF2A2E50) : Colors.black.withOpacity(0.06),
+            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
             width: 1,
           ),
           boxShadow: isDark
@@ -695,7 +698,7 @@ class AttendanceTabBar extends StatelessWidget {
         ),
         dividerColor: Colors.transparent,
         labelColor: isDark ? const Color(0xFF818CF8) : const Color(0xFF4F46E5),
-        unselectedLabelColor: isDark ? const Color(0xFF8E95B2) : Colors.white.withOpacity(0.7),
+        unselectedLabelColor: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
         labelStyle: GoogleFonts.poppins(
           fontSize: 14,
           fontWeight: FontWeight.bold,
@@ -729,9 +732,7 @@ class AttendanceTabBar extends StatelessWidget {
           ),
         ],
       ),
-    ),
-  ),
-);
+    );
 
     if (maxWidth != null) {
       return SizedBox(width: maxWidth, child: child);

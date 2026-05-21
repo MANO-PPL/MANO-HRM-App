@@ -135,11 +135,34 @@ class AttendanceProvider with ChangeNotifier {
     // or we can call fetchRecords(date, forceRefresh: true) immediately.
   }
 
+  // Pending correction requests count
+  int _pendingCorrectionCount = 0;
+  int get pendingCorrectionCount => _pendingCorrectionCount;
+
+  Future<void> fetchPendingCorrectionCount({String? userId}) async {
+    try {
+      final list = await _attendanceService.getCorrectionRequests(
+        status: 'pending',
+        userId: userId,
+      );
+      _pendingCorrectionCount = list.length;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error fetching pending correction count: $e');
+    }
+  }
+
+  void updatePendingCorrectionCount(int count) {
+    _pendingCorrectionCount = count;
+    notifyListeners();
+  }
+
   // Clear all caches (e.g. on logout)
   void clearCache() {
     _recordsCache.clear();
     _rangeCache.clear();
     _currentRecords = [];
+    _pendingCorrectionCount = 0;
     notifyListeners();
   }
 }
