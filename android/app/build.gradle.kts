@@ -19,8 +19,8 @@ android {
         applicationId = "co.mano.attendance"
         minSdk = 24
         targetSdk = 35
-        versionCode = 5 
-        versionName = "2.0.0"
+        versionCode =9
+        versionName = "2.0.4"
         multiDexEnabled = true // Fixes "crash" due to method limit on older devices
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -57,8 +57,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
