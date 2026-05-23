@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:intl/intl.dart';
 import '../../../../shared/widgets/glass_container.dart';
 import '../../../../shared/services/auth_service.dart';
 import '../../services/report_service.dart';
@@ -123,96 +122,6 @@ class _ReportsViewState extends State<ReportsView> with SingleTickerProviderStat
 
         // Show success toast
         context.showToast("Report downloaded successfully!", isSuccess: true);
-
-        // Show Success Popup
-        showDialog(
-          context: context,
-          builder: (context) => Dialog(
-            backgroundColor: Colors.transparent,
-            insetPadding: const EdgeInsets.all(24),
-            child: GlassContainer(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 400),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.check_circle, color: Colors.green, size: 32),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      "Download Successful",
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).textTheme.bodyLarge?.color,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "File saved to:",
-                      style: GoogleFonts.poppins(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).brightness == Brightness.dark ? Colors.black26 : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        path,
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.poppins(fontSize: 11, color: Theme.of(context).textTheme.bodyMedium?.color),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: Text(
-                              "Close",
-                              style: GoogleFonts.poppins(
-                                color: Theme.of(context).brightness == Brightness.dark 
-                                    ? Colors.white70 
-                                    : Colors.grey[700],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              OpenFilex.open(path);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Theme.of(context).brightness == Brightness.dark 
-                                  ? const Color(0xFF6366F1) // Brighter Indigo
-                                  : Theme.of(context).primaryColor,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            child: Text("Open File", style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Export Failed: $e")));
@@ -490,20 +399,18 @@ class _ReportsViewState extends State<ReportsView> with SingleTickerProviderStat
   }
 
   Widget _buildTabs(BuildContext context) {
-    final primaryColor = Theme.of(context).primaryColor;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Container(
       margin: const EdgeInsets.fromLTRB(24, 24, 24, 16), // Match Standard Tablet Margin
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-         color: Theme.of(context).brightness == Brightness.dark 
-            ? const Color(0xFF0D1117) // Match Dark Color
+         color: isDark 
+            ? const Color(0xFF161B22) 
             : const Color(0xFFF1F5F9), // Match Light Color
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Theme.of(context).brightness == Brightness.dark 
-              ? Colors.white.withOpacity(0.1) 
+          color: isDark 
+              ? const Color(0xFF30363D) 
               : Colors.grey[300]!
         ),
       ),
@@ -511,20 +418,20 @@ class _ReportsViewState extends State<ReportsView> with SingleTickerProviderStat
         controller: _tabController,
         indicatorSize: TabBarIndicatorSize.tab,
         indicator: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark 
-              ? const Color(0xFF30363D) 
+          color: isDark 
+              ? const Color(0xFF2D3139) 
               : Colors.white,
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
              BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
           ],
         ),
-        labelColor: const Color(0xFF5B60F6), // Match Standard Active Color
-        unselectedLabelColor: Theme.of(context).brightness == Brightness.dark 
+        labelColor: isDark ? Colors.white : const Color(0xFF5B60F6), // Match Standard Active Color
+        unselectedLabelColor: isDark 
             ? const Color(0xFF94A3B8)
             : const Color(0xFF64748B),
         dividerColor: Colors.transparent,

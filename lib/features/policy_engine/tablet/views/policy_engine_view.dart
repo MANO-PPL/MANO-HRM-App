@@ -5,7 +5,7 @@ import '../../../../shared/widgets/glass_container.dart';
 import '../../../../shared/services/auth_service.dart';
 import '../../models/shift_model.dart';
 import '../../services/shift_service.dart';
-import 'add_shift_dialog.dart';
+import '../../widgets/shift_detail_bottom_sheet.dart';
 
 class PolicyEngineView extends StatefulWidget {
   const PolicyEngineView({super.key});
@@ -43,136 +43,7 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
     }
   }
 
-  Future<void> _deleteShift(int id) async {
-     try {
-       await _shiftService.deleteShift(id);
-       if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Shift deleted")));
-         _fetchShifts();
-       }
-     } catch (e) {
-       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to delete: $e")));
-     }
-  }
 
-  void _showDeleteConfirm(int id) {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          insetPadding: const EdgeInsets.all(16),
-          child: ConstrainedBox(
-             constraints: const BoxConstraints(maxWidth: 400),
-             child: GlassContainer(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                   mainAxisSize: MainAxisSize.min,
-                   children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.delete_outline, color: Colors.red, size: 32),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        "Delete Shift?",
-                        style: GoogleFonts.poppins(
-                           fontSize: 18,
-                           fontWeight: FontWeight.w600,
-                           color: Theme.of(context).textTheme.bodyLarge?.color,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        "Are you sure you want to delete this shift? This action cannot be undone.",
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.poppins(
-                           fontSize: 14,
-                           color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () => Navigator.pop(ctx),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                side: BorderSide(color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey[300]!),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              child: Text(
-                                "Cancel",
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.pop(ctx);
-                                _deleteShift(id);
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                elevation: 0,
-                              ),
-                              child: Text(
-                                "Delete",
-                                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                   ],
-                ),
-             ),
-          ),
-        );
-      }
-    );
-  }
-
-  void _openShiftDialog({Shift? shift}) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AddShiftDialog(
-        existingShift: shift,
-        onSubmit: (newShift) async {
-           try {
-             if (shift?.id != null) {
-               await _shiftService.updateShift(shift!.id!, newShift);
-             } else {
-               await _shiftService.createShift(newShift);
-             }
-             if (mounted) {
-                Navigator.pop(ctx);
-                _fetchShifts();
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Shift Saved")));
-             }
-           } catch(e) {
-             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
-           }
-        },
-      )
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -254,25 +125,7 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
               ],
             ),
           ),
-          const SizedBox(width: 16),
-          ElevatedButton.icon(
-            onPressed: () {
-               _openShiftDialog();
-            },
-            icon: const Icon(Icons.add, size: 18),
-            label: Text(
-              'Add Shift',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6366F1),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          ),
+
         ],
       ),
     );
@@ -291,76 +144,85 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
     final overtime = shift.isOvertimeEnabled ? "On (> ${shift.overtimeThresholdHours}h)" : "Off";
     
     
-    return GlassContainer(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Card Header
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+    return InkWell(
+      onTap: () => ShiftDetailBottomSheet.show(context, shift: shift),
+      borderRadius: BorderRadius.circular(20),
+      child: GlassContainer(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Card Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: color, size: 20),
                 ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      type,
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey,
-                        letterSpacing: 0.5,
+                      const SizedBox(height: 2),
+                      Text(
+                        type,
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey,
+                          letterSpacing: 0.5,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              IconButton(
-                onPressed: () => _openShiftDialog(shift: shift), 
-                icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.grey)
-              ),
-              IconButton(
-                onPressed: () {
-                   if (shift.id != null) _showDeleteConfirm(shift.id!);
-                }, 
-                icon: const Icon(Icons.delete_outline, size: 18, color: Colors.grey)
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          const Divider(height: 1, thickness: 1, color: Colors.white10),
-          const SizedBox(height: 16),
-
-          // Details List
-          _buildDetailRow(context, 'Timing', timing, isBold: true),
-          const SizedBox(height: 12),
-          // _buildDetailRow(context, 'Duration', duration), // Duration omitted for simplicity or calculated
-          // const SizedBox(height: 16),
-          // const Divider(height: 1, thickness: 1, color: Colors.white10),
-          // const SizedBox(height: 16),
-          _buildDetailRow(context, 'Grace Period', gracePeriod, icon: Icons.warning_amber_rounded, iconColor: Colors.amber),
-          const SizedBox(height: 12),
-          _buildDetailRow(context, 'Overtime', overtime, icon: Icons.bolt, iconColor: const Color(0xFF5B60F6)),
-        ],
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.indigoAccent.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'View',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.indigoAccent,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            const Divider(height: 1, thickness: 1, color: Colors.white10),
+            const SizedBox(height: 16),
+  
+            // Details List
+            _buildDetailRow(context, 'Timing', timing, isBold: true),
+            const SizedBox(height: 12),
+            // _buildDetailRow(context, 'Duration', duration), // Duration omitted for simplicity or calculated
+            // const SizedBox(height: 16),
+            // const Divider(height: 1, thickness: 1, color: Colors.white10),
+            // const SizedBox(height: 16),
+            _buildDetailRow(context, 'Grace Period', gracePeriod, icon: Icons.warning_amber_rounded, iconColor: Colors.amber),
+            const SizedBox(height: 12),
+            _buildDetailRow(context, 'Overtime', overtime, icon: Icons.bolt, iconColor: const Color(0xFF5B60F6)),
+          ],
+        ),
       ),
     );
   }

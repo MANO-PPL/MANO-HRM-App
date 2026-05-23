@@ -118,93 +118,6 @@ class _MobileReportsContentState extends State<MobileReportsContent> with Single
         
         // Show success toast
         context.showToast("Report downloaded successfully!", isSuccess: true);
-        
-        // Show Success Popup
-        showDialog(
-          context: context,
-          builder: (context) => Dialog(
-            backgroundColor: Colors.transparent,
-            insetPadding: const EdgeInsets.all(24),
-            child: GlassContainer(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.check_circle, color: Colors.green, size: 32),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    "Download Successful",
-                    style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "File saved to:",
-                    style: GoogleFonts.poppins(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).brightness == Brightness.dark ? Colors.black26 : Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      path,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.poppins(fontSize: 11, color: Theme.of(context).textTheme.bodyMedium?.color),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: Text(
-                            "Close",
-                            style: GoogleFonts.poppins(
-                              color: Theme.of(context).brightness == Brightness.dark 
-                                  ? Colors.white70 
-                                  : Colors.grey[700],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            OpenFilex.open(path);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).brightness == Brightness.dark 
-                                ? const Color(0xFF6366F1) // Brighter Indigo
-                                : Theme.of(context).primaryColor,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          child: Text("Open File", style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Export Failed: $e")));
@@ -440,17 +353,32 @@ class _MobileReportsContentState extends State<MobileReportsContent> with Single
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      height: 48,
+      height: 52,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
-        borderRadius: BorderRadius.circular(12),
+        color: isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? const Color(0xFF30363D) : Colors.black.withOpacity(0.05),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: TabBar(
         controller: _tabController,
         indicator: BoxDecoration(
-          color: isDark ? const Color(0xFF30363D) : Colors.white,
-          borderRadius: BorderRadius.circular(10),
+          color: isDark ? const Color(0xFF2D3139) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+            width: 1,
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
@@ -459,28 +387,31 @@ class _MobileReportsContentState extends State<MobileReportsContent> with Single
             ),
           ],
         ),
-        labelColor: isDark ? const Color(0xFF818CF8) : const Color(0xFF4338CA),
-        unselectedLabelColor: Colors.grey[600],
+        labelColor: isDark ? Colors.white : const Color(0xFF4338CA),
+        unselectedLabelColor: isDark ? Colors.grey[500] : Colors.grey[600],
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
-        labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14),
+        labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13),
+        unselectedLabelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w500, fontSize: 13),
         tabs: const [
           Tab(
+            height: 42,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.visibility_outlined, size: 16),
-                SizedBox(width: 8),
+                Icon(Icons.table_chart_outlined, size: 16),
+                SizedBox(width: 6),
                 Text('Preview'),
               ],
             ),
           ), 
           Tab(
+            height: 42,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.history, size: 16),
-                SizedBox(width: 8),
+                SizedBox(width: 6),
                 Text('History'),
               ],
             ),

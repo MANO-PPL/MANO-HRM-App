@@ -130,251 +130,265 @@ class _AddShiftDialogState extends State<AddShiftDialog> {
 
     final isMobile = MediaQuery.of(context).size.width < 600;
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(16),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 450), // Matches screenshot width
-        child: Container(
-          decoration: BoxDecoration(
-            color: bgColor, 
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 20)],
-          ),
-          padding: EdgeInsets.all(isMobile ? 16 : 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                   Text(
-                    widget.existingShift == null ? 'Create New Shift' : 'Edit Shift',
-                    style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: textColor,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Icon(Icons.close, color: isDark ? Colors.grey : Colors.grey[600], size: 20),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: bgColor, 
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 20)],
+      ),
+      padding: EdgeInsets.only(
+        left: isMobile ? 16 : 24,
+        right: isMobile ? 16 : 24,
+        top: 12,
+        bottom: (isMobile ? 16 : 24) + bottomInset,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white24 : Colors.black12,
+                borderRadius: BorderRadius.circular(2),
               ),
-              SizedBox(height: isMobile ? 16 : 24),
-              Divider(height: 1, color: isDark ? Colors.white10 : Colors.grey[200]),
-              SizedBox(height: isMobile ? 16 : 24),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+               Text(
+                widget.existingShift == null ? 'Create New Shift' : 'Edit Shift',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: textColor,
+                ),
+              ),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: Icon(Icons.close, color: isDark ? Colors.grey : Colors.grey[600], size: 20),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 24),
+          Divider(height: 1, color: isDark ? Colors.white10 : Colors.grey[200]),
+          SizedBox(height: isMobile ? 16 : 24),
 
-              // Scrollable Content
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          // Scrollable Content
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Shift Name
+                  _buildLabel('Shift Name', labelColor),
+                  _buildTextField(
+                    controller: _nameCtrl, 
+                    hint: 'e.g. Morning Shift A', 
+                    fillColor: inputColor, 
+                    borderColor: borderColor,
+                    textColor: textColor,
+                    hintColor: hintColor,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Start / End Time
+                  Row(
                     children: [
-                      // Shift Name
-                      _buildLabel('Shift Name', labelColor),
-                      _buildTextField(
-                        controller: _nameCtrl, 
-                        hint: 'e.g. Morning Shift A', 
-                        fillColor: inputColor, 
-                        borderColor: borderColor,
-                        textColor: textColor,
-                        hintColor: hintColor,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Start / End Time
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildLabel('Start Time', labelColor),
-                                _buildTimeBox(context, _fmtTime(_startTime), () => _pickTime(true), inputColor, borderColor, textColor),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildLabel('End Time', labelColor),
-                                _buildTimeBox(context, _fmtTime(_endTime), () => _pickTime(false), inputColor, borderColor, textColor),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Grace Period
-                      _buildLabel('Grace Period (Minutes)', labelColor),
-                      _buildTextField(
-                        controller: _graceCtrl, 
-                        hint: '0', 
-                        suffix: 'mins',
-                        fillColor: inputColor, 
-                        borderColor: borderColor,
-                        textColor: textColor,
-                        hintColor: hintColor,
-                        isNumeric: true
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Time allowed after start time before marking as "Late".',
-                        style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[500]),
-                      ),
-                      SizedBox(height: isMobile ? 16 : 24),
-
-                      // Overtime Toggle
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Overtime Calculation',
-                                style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14, color: textColor),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Enable automatic OT tracking',
-                                style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[500]),
-                              ),
-                            ],
-                          ),
-                          Switch(
-                            value: _isOvertimeEnabled,
-                            onChanged: (v) => setState(() => _isOvertimeEnabled = v),
-                            activeTrackColor: const Color(0xFF6366F1), // Indigo
-                            activeColor: Colors.white,
-                            trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
-                            inactiveThumbColor: isDark ? Colors.grey[400] : Colors.white,
-                            inactiveTrackColor: isDark ? Colors.grey[700] : Colors.grey[300],
-                          ),
-                        ],
-                      ),
-                      
-                      // Min Hours for OT (Conditional)
-                      if (_isOvertimeEnabled) ...[
-                         const SizedBox(height: 12),
-                         _buildLabel('Minimum Hours for OT', labelColor),
-                         _buildTextField(
-                           controller: _otThresholdCtrl, 
-                           hint: '8', 
-                           suffix: 'Hr',
-                           fillColor: inputColor, 
-                           borderColor: borderColor,
-                           textColor: textColor,
-                           isNumeric: true
-                         ),
-                      ],
-                      SizedBox(height: isMobile ? 16 : 24),
-
-                      // Attendance Validation Section
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: borderColor),
-                          borderRadius: BorderRadius.circular(12),
-                          color: inputColor, // Use solid input color for box
-                        ),
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Icon(Icons.location_on_outlined, size: 16, color: isDark ? Colors.indigo[200] : const Color(0xFF6366F1)),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Attendance Validation',
-                                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14, color: textColor),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('CHECK-IN', style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[500])),
-                                      const SizedBox(height: 8),
-                                      _buildCheckbox('GPS Required', _checkInGps, (v) => setState(() => _checkInGps = v!), textColor, isDark),
-                                      const SizedBox(height: 8),
-                                      _buildCheckbox('Selfie Required', _checkInSelfie, (v) => setState(() => _checkInSelfie = v!), textColor, isDark),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('CHECK-OUT', style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[500])),
-                                      const SizedBox(height: 8),
-                                      _buildCheckbox('GPS Required', _checkOutGps, (v) => setState(() => _checkOutGps = v!), textColor, isDark),
-                                      const SizedBox(height: 8),
-                                      _buildCheckbox('Selfie Required', _checkOutSelfie, (v) => setState(() => _checkOutSelfie = v!), textColor, isDark),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            )
+                            _buildLabel('Start Time', labelColor),
+                            _buildTimeBox(context, _fmtTime(_startTime), () => _pickTime(true), inputColor, borderColor, textColor),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildLabel('End Time', labelColor),
+                            _buildTimeBox(context, _fmtTime(_endTime), () => _pickTime(false), inputColor, borderColor, textColor),
                           ],
                         ),
                       ),
                     ],
                   ),
-                ),
-              ),
-              SizedBox(height: isMobile ? 16 : 24),
+                  const SizedBox(height: 16),
 
-              // Actions
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isDark ? const Color(0xFF374151) : Colors.grey[200],
-                        foregroundColor: isDark ? Colors.white : Colors.black87,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      child: Text('Cancel', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-                    ),
+                  // Grace Period
+                  _buildLabel('Grace Period (Minutes)', labelColor),
+                  _buildTextField(
+                    controller: _graceCtrl, 
+                    hint: '0', 
+                    suffix: 'mins',
+                    fillColor: inputColor, 
+                    borderColor: borderColor,
+                    textColor: textColor,
+                    hintColor: hintColor,
+                    isNumeric: true
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6366F1), // Indigo button
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Time allowed after start time before marking as "Late".',
+                    style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[500]),
+                  ),
+                  SizedBox(height: isMobile ? 16 : 24),
+
+                  // Overtime Toggle
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Overtime Calculation',
+                            style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14, color: textColor),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Enable automatic OT tracking',
+                            style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[500]),
+                          ),
+                        ],
                       ),
-                      child: Text('Save Shift', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                      Switch(
+                        value: _isOvertimeEnabled,
+                        onChanged: (v) => setState(() => _isOvertimeEnabled = v),
+                        activeTrackColor: const Color(0xFF6366F1), // Indigo
+                        activeColor: Colors.white,
+                        trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
+                        inactiveThumbColor: isDark ? Colors.grey[400] : Colors.white,
+                        inactiveTrackColor: isDark ? Colors.grey[700] : Colors.grey[300],
+                      ),
+                    ],
+                  ),
+                  
+                  // Min Hours for OT (Conditional)
+                  if (_isOvertimeEnabled) ...[
+                     const SizedBox(height: 12),
+                     _buildLabel('Minimum Hours for OT', labelColor),
+                     _buildTextField(
+                       controller: _otThresholdCtrl, 
+                       hint: '8', 
+                       suffix: 'Hr',
+                       fillColor: inputColor, 
+                       borderColor: borderColor,
+                       textColor: textColor,
+                       isNumeric: true
+                     ),
+                  ],
+                  SizedBox(height: isMobile ? 16 : 24),
+
+                  // Attendance Validation Section
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: borderColor),
+                      borderRadius: BorderRadius.circular(12),
+                      color: inputColor, // Use solid input color for box
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.location_on_outlined, size: 16, color: isDark ? Colors.indigo[200] : const Color(0xFF6366F1)),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Attendance Validation',
+                              style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14, color: textColor),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('CHECK-IN', style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[500])),
+                                  const SizedBox(height: 8),
+                                  _buildCheckbox('GPS Required', _checkInGps, (v) => setState(() => _checkInGps = v!), textColor, isDark),
+                                  const SizedBox(height: 8),
+                                  _buildCheckbox('Selfie Required', _checkInSelfie, (v) => setState(() => _checkInSelfie = v!), textColor, isDark),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('CHECK-OUT', style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[500])),
+                                  const SizedBox(height: 8),
+                                  _buildCheckbox('GPS Required', _checkOutGps, (v) => setState(() => _checkOutGps = v!), textColor, isDark),
+                                  const SizedBox(height: 8),
+                                  _buildCheckbox('Selfie Required', _checkOutSelfie, (v) => setState(() => _checkOutSelfie = v!), textColor, isDark),
+                                ],
+                              ),
+                            ),
+                          ],
+                        )
+                      ],
                     ),
                   ),
                 ],
               ),
+            ),
+          ),
+          SizedBox(height: isMobile ? 16 : 24),
+
+          // Actions
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDark ? const Color(0xFF374151) : Colors.grey[200],
+                    foregroundColor: isDark ? Colors.white : Colors.black87,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: Text('Cancel', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6366F1), // Indigo button
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: Text('Save Shift', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                ),
+              ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }

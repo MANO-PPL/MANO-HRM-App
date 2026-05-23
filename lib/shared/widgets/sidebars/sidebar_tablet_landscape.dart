@@ -40,7 +40,8 @@ class _SidebarContent extends StatelessWidget {
             children: [
               // Fixed Sidebar Header (Aligned with AppBar)
               Container(
-                height: 60,
+                height: 55,
+                margin: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
@@ -58,7 +59,7 @@ class _SidebarContent extends StatelessWidget {
                      // Logo Icon (Using similar style to provided image if possible, or keeping existing)
                      Image.asset(
                        'assets/mano.png', 
-                       height: 48,
+                       height: 40,
                        errorBuilder: (context, error, stackTrace) => Container(
                          padding: const EdgeInsets.all(8),
                          decoration: BoxDecoration(color: const Color(0xFF5B60F6).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
@@ -69,7 +70,7 @@ class _SidebarContent extends StatelessWidget {
                      Text(
                        'MANO',
                        style: GoogleFonts.poppins(
-                         fontSize: 24,
+                         fontSize: 22,
                          fontWeight: FontWeight.bold,
                          color: const Color(0xFF5B60F6), // Match Brand Color
                          letterSpacing: 1.0,
@@ -82,7 +83,7 @@ class _SidebarContent extends StatelessWidget {
               // Scrollable Menu Items
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Column(
                     children: [
                       ...PageType.values.where((p) {
