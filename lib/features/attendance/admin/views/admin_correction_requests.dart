@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../shared/services/auth_service.dart';
+import '../../../../shared/constants/api_constants.dart';
 import '../../models/correction_request.dart';
 import '../../services/attendance_service.dart';
 import '../../providers/attendance_provider.dart';
@@ -362,14 +363,19 @@ class _AdminCorrectionRequestsState extends State<AdminCorrectionRequests> {
 
   Widget _buildAvatar(AttendanceCorrectionRequest req, bool isDark) {
     final primary = isDark ? const Color(0xFF5B60F6) : const Color(0xFF4F46E5);
+    String? avatarUrl = req.userAvatar;
+    if (avatarUrl != null && avatarUrl.isNotEmpty && !avatarUrl.startsWith('http')) {
+      avatarUrl = avatarUrl.startsWith('/') ? '${ApiConstants.baseUrl}$avatarUrl' : '${ApiConstants.baseUrl}/$avatarUrl';
+    }
+
     return CircleAvatar(
       radius: 22,
       backgroundColor: primary.withOpacity(0.12),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(22),
-        child: req.userAvatar != null && req.userAvatar!.isNotEmpty
+        child: avatarUrl != null && avatarUrl.isNotEmpty
             ? CachedNetworkImage(
-                imageUrl: req.userAvatar!,
+                imageUrl: avatarUrl,
                 fit: BoxFit.cover,
                 width: 44,
                 height: 44,

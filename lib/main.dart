@@ -10,7 +10,7 @@ import 'shared/widgets/orientation_guard.dart';
 import 'shared/services/auth_service.dart';
 
 import 'shared/services/notification_service.dart';
-import 'shared/services/dashboard_provider.dart'; 
+import 'shared/services/dashboard_provider.dart';
 import 'features/attendance/providers/attendance_provider.dart';
 import 'features/leave/providers/leave_provider.dart';
 import 'features/leave/services/leave_service.dart'; // Import LeaveService
@@ -18,13 +18,15 @@ import 'shared/services/permission_service.dart'; // Import PermissionService
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Configure Edge-to-Edge
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    systemNavigationBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.dark,
-  ));
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+    ),
+  );
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
   // Load environment variables
@@ -38,25 +40,30 @@ void main() async {
   await authService.init();
 
   final notificationService = NotificationService(authService);
-  // Optional: Start fetching notifications immediately if auth is ready, 
+  // Optional: Start fetching notifications immediately if auth is ready,
   // but usually better to wait for auth check in AuthWrapper.
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider<AuthService>.value(value: authService),
-        ChangeNotifierProvider<NotificationService>.value(value: notificationService),
-        ChangeNotifierProvider<DashboardProvider>(create: (_) => DashboardProvider(authService)),
+        ChangeNotifierProvider<NotificationService>.value(
+          value: notificationService,
+        ),
+        ChangeNotifierProvider<DashboardProvider>(
+          create: (_) => DashboardProvider(authService),
+        ),
         ChangeNotifierProxyProvider<AuthService, AttendanceProvider>(
           create: (context) => AttendanceProvider(context.read<AuthService>()),
-          update: (context, auth, previous) => previous ?? AttendanceProvider(auth),
+          update: (context, auth, previous) =>
+              previous ?? AttendanceProvider(auth),
         ),
         ChangeNotifierProxyProvider<AuthService, LeaveProvider>(
           create: (context) => LeaveProvider(context.read<AuthService>()),
           update: (context, auth, previous) => previous ?? LeaveProvider(auth),
         ),
         ProxyProvider<AuthService, LeaveService>(
-          update: (_, auth, __) => LeaveService(auth.dio),
+          update: (_, auth, _) => LeaveService(auth.dio),
         ),
         Provider<PermissionService>.value(value: permissionService),
       ],
@@ -67,7 +74,6 @@ void main() async {
 
 class AttendanceApp extends StatelessWidget {
   const AttendanceApp({super.key});
-
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +87,7 @@ class AttendanceApp extends StatelessWidget {
           darkTheme: _buildTheme(Brightness.dark),
           themeMode: currentMode,
           // Check for existing session or show login
-          home: const AuthWrapper(), 
+          home: const AuthWrapper(),
         );
       },
     );
@@ -101,7 +107,9 @@ class AttendanceApp extends StatelessWidget {
         onSurface: isDark ? const Color(0xFFE6EDF3) : const Color(0xFF0D1117),
         secondary: isDark ? const Color(0xFF8D96A0) : const Color(0xFF64748B),
       ),
-      scaffoldBackgroundColor: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
+      scaffoldBackgroundColor: isDark
+          ? const Color(0xFF0D1117)
+          : const Color(0xFFF8FAFC),
       fontFamily: GoogleFonts.poppins().fontFamily,
       cardColor: isDark ? const Color(0xFF161B22) : const Color(0xFFFFFFFF),
       cardTheme: CardThemeData(
@@ -116,16 +124,23 @@ class AttendanceApp extends StatelessWidget {
         ),
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: isDark ? const Color(0xFF0D1117) : const Color(0xFFFFFFFF),
+        backgroundColor: isDark
+            ? const Color(0xFF0D1117)
+            : const Color(0xFFFFFFFF),
         surfaceTintColor: Colors.transparent,
       ),
       dividerColor: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
-      textTheme: GoogleFonts.poppinsTextTheme(
-        isDark ? ThemeData.dark().textTheme : ThemeData.light().textTheme
-      ).apply(
-        bodyColor: isDark ? const Color(0xFFE6EDF3) : const Color(0xFF0D1117),
-        displayColor: isDark ? const Color(0xFFE6EDF3) : const Color(0xFF0D1117),
-      ),
+      textTheme:
+          GoogleFonts.poppinsTextTheme(
+            isDark ? ThemeData.dark().textTheme : ThemeData.light().textTheme,
+          ).apply(
+            bodyColor: isDark
+                ? const Color(0xFFE6EDF3)
+                : const Color(0xFF0D1117),
+            displayColor: isDark
+                ? const Color(0xFFE6EDF3)
+                : const Color(0xFF0D1117),
+          ),
     );
   }
 }
@@ -148,14 +163,18 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   Future<void> _checkAuth() async {
     final authService = Provider.of<AuthService>(context, listen: false);
+
     // Check auth status (Refresh -> Get User)
     await authService.checkAuthStatus();
-    
+
     // If authenticated, fetch notifications
     if (authService.isAuthenticated && mounted) {
-      Provider.of<NotificationService>(context, listen: false).fetchNotifications();
+      Provider.of<NotificationService>(
+        context,
+        listen: false,
+      ).fetchNotifications();
     }
-    
+
     if (mounted) {
       setState(() {
         _isLoading = false;
@@ -166,11 +185,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     // Watch for auth changes

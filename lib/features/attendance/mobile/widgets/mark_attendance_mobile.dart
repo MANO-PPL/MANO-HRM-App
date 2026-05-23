@@ -49,17 +49,29 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
   Future<Position?> _getCurrentLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Location services are disabled.")));
+      if (mounted) {
+        context.showToast("Location services are disabled.", isWarning: true);
+      }
       return null;
     }
 
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) return null;
+      if (permission == LocationPermission.denied) {
+        if (mounted) {
+          context.showToast("Location permission denied.", isWarning: true);
+        }
+        return null;
+      }
     }
     
-    if (permission == LocationPermission.deniedForever) return null;
+    if (permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        context.showToast("Location permission permanently denied.", isWarning: true);
+      }
+      return null;
+    }
 
     return await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
   }
@@ -125,7 +137,7 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
         } else {
            if (mounted) {
              Navigator.pop(context); // Pop Loading
-             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed: $e"), backgroundColor: Colors.red));
+             context.showToast("Failed: $e", isError: true);
            }
            return;
         }
@@ -161,13 +173,15 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
         } catch (e) {
           if (mounted) {
             Navigator.pop(context); // Pop Loading
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed with reason: $e"), backgroundColor: Colors.red));
+            context.showToast("Failed with reason: $e", isError: true);
           }
         }
       }
 
     } catch (e) {
-       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Camera/Location Error: $e")));
+       if (mounted) {
+         context.showToast("Camera/Location Error: $e", isError: true);
+       }
     }
   }
 

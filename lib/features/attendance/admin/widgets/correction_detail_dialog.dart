@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../shared/services/auth_service.dart';
+import '../../../../shared/constants/api_constants.dart';
 import '../../models/correction_request.dart';
 import '../../services/attendance_service.dart';
 import '../../widgets/correction_ui_components.dart';
@@ -176,6 +177,10 @@ class _CorrectionDetailDialogState extends State<CorrectionDetailDialog> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final req = _fullRequest ?? widget.request;
+    String? avatarUrl = req.userAvatar;
+    if (avatarUrl != null && avatarUrl.isNotEmpty && !avatarUrl.startsWith('http')) {
+      avatarUrl = avatarUrl.startsWith('/') ? '${ApiConstants.baseUrl}$avatarUrl' : '${ApiConstants.baseUrl}/$avatarUrl';
+    }
     final authService = Provider.of<AuthService>(context, listen: false);
     final isOwnRequest = req.userId == authService.user?.id;
     final isAdmin = (authService.user?.isAdmin ?? false) && !isOwnRequest;
@@ -238,9 +243,9 @@ class _CorrectionDetailDialogState extends State<CorrectionDetailDialog> {
                                           backgroundColor: isDark ? const Color(0xFF5B60F6) : Theme.of(context).primaryColor.withValues(alpha: 0.1),
                                           child: ClipRRect(
                                             borderRadius: BorderRadius.circular(12),
-                                            child: req.userAvatar != null && req.userAvatar!.isNotEmpty
+                                            child: avatarUrl != null && avatarUrl.isNotEmpty
                                                 ? CachedNetworkImage(
-                                                    imageUrl: req.userAvatar!,
+                                                    imageUrl: avatarUrl,
                                                     fit: BoxFit.cover,
                                                     width: 24,
                                                     height: 24,

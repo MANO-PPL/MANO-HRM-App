@@ -513,7 +513,7 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> {
       // Tablet Portrait Layout
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(32, 24, 32, 48),
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -663,15 +663,15 @@ class AttendanceTabBar extends StatelessWidget {
     final child = Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+        color: isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.05),
+          color: isDark ? const Color(0xFF30363D) : Colors.black.withValues(alpha: 0.05),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -680,24 +680,24 @@ class AttendanceTabBar extends StatelessWidget {
       child: TabBar(
         indicatorSize: TabBarIndicatorSize.tab,
         indicator: BoxDecoration(
-          color: isDark ? const Color(0xFF0F172A) : Colors.white,
+          color: isDark ? const Color(0xFF2D3139) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+            color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
             width: 1,
           ),
           boxShadow: isDark
               ? []
               : [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
+                    color: Colors.black.withValues(alpha: 0.04),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
                 ],
         ),
         dividerColor: Colors.transparent,
-        labelColor: isDark ? const Color(0xFF818CF8) : const Color(0xFF4F46E5),
+        labelColor: isDark ? Colors.white : const Color(0xFF4F46E5),
         unselectedLabelColor: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
         labelStyle: GoogleFonts.poppins(
           fontSize: 14,

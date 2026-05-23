@@ -55,7 +55,9 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
   Future<Position?> _getCurrentLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Location services are disabled.")));
+      if (mounted) {
+        context.showToast("Location services are disabled.", isWarning: true);
+      }
       return null;
     }
 
@@ -63,13 +65,17 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Location permission denied.")));
+        if (mounted) {
+          context.showToast("Location permission denied.", isWarning: true);
+        }
         return null;
       }
     }
     
     if (permission == LocationPermission.deniedForever) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Location permission permanently denied.")));
+      if (mounted) {
+        context.showToast("Location permission permanently denied.", isWarning: true);
+      }
       return null;
     }
 
@@ -93,11 +99,10 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
              message: "Camera access is needed to mark attendance. Please enable it in settings.",
              positiveButtonText: "Open Settings",
              onPositivePressed: () {
-               Navigator.pop(context); // Close dialog
                openAppSettings();
              },
              negativeButtonText: "Cancel",
-             onNegativePressed: () => Navigator.pop(context),
+             onNegativePressed: () {},
              icon: Icons.camera_alt_outlined,
            );
         }
@@ -193,11 +198,13 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
       } catch (e) {
         if (mounted) {
           Navigator.pop(context); // Close loading
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed: $e"), backgroundColor: Colors.red));
+          context.showToast("Failed: $e", isError: true);
         }
       }
     } catch (e) {
-       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Camera Error: $e")));
+       if (mounted) {
+         context.showToast("Camera Error: $e", isError: true);
+       }
     }
   }
 
