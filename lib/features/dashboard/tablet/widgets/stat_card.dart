@@ -67,35 +67,36 @@ class StatCard extends StatelessWidget {
           ),
           
           // Value
-          Expanded( // Use expanded to fill available space without fixed constraint issues
-             child: Column( // Wrapper to center nicely if needed, or just align
-               crossAxisAlignment: CrossAxisAlignment.start,
-               mainAxisAlignment: MainAxisAlignment.center,
-               children: [
-                 Row(
-                   crossAxisAlignment: CrossAxisAlignment.baseline,
-                   textBaseline: TextBaseline.alphabetic,
-                   children: [
-                     Text(
-                       value,
-                       style: GoogleFonts.poppins(
-                         fontSize: 24, // Reduced from 28
-                         fontWeight: FontWeight.bold,
-                         color: textColor,
-                       ),
-                     ),
-                     const SizedBox(width: 4),
-                     Text(
-                       total,
-                       style: GoogleFonts.poppins(
-                         fontSize: 12, // Reduced from 13
-                         color: subTextColor,
-                       ),
-                     ),
-                   ],
-                 ),
-               ],
-             ),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      value,
+                      style: GoogleFonts.poppins(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      total,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: subTextColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
 
           // Footer (Trends)

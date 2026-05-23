@@ -13,6 +13,7 @@ import '../../../policy_engine/tablet/views/policy_engine_view.dart';
 import '../../../profile/tablet/views/profile_view.dart';
 import '../../../feedback/tablet/views/landscape.dart';
 import '../../../daily_activity/daily_activity_screen.dart';
+import '../../../geo_fencing/tablet/views/geo_fencing_view.dart';
 
 class TabletLandscape extends StatelessWidget {
   const TabletLandscape({super.key});
@@ -70,11 +71,9 @@ class TabletLandscape extends StatelessWidget {
                         return const ProfileView();
                       case PageType.dailyActivity:
                         return const DailyActivityScreen();
+                      case PageType.geoFencing:
+                        return const GeoFencingView();
                       default:
-                        // GeoFencing check might be needed if mobile-only
-                         if (currentPage == PageType.geoFencing) {
-                            return const Center(child: Text("Geo-Fencing available in Mobile App"));
-                         }
                         return Center(child: Text('Page: ${currentPage.title}'));
                     }
                   }

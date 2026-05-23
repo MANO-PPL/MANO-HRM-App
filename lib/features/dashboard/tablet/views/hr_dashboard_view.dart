@@ -62,7 +62,7 @@ class _HrDashboardViewState extends State<HrDashboardView> {
             final isLandscape = constraints.maxWidth >= 900;
 
             return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(32, 4, 32, 32),
+              padding: EdgeInsets.fromLTRB(24, isLandscape ? 24 : 4, 24, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

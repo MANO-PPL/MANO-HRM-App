@@ -12,6 +12,7 @@ import '../../../policy_engine/tablet/views/policy_engine_view.dart';
 import '../../../profile/tablet/views/profile_view.dart';
 import '../../../feedback/tablet/views/portrait.dart';
 import '../../../daily_activity/daily_activity_screen.dart'; // ADDED
+import '../../../geo_fencing/tablet/views/geo_fencing_view.dart';
 
 class TabletPortrait extends StatelessWidget {
   const TabletPortrait({super.key});
@@ -73,32 +74,7 @@ class TabletPortrait extends StatelessWidget {
                         case PageType.dailyActivity:
                            return const DailyActivityScreen(); // ADDED
                         case PageType.geoFencing:
-                           return Center(
-                             child: Column(
-                               mainAxisAlignment: MainAxisAlignment.center,
-                               children: [
-                                 Icon(Icons.screen_rotation, size: 64, color: Colors.grey[400]),
-                                 const SizedBox(height: 24),
-                                 Text(
-                                   'Please rotate your device',
-                                   style: TextStyle(
-                                     fontSize: 20,
-                                     fontWeight: FontWeight.w600,
-                                     color: isDark ? Colors.white : Colors.black87,
-                                   ),
-                                 ),
-                                 const SizedBox(height: 8),
-                                 Text(
-                                   'Geo-Fencing features require landscape mode',
-                                   style: TextStyle(
-                                     fontSize: 14,
-                                     color: Colors.grey[500],
-                                   ),
-                                   textAlign: TextAlign.center,
-                                 ),
-                               ],
-                             ),
-                           );
+                           return const GeoFencingView();
                         case PageType.feedback:
                            return const FeedbackTabletPortrait();
                         case PageType.profile:
