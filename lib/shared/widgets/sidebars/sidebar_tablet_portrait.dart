@@ -46,9 +46,10 @@ class _SidebarContent extends StatelessWidget {
             children: [
                // Sidebar Header
               Container(
-                height: 80,
+                height: 55,
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 alignment: Alignment.centerLeft,
+                margin: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
@@ -62,14 +63,14 @@ class _SidebarContent extends StatelessWidget {
                   children: [
                     Image.asset(
                       'assets/mano.png',
-                      height: 48,
+                      height: 40,
                       errorBuilder: (context, error, stackTrace) => Icon(Icons.change_history, color: Theme.of(context).primaryColor, size: 28),
                     ),
                     const SizedBox(width: 12),
                     Text(
                       'MANO',
                       style: GoogleFonts.poppins(
-                        fontSize: 24,
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
                         color: Theme.of(context).brightness == Brightness.dark 
                             ? Colors.white 
@@ -82,7 +83,7 @@ class _SidebarContent extends StatelessWidget {
               
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Column(
                     children: [
                       // Menu Items

@@ -7,17 +7,37 @@ import '../../../../main.dart';
 import '../../../../shared/widgets/glass_container.dart';
 import '../../../../shared/widgets/toast_helper.dart';
 
-class ProfileView extends StatelessWidget {
+import '../../widgets/profile_avatar.dart';
+import '../../../../shared/models/user_model.dart';
+import '../../../../shared/widgets/custom_dialog.dart';
+
+class ProfileView extends StatefulWidget {
   const ProfileView({super.key});
 
   @override
+  State<ProfileView> createState() => _ProfileViewState();
+}
+
+class _ProfileViewState extends State<ProfileView> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<AuthService>(context, listen: false).fetchUserProfile();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context);
+    final user = authService.user;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Column(
         children: [
           // Hero Profile Card
-          _buildHeroCard(context),
+          _buildHeroCard(context, user),
           const SizedBox(height: 24),
 
           // Details Row
@@ -30,9 +50,9 @@ class ProfileView extends StatelessWidget {
                if (isPortrait) {
                  return Column(
                    children: [
-                     _buildContactInfoCard(context),
+                     _buildContactInfoCard(context, user),
                      const SizedBox(height: 24),
-                     _buildEmploymentDetailsCard(context),
+                     _buildEmploymentDetailsCard(context, user),
                    ],
                  );
                }
@@ -40,9 +60,9 @@ class ProfileView extends StatelessWidget {
                return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: _buildContactInfoCard(context)),
+                  Expanded(child: _buildContactInfoCard(context, user)),
                   const SizedBox(width: 24),
-                  Expanded(child: _buildEmploymentDetailsCard(context)),
+                  Expanded(child: _buildEmploymentDetailsCard(context, user)),
                 ],
               );
             },
@@ -54,29 +74,22 @@ class ProfileView extends StatelessWidget {
     );
   }
 
-  Widget _buildHeroCard(BuildContext context) {
+  Widget _buildHeroCard(BuildContext context, User? user) {
+    final displayName = user?.name ?? 'User';
+    final rawRole = user?.role ?? 'employee';
+    final displayRole = rawRole.isNotEmpty 
+        ? '${rawRole[0].toUpperCase()}${rawRole.substring(1)}'
+        : 'Employee';
+
     return GlassContainer(
       padding: const EdgeInsets.all(40),
       child: Row(
         children: [
           // Avatar
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              color: const Color(0xFF5B60F6).withOpacity(0.2),
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF5B60F6).withOpacity(0.3), width: 2),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              'M',
-              style: GoogleFonts.poppins(
-                fontSize: 48,
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF5B60F6),
-              ),
-            ),
+          ProfileAvatar(
+            size: 100,
+            user: user,
+            canEdit: true,
           ),
           const SizedBox(width: 32),
 
@@ -86,7 +99,7 @@ class ProfileView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Mano Admin',
+                  displayName,
                   style: GoogleFonts.poppins(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
@@ -109,7 +122,7 @@ class ProfileView extends StatelessWidget {
                       const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF5B60F6)),
                       const SizedBox(width: 8),
                       Text(
-                        'Admin',
+                        displayRole,
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -127,7 +140,7 @@ class ProfileView extends StatelessWidget {
     );
   }
 
-  Widget _buildContactInfoCard(BuildContext context) {
+  Widget _buildContactInfoCard(BuildContext context, User? user) {
     return GlassContainer(
       padding: const EdgeInsets.all(32),
       child: Column(
@@ -151,7 +164,7 @@ class ProfileView extends StatelessWidget {
                   context,
                   icon: Icons.email_outlined,
                   label: 'Email Address',
-                  value: 'admin@demo.com',
+                  value: user?.email ?? 'Not Available',
                   valueFontSize: 12,
                 ),
               ),
@@ -161,7 +174,7 @@ class ProfileView extends StatelessWidget {
                   context,
                   icon: Icons.phone_outlined,
                   label: 'Phone Number',
-                  value: '+91 98765 43210',
+                  value: user?.phone ?? 'Not Set',
                 ),
               ),
             ],
@@ -171,7 +184,7 @@ class ProfileView extends StatelessWidget {
     );
   }
 
-  Widget _buildEmploymentDetailsCard(BuildContext context) {
+  Widget _buildEmploymentDetailsCard(BuildContext context, User? user) {
     return GlassContainer(
       padding: const EdgeInsets.all(32),
       child: Column(
@@ -195,7 +208,7 @@ class ProfileView extends StatelessWidget {
                   context,
                   icon: Icons.business_outlined,
                   label: 'Department',
-                  value: 'Management',
+                  value: user?.department ?? 'Not Set',
                 ),
               ),
               const SizedBox(width: 24),
@@ -204,7 +217,7 @@ class ProfileView extends StatelessWidget {
                   context,
                   icon: Icons.badge_outlined,
                   label: 'Employee ID',
-                  value: 'MS-001',
+                  value: user?.employeeId ?? 'Not Set',
                 ),
               ),
             ],
@@ -263,9 +276,16 @@ class ProfileView extends StatelessWidget {
   Widget _buildLogoutCard(BuildContext context) {
     return GestureDetector(
       onTap: () async {
-        final authService = Provider.of<AuthService>(context, listen: false);
-        await authService.logout();
-        
+        CustomDialog.show(
+          context: context,
+          title: "Log Out",
+          message: "Are you sure you want to log out?",
+          positiveButtonText: "Log Out",
+          isDestructive: true,
+          onPositivePressed: () async {
+            final authService = Provider.of<AuthService>(context, listen: false);
+            await authService.logout();
+            
             if (context.mounted) {
                // Reset internal navigation state
                navigationNotifier.value = PageType.dashboard;
@@ -277,6 +297,10 @@ class ProfileView extends StatelessWidget {
                 (route) => false,
               );
             }
+          },
+          negativeButtonText: "Cancel",
+          onNegativePressed: () {},
+        );
       },
       child: GlassContainer(
         width: double.infinity,

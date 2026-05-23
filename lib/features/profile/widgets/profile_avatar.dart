@@ -9,6 +9,7 @@ import '../../../../shared/services/auth_service.dart';
 import '../../../../shared/models/user_model.dart';
 import '../../../../shared/constants/api_constants.dart';
 import '../../../../shared/widgets/custom_dialog.dart';
+import '../../../../shared/widgets/toast_helper.dart';
 
 class ProfileAvatar extends StatefulWidget {
   final double size;
@@ -45,13 +46,7 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
       final int sizeInBytes = await image.length();
       if (sizeInBytes > 5 * 1024 * 1024) {
          if (mounted) {
-            CustomDialog.show(
-              context: context,
-              title: "File Too Large",
-              message: "The selected image is larger than 5MB. Please choose a smaller image.",
-              positiveButtonText: "OK",
-              onPositivePressed: () => Navigator.pop(context),
-            );
+            context.showToast("The selected image is larger than 5MB. Please choose a smaller image.", isError: true);
          }
          return;
       }
@@ -73,24 +68,11 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
            await CachedNetworkImageProvider(url).evict();
         }
 
-        CustomDialog.show(
-          context: context,
-          title: "Success",
-          message: "Profile picture updated successfully!",
-          positiveButtonText: "OK",
-          onPositivePressed: () => Navigator.pop(context),
-        );
+        context.showToast("Profile picture updated successfully!", isSuccess: true);
       }
     } catch (e) {
       if (mounted) {
-         CustomDialog.show(
-              context: context,
-              title: "Update Failed",
-              message: "Could not update profile picture. Please try again.\n\nError: $e",
-              positiveButtonText: "OK",
-              onPositivePressed: () => Navigator.pop(context),
-              isDestructive: true,
-         );
+         context.showToast("Could not update profile picture. Please try again.\nError: $e", isError: true);
       }
     } finally {
       if (mounted) {
@@ -170,11 +152,10 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
       positiveButtonText: "Remove",
       isDestructive: true,
       onPositivePressed: () {
-         Navigator.pop(context); // Close dialog
          _removeImage();
       },
       negativeButtonText: "Cancel",
-      onNegativePressed: () => Navigator.pop(context),
+      onNegativePressed: () {},
     );
   }
 
@@ -200,24 +181,11 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
              await CachedNetworkImageProvider(url).evict();
           }
 
-          CustomDialog.show(
-            context: context,
-            title: "Success",
-            message: "Profile photo removed successfully!",
-            positiveButtonText: "OK",
-            onPositivePressed: () => Navigator.pop(context),
-          );
+          context.showToast("Profile photo removed successfully!", isSuccess: true);
         }
       } catch (e) {
         if (mounted) {
-           CustomDialog.show(
-                context: context,
-                title: "Remove Failed",
-                message: "Could not remove profile photo. Please try again.\n\nError: $e",
-                positiveButtonText: "OK",
-                onPositivePressed: () => Navigator.pop(context),
-                isDestructive: true,
-           );
+           context.showToast("Could not remove profile photo. Please try again.\nError: $e", isError: true);
         }
       } finally {
         if (mounted) setState(() => _isUploading = false);

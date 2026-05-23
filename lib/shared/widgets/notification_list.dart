@@ -15,16 +15,114 @@ class NotificationList extends StatefulWidget {
 }
 
 class _NotificationListState extends State<NotificationList> {
+  String _activeTab = 'Unread';
+
   @override
   void initState() {
     super.initState();
-    // Fetch notifications when opened
-    // Fetch notifications when opened
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         Provider.of<NotificationService>(context, listen: false).fetchNotifications();
       }
     });
+  }
+
+  Widget _buildSwitcher(BuildContext context, NotificationService service) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final containerBg = isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9);
+    final activeBg = isDark ? const Color(0xFF2D3139) : Colors.white;
+    final activeColor = isDark ? Colors.white : const Color(0xFF4F46E5);
+    final inactiveColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: containerBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? const Color(0xFF30363D) : Colors.black.withValues(alpha: 0.05),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: ['Unread', 'Read'].map((tab) {
+          final isSelected = _activeTab == tab;
+          final hasBadge = tab == 'Unread' && service.unreadCount > 0;
+
+          return Expanded(
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  _activeTab = tab;
+                });
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                decoration: BoxDecoration(
+                  color: isSelected ? activeBg : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isSelected
+                        ? (isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0))
+                        : Colors.transparent,
+                    width: 1,
+                  ),
+                  boxShadow: isSelected && !isDark
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : [],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      tab == 'Unread' ? Icons.mail_outline_rounded : Icons.mark_email_read_outlined,
+                      size: 14,
+                      color: isSelected ? activeColor : inactiveColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      tab,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                        color: isSelected ? activeColor : inactiveColor,
+                      ),
+                    ),
+                    if (hasBadge) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${service.unreadCount}',
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
   }
 
   @override
@@ -33,61 +131,116 @@ class _NotificationListState extends State<NotificationList> {
       builder: (context, service, child) {
         final notifications = service.notifications;
         final isLoading = service.isLoading;
-        
-        final content = Column(
-            children: [
-              // Header (Only show if not on separate mobile page)
-              if (!widget.isMobilePage) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Notifications',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).textTheme.bodyLarge?.color,
-                        ),
+
+        final filteredNotifications = notifications.where((n) {
+          if (_activeTab == 'Unread') {
+            return !n.isRead;
+          } else {
+            return n.isRead;
+          }
+        }).toList();
+
+        final showMarkAllRead = _activeTab == 'Unread' && service.unreadCount > 0;
+
+        final header = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!widget.isMobilePage) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Notifications',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
                       ),
-                      if (notifications.isNotEmpty)
-                        TextButton(
-                          onPressed: () => service.markAllAsRead(),
-                          child: Text('Mark all read', style: GoogleFonts.poppins(fontSize: 12)),
-                        ),
-                    ],
-                  ),
+                    ),
+                    if (showMarkAllRead)
+                      TextButton(
+                        onPressed: () => service.markAllAsRead(),
+                        child: Text('Mark all read', style: GoogleFonts.poppins(fontSize: 12)),
+                      ),
+                  ],
                 ),
-                const Divider(),
-              ],
-              
-              // List
-              Expanded(
-                child: isLoading 
-                  ? const Center(child: CircularProgressIndicator())
-                  : notifications.isEmpty 
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.notifications_off_outlined, size: 48, color: Colors.grey[400]),
-                              const SizedBox(height: 16),
-                              Text('No notifications', style: GoogleFonts.poppins(color: Colors.grey)),
-                            ],
-                          ),
-                        )
-                      : ListView.separated(
-                          padding: EdgeInsets.zero,
-                          itemCount: notifications.length,
-                          separatorBuilder: (c, i) => const Divider(height: 1),
-                          itemBuilder: (context, index) {
-                            return _buildNotificationItem(context, notifications[index], service);
-                          },
-                        ),
               ),
             ],
-          );
+            if (widget.isMobilePage) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: _buildSwitcher(context, service),
+                    ),
+                    if (showMarkAllRead) ...[
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () => service.markAllAsRead(),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text('Mark all read', style: GoogleFonts.poppins(fontSize: 12)),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ] else ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: _buildSwitcher(context, service),
+              ),
+            ],
+            const Divider(height: 1),
+          ],
+        );
+
+        final content = Column(
+          children: [
+            header,
+            Expanded(
+              child: isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : filteredNotifications.isEmpty 
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              _activeTab == 'Unread' 
+                                  ? Icons.mark_email_read_outlined 
+                                  : Icons.notifications_off_outlined, 
+                              size: 48, 
+                              color: Colors.grey[400]
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _activeTab == 'Unread' 
+                                  ? 'All caught up! No unread notifications' 
+                                  : 'No read notifications', 
+                              style: GoogleFonts.poppins(color: Colors.grey, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: EdgeInsets.zero,
+                        itemCount: filteredNotifications.length,
+                        separatorBuilder: (c, i) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          return _buildNotificationItem(context, filteredNotifications[index], service);
+                        },
+                      ),
+            ),
+          ],
+        );
 
         if (widget.isMobilePage) {
            return content; // Return plain content for Scaffold body

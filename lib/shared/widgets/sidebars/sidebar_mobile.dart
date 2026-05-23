@@ -49,10 +49,10 @@ class _SidebarContent extends StatelessWidget {
                     children: [
                       // Sidebar Header
                       Container(
-                        height: 80, // Taller header for mobile drawer
+                        height: 55,
                         padding: const EdgeInsets.symmetric(horizontal: 24),
-                        alignment: Alignment.bottomLeft,
-                        margin: const EdgeInsets.only(bottom: 16),
+                        alignment: Alignment.centerLeft,
+                        margin: const EdgeInsets.only(bottom: 8),
                         child: Row(
                           children: [
                             Image.asset(

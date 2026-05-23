@@ -85,6 +85,18 @@ class ApiConstants {
   static const String reportsPreview = '/admin/reports/preview';
   static const String reportsDownload = '/admin/reports/download';
 
+  // DAR (Daily Activity Report)
+  static const String darEventsList = '/dar/events/list';
+  static const String darActivitiesList = '/dar/activities/list';
+  static const String darActivitiesCreate = '/dar/activities/create';
+  static const String darActivitiesUpdate = '/dar/activities/update'; // append /:id
+  static const String darActivitiesDelete = '/dar/activities/delete'; // append /:id
+  static const String darEventsCreate = '/dar/events/create';
+  static const String darEventsUpdate = '/dar/events/update'; // append /:id
+  static const String darEventsDelete = '/dar/events/delete'; // append /:id
+  static const String darSettingsList = '/dar/settings/list';
+  static const String darRequestsCreate = '/dar/requests/create';
+
   // Keys
   static String get recaptchaSiteKey => dotenv.env['RECAPTCHA_SITE_KEY'] ?? '';
 }

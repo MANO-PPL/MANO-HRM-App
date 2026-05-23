@@ -8,25 +8,44 @@ import '../../../../shared/widgets/glass_container.dart';
 import '../../../../shared/widgets/custom_dialog.dart';
 import '../../../../shared/widgets/toast_helper.dart';
 
-class MobileProfileContent extends StatelessWidget {
+import '../../widgets/profile_avatar.dart';
+import '../../../../shared/models/user_model.dart';
+
+class MobileProfileContent extends StatefulWidget {
   const MobileProfileContent({super.key});
 
   @override
+  State<MobileProfileContent> createState() => _MobileProfileContentState();
+}
+
+class _MobileProfileContentState extends State<MobileProfileContent> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<AuthService>(context, listen: false).fetchUserProfile();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context);
+    final user = authService.user;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           // Hero Profile Card
-          _buildHeroCard(context),
+          _buildHeroCard(context, user),
           const SizedBox(height: 16),
 
           // Contact Info Card
-          _buildContactInfoCard(context),
+          _buildContactInfoCard(context, user),
           const SizedBox(height: 16),
 
           // Employment Details Card
-          _buildEmploymentDetailsCard(context),
+          _buildEmploymentDetailsCard(context, user),
           const SizedBox(height: 16),
 
           // Logout Card
@@ -36,36 +55,29 @@ class MobileProfileContent extends StatelessWidget {
     );
   }
 
-  Widget _buildHeroCard(BuildContext context) {
+  Widget _buildHeroCard(BuildContext context, User? user) {
+    final displayName = user?.name ?? 'User';
+    final rawRole = user?.role ?? 'employee';
+    final displayRole = rawRole.isNotEmpty 
+        ? '${rawRole[0].toUpperCase()}${rawRole.substring(1)}'
+        : 'Employee';
+
     return GlassContainer(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       child: Column( // Stacked for Mobile
         children: [
           // Avatar
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: const Color(0xFF5B60F6).withOpacity(0.2),
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF5B60F6).withOpacity(0.3), width: 2),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              'M',
-              style: GoogleFonts.poppins(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF5B60F6),
-              ),
-            ),
+          ProfileAvatar(
+            size: 80,
+            user: user,
+            canEdit: true,
           ),
           const SizedBox(height: 16),
 
           // Info
           Text(
-            'Mano Admin',
+            displayName,
             style: GoogleFonts.poppins(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -87,7 +99,7 @@ class MobileProfileContent extends StatelessWidget {
                 const Icon(Icons.shield_outlined, size: 14, color: Color(0xFF5B60F6)),
                 const SizedBox(width: 8),
                 Text(
-                  'Admin',
+                  displayRole,
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
@@ -102,7 +114,7 @@ class MobileProfileContent extends StatelessWidget {
     );
   }
 
-  Widget _buildContactInfoCard(BuildContext context) {
+  Widget _buildContactInfoCard(BuildContext context, User? user) {
     return GlassContainer(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -125,7 +137,7 @@ class MobileProfileContent extends StatelessWidget {
             context,
             icon: Icons.email_outlined,
             label: 'Email Address',
-            value: 'admin@demo.com',
+            value: user?.email ?? 'Not Available',
             valueFontSize: 12,
           ),
           const SizedBox(height: 16),
@@ -133,14 +145,14 @@ class MobileProfileContent extends StatelessWidget {
             context,
             icon: Icons.phone_outlined,
             label: 'Phone Number',
-            value: '+91 98765 43210',
+            value: user?.phone ?? 'Not Set',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEmploymentDetailsCard(BuildContext context) {
+  Widget _buildEmploymentDetailsCard(BuildContext context, User? user) {
     return GlassContainer(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -163,14 +175,14 @@ class MobileProfileContent extends StatelessWidget {
             context,
             icon: Icons.business_outlined,
             label: 'Department',
-            value: 'Management',
+            value: user?.department ?? 'Not Set',
           ),
           const SizedBox(height: 16),
           _buildInfoItem(
             context,
             icon: Icons.badge_outlined,
             label: 'Employee ID',
-            value: 'MS-001',
+            value: user?.employeeId ?? 'Not Set',
           ),
         ],
       ),
