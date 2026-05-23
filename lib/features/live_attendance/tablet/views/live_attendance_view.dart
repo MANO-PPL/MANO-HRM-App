@@ -167,17 +167,15 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
 
   @override
   Widget build(BuildContext context) {
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
     return Column(
       children: [
         // Tabs
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: _buildTabs(context),
-            ),
-          ),
+          padding: isLandscape
+              ? const EdgeInsets.fromLTRB(20, 24, 20, 16)
+              : const EdgeInsets.fromLTRB(24, 24, 24, 16),
+          child: _buildTabs(context),
         ),
         
         Expanded(
@@ -204,45 +202,32 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark ? const Color(0xFF30363D) : Colors.black.withOpacity(0.05),
-          width: 1,
+          color: isDark ? const Color(0xFF30363D) : Colors.grey[300]!,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: TabBar(
         controller: _tabController,
+        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
         indicatorSize: TabBarIndicatorSize.tab,
         indicator: BoxDecoration(
           color: isDark ? const Color(0xFF2D3139) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
-            width: 1,
-          ),
-          boxShadow: isDark
-              ? []
-              : [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         dividerColor: Colors.transparent,
-        labelColor: isDark ? Colors.white : const Color(0xFF4F46E5),
+        labelColor: isDark ? Colors.white : const Color(0xFF5B60F6),
         unselectedLabelColor: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
         labelStyle: GoogleFonts.poppins(
           fontSize: 14,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w600,
         ),
         unselectedLabelStyle: GoogleFonts.poppins(
           fontSize: 14,
@@ -250,22 +235,20 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
         ),
         tabs: [
           Tab(
-            height: 38,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.dashboard_rounded, size: 18),
+                const Icon(Icons.dashboard_rounded, size: 16),
                 const SizedBox(width: 8),
                 Text(MediaQuery.of(context).size.width < 600 ? "Dashboard" : "Live Dashboard"),
               ],
             ),
           ),
           Tab(
-            height: 38,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.pending_actions_rounded, size: 18),
+                const Icon(Icons.pending_actions_rounded, size: 16),
                 const SizedBox(width: 8),
                 Text(MediaQuery.of(context).size.width < 600 ? "Requests" : "Correction Requests"),
                 if (pendingCount > 0) ...[

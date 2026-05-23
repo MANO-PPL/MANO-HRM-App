@@ -4,9 +4,10 @@ import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:csv/csv.dart';
 import 'dart:convert';
-import 'dart:io'; 
+import 'dart:io';
 import '../../../../shared/widgets/glass_container.dart';
 import '../../../../shared/widgets/custom_dialog.dart';
+import '../../../../shared/widgets/toast_helper.dart';
 import '../../../../shared/services/auth_service.dart';
 import 'package:provider/provider.dart';
 import '../services/holiday_service.dart';
@@ -19,7 +20,8 @@ class HolidayManagementScreen extends StatefulWidget {
   const HolidayManagementScreen({super.key, required this.holidayService});
 
   @override
-  _HolidayManagementScreenState createState() => _HolidayManagementScreenState();
+  _HolidayManagementScreenState createState() =>
+      _HolidayManagementScreenState();
 }
 
 class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
@@ -46,8 +48,8 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
     setState(() {
       _filteredHolidays = _holidays.where((h) {
         return h.name.toLowerCase().contains(query) ||
-               h.date.contains(query) ||
-               h.type.toLowerCase().contains(query);
+            h.date.contains(query) ||
+            h.type.toLowerCase().contains(query);
       }).toList();
     });
   }
@@ -63,7 +65,9 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error fetching holidays: $e")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error fetching holidays: $e")));
       }
     } finally {
       if (mounted) {
@@ -77,18 +81,22 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
       await widget.holidayService.deleteHolidays([id]);
       _fetchHolidays();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Deleted successfully")));
+        context.showToast("Holiday deleted successfully.", isSuccess: true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Delete failed: $e")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Delete failed: $e")));
       }
     }
   }
 
   void _showAddDialog() {
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) => HolidayFormDialog(
         onSubmit: (data) async {
           try {
@@ -97,10 +105,13 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
             Navigator.pop(ctx);
             _fetchHolidays();
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Holiday Added")));
+              context.showToast("Holiday added successfully.", isSuccess: true);
             }
           } catch (e) {
-            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+            if (mounted)
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text("Error: $e")));
           }
         },
       ),
@@ -108,8 +119,10 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
   }
 
   void _showEditDialog(Holiday holiday) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) => HolidayFormDialog(
         initialData: holiday,
         onSubmit: (data) async {
@@ -119,10 +132,16 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
             Navigator.pop(ctx);
             _fetchHolidays();
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Holiday Updated")));
+              context.showToast(
+                "Holiday updated successfully.",
+                isSuccess: true,
+              );
             }
           } catch (e) {
-            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+            if (mounted)
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text("Error: $e")));
           }
         },
       ),
@@ -132,14 +151,14 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    // Background handling manually if not handled by parent layout 
-    // But usually this screen is nested. We'll assume the background is already consistent 
-    // (Dark gradient or Light grey). If it's pure transparent, the list might be hard to read 
+
+    // Background handling manually if not handled by parent layout
+    // But usually this screen is nested. We'll assume the background is already consistent
+    // (Dark gradient or Light grey). If it's pure transparent, the list might be hard to read
     // without a container, but the design shows a container.
 
     return Scaffold(
-      backgroundColor: Colors.transparent, 
+      backgroundColor: Colors.transparent,
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -147,14 +166,19 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
             // 1. Header (Search + Actions)
             _buildHeader(context, isDark),
             const SizedBox(height: 20),
-            
+
             // 2. Main Content (Table)
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _filteredHolidays.isEmpty
-                      ? Center(child: Text("No holidays found", style: GoogleFonts.poppins(color: Colors.grey)))
-                      : _buildHolidayTable(context, isDark),
+                  ? Center(
+                      child: Text(
+                        "No holidays found",
+                        style: GoogleFonts.poppins(color: Colors.grey),
+                      ),
+                    )
+                  : _buildHolidayTable(context, isDark),
             ),
           ],
         ),
@@ -163,11 +187,12 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
   }
 
   Widget _buildHeader(BuildContext context, bool isDark) {
-    // Layout: 
+    // Layout:
     // [Search Bar (Expanded)]  [Import CSV]  [+ Add Holiday]
     // On Mobile: Search bar on one row, buttons on next? Or compressed.
-    
-    final isAdmin = Provider.of<AuthService>(context, listen: false).user?.isAdmin ?? false;
+
+    final isAdmin =
+        Provider.of<AuthService>(context, listen: false).user?.isAdmin ?? false;
 
     final isMobile = MediaQuery.of(context).size.width < 600;
 
@@ -175,16 +200,16 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-           _buildSearchField(context, isDark),
-           const SizedBox(height: 12),
-           if (isAdmin)
-             Row(
-               children: [
-                 Expanded(child: _buildImportButton(context, isDark)),
-                 const SizedBox(width: 12),
-                 Expanded(child: _buildAddButton(context)),
-               ],
-             )
+          _buildSearchField(context, isDark),
+          const SizedBox(height: 12),
+          if (isAdmin)
+            Row(
+              children: [
+                Expanded(child: _buildImportButton(context, isDark)),
+                const SizedBox(width: 12),
+                Expanded(child: _buildAddButton(context)),
+              ],
+            ),
         ],
       );
     }
@@ -214,13 +239,17 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
       ),
       child: TextField(
         controller: _searchCtrl,
-        style: GoogleFonts.poppins(color: isDark ? Colors.white : Colors.black87),
+        style: GoogleFonts.poppins(
+          color: isDark ? Colors.white : Colors.black87,
+        ),
         decoration: InputDecoration(
           hintText: 'Search holidays...',
           hintStyle: GoogleFonts.poppins(color: Colors.grey),
           prefixIcon: const Icon(Icons.search, color: Colors.grey),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 13), // Center vertically
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 13,
+          ), // Center vertically
         ),
       ),
     );
@@ -229,17 +258,26 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
   Widget _buildImportButton(BuildContext context, bool isDark) {
     return TextButton.icon(
       onPressed: _importCSV,
-      icon: Icon(Icons.upload_file, size: 18, color: isDark ? Colors.white70 : Colors.black87),
+      icon: Icon(
+        Icons.upload_file,
+        size: 18,
+        color: isDark ? Colors.white70 : Colors.black87,
+      ),
       label: Text(
-        "Import CSV", 
-        style: GoogleFonts.poppins(color: isDark ? Colors.white70 : Colors.black87, fontWeight: FontWeight.w500)
+        "Import CSV",
+        style: GoogleFonts.poppins(
+          color: isDark ? Colors.white70 : Colors.black87,
+          fontWeight: FontWeight.w500,
+        ),
       ),
       style: TextButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         backgroundColor: isDark ? const Color(0xFF161B22) : Colors.white,
         shape: RoundedRectangleBorder(
-           borderRadius: BorderRadius.circular(12),
-           side: BorderSide(color: isDark ? Colors.white.withAlpha(12) : Colors.grey.shade300)
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: isDark ? Colors.white.withAlpha(12) : Colors.grey.shade300,
+          ),
         ),
       ),
     );
@@ -251,7 +289,10 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
       icon: const Icon(Icons.add, size: 18, color: Colors.white),
       label: Text(
         "Holiday",
-        style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600),
+        style: GoogleFonts.poppins(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFF6366F1), // Indigo Primary
@@ -266,7 +307,8 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
     // If Mobile (< 700), use ListView of Cards.
     // If Tablet/Desktop (>= 700), use Header Row + ListView of Rows.
     final isMobile = MediaQuery.of(context).size.width < 700;
-    final isAdmin = Provider.of<AuthService>(context, listen: false).user?.isAdmin ?? false;
+    final isAdmin =
+        Provider.of<AuthService>(context, listen: false).user?.isAdmin ?? false;
 
     return GlassContainer(
       width: double.infinity,
@@ -276,26 +318,34 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
       child: Column(
         children: [
           // Table Header
-          if (!isMobile) 
+          if (!isMobile)
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: Row(
                 children: [
-                   Expanded(flex: 3, child: _tableHeader("HOLIDAY NAME")),
-                   Expanded(flex: 2, child: _tableHeader("DATE")),
-                   Expanded(flex: 2, child: _tableHeader("TYPE")),
-                   if (isAdmin)
-                     SizedBox(width: 80, child: _tableHeader("ACTIONS", alignRight: true)),
+                  Expanded(flex: 3, child: _tableHeader("HOLIDAY NAME")),
+                  Expanded(flex: 2, child: _tableHeader("DATE")),
+                  Expanded(flex: 2, child: _tableHeader("TYPE")),
+                  if (isAdmin)
+                    SizedBox(
+                      width: 80,
+                      child: _tableHeader("ACTIONS", alignRight: true),
+                    ),
                 ],
               ),
             ),
-          
+
           if (!isMobile) const Divider(height: 1, color: Colors.white12),
 
           Expanded(
             child: ListView.separated(
               itemCount: _filteredHolidays.length,
-              separatorBuilder: (_, __) => Divider(height: 1, color: isDark ? Colors.white.withAlpha(12) : Colors.grey.shade100),
+              separatorBuilder: (_, __) => Divider(
+                height: 1,
+                color: isDark
+                    ? Colors.white.withAlpha(12)
+                    : Colors.grey.shade100,
+              ),
               itemBuilder: (context, index) {
                 final holiday = _filteredHolidays[index];
                 if (isMobile) {
@@ -325,7 +375,8 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
   }
 
   Widget _buildDesktopRow(Holiday holiday, bool isDark) {
-    final isAdmin = Provider.of<AuthService>(context, listen: false).user?.isAdmin ?? false;
+    final isAdmin =
+        Provider.of<AuthService>(context, listen: false).user?.isAdmin ?? false;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Row(
@@ -333,7 +384,8 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
           // 1. Name
           Expanded(
             flex: 3,
-            child: InkWell( // Make name clickable for edit
+            child: InkWell(
+              // Make name clickable for edit
               onTap: !isAdmin ? null : () => _showEditDialog(holiday),
               child: Text(
                 holiday.name,
@@ -345,13 +397,17 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
               ),
             ),
           ),
-          
+
           // 2. Date
           Expanded(
             flex: 2,
             child: Row(
               children: [
-                Icon(Icons.calendar_today_outlined, size: 16, color: isDark ? Colors.white70 : Colors.grey[500]),
+                Icon(
+                  Icons.calendar_today_outlined,
+                  size: 16,
+                  color: isDark ? Colors.white70 : Colors.grey[500],
+                ),
                 const SizedBox(width: 8),
                 Text(
                   _formatDate(holiday.date),
@@ -380,7 +436,11 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
               child: Align(
                 alignment: Alignment.centerRight,
                 child: IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 20, color: Colors.grey),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    size: 20,
+                    color: Colors.grey,
+                  ),
                   onPressed: () => _showDeleteConfirm(holiday.id),
                   tooltip: "Delete",
                 ),
@@ -392,7 +452,8 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
   }
 
   Widget _buildMobileCard(Holiday holiday, bool isDark) {
-    final isAdmin = Provider.of<AuthService>(context, listen: false).user?.isAdmin ?? false;
+    final isAdmin =
+        Provider.of<AuthService>(context, listen: false).user?.isAdmin ?? false;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: InkWell(
@@ -419,16 +480,27 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(Icons.calendar_today_outlined, size: 14, color: isDark ? Colors.white70 : Colors.grey[500]),
+                Icon(
+                  Icons.calendar_today_outlined,
+                  size: 14,
+                  color: isDark ? Colors.white70 : Colors.grey[500],
+                ),
                 const SizedBox(width: 8),
                 Text(
                   _formatDate(holiday.date),
-                  style: GoogleFonts.poppins(fontSize: 12, color: isDark ? Colors.white : Colors.grey[700]),
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: isDark ? Colors.white : Colors.grey[700],
+                  ),
                 ),
                 const Spacer(),
                 if (isAdmin)
                   IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 20, color: Colors.grey),
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      size: 20,
+                      color: Colors.grey,
+                    ),
                     onPressed: () => _showDeleteConfirm(holiday.id),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -494,16 +566,14 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
       positiveButtonText: "Delete",
       isDestructive: true,
       onPositivePressed: () {
-        Navigator.pop(context);
         _deleteHoliday(id);
       },
       negativeButtonText: "Cancel",
-      onNegativePressed: () => Navigator.pop(context),
+      onNegativePressed: () {},
       icon: Icons.delete_outline,
       iconColor: Colors.red,
     );
   }
-
 
   Future<void> _importCSV() async {
     try {
@@ -515,14 +585,18 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
       if (result != null && result.files.single.path != null) {
         final file = File(result.files.single.path!);
         final input = file.openRead();
-        final fields = await input.transform(utf8.decoder).transform(const CsvToListConverter()).toList();
+        final fields = await input
+            .transform(utf8.decoder)
+            .transform(const CsvToListConverter())
+            .toList();
 
         if (fields.isEmpty) return;
 
         // Expect contents: Name, Date, Type
         // Skip header if first row looks like header
         int startRow = 0;
-        if (fields[0].isNotEmpty && fields[0][0].toString().toLowerCase().contains('name')) {
+        if (fields[0].isNotEmpty &&
+            fields[0][0].toString().toLowerCase().contains('name')) {
           startRow = 1;
         }
 
@@ -534,15 +608,15 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
           // Safe row access
           final name = row[0].toString();
           // Date Parsing: Try to handle YYYY-MM-DD
-          final date = row[1].toString(); 
+          final date = row[1].toString();
           final type = row.length > 2 ? row[2].toString() : 'Public';
-          
+
           if (name.isNotEmpty && date.isNotEmpty) {
-             batch.add({
-               "holiday_name": name,
-               "holiday_date": date,
-               "holiday_type": type,
-             });
+            batch.add({
+              "holiday_name": name,
+              "holiday_date": date,
+              "holiday_type": type,
+            });
           }
         }
 
@@ -551,15 +625,23 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
           await widget.holidayService.addBulkHolidays(batch);
           _fetchHolidays();
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Imported ${batch.length} holidays")));
+            context.showToast(
+              "Imported ${batch.length} holidays successfully.",
+              isSuccess: true,
+            );
           }
         } else {
-           if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("No valid data found in CSV")));
+          if (mounted)
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("No valid data found in CSV")),
+            );
         }
       }
     } catch (e) {
       if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Import Failed: $e")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Import Failed: $e")));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

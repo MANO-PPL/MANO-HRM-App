@@ -146,8 +146,10 @@ class _ReportsViewState extends State<ReportsView> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
     return Column(
       children: [
+        if (isLandscape) const SizedBox(height: 24),
         // Top Configuration Card
         _buildConfigurationCard(context),
         const SizedBox(height: 24),
