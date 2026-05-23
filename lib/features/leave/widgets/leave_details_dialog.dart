@@ -4,9 +4,12 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_application/features/leave/models/leave_request_model.dart';
 import 'package:flutter_application/features/leave/providers/leave_provider.dart';
 import 'package:flutter_application/shared/widgets/glass_container.dart';
+import 'package:flutter_application/shared/constants/api_constants.dart';
+import 'package:flutter_application/shared/widgets/toast_helper.dart';
 
 class LeaveDetailsDialog extends StatefulWidget {
   final LeaveRequest request;
@@ -37,43 +40,55 @@ class LeaveDetailsDialog extends StatefulWidget {
     VoidCallback? onApprove,
     VoidCallback? onReject,
   }) async {
-    await showDialog(
+    await showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
-      builder: (context) => LeaveDetailsDialog(
-        request: request,
-        width: MediaQuery.of(context).size.width > 600 ? 500 : MediaQuery.of(context).size.width * 0.9,
-        padding: const EdgeInsets.all(20),
-        onWithdraw: onWithdraw,
-        isReviewMode: isReviewMode,
-        onApprove: onApprove,
-        onReject: onReject,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: 0.9,
+        child: LeaveDetailsDialog(
+          request: request,
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+          onWithdraw: onWithdraw,
+          isReviewMode: isReviewMode,
+          onApprove: onApprove,
+          onReject: onReject,
+        ),
       ),
     );
   }
 
   static Future<void> showPortrait(BuildContext context, {required LeaveRequest request, VoidCallback? onWithdraw}) async {
-    await showDialog(
+    await showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
-      builder: (context) => LeaveDetailsDialog(
-        request: request,
-        width: 450,
-        padding: const EdgeInsets.all(32),
-        onWithdraw: onWithdraw,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: 0.9,
+        child: LeaveDetailsDialog(
+          request: request,
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          onWithdraw: onWithdraw,
+        ),
       ),
     );
   }
 
   static Future<void> showLandscape(BuildContext context, {required LeaveRequest request, VoidCallback? onWithdraw}) async {
-    await showDialog(
+    await showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
-      builder: (context) => LeaveDetailsDialog(
-        request: request,
-        width: 500,
-        padding: const EdgeInsets.all(40),
-        onWithdraw: onWithdraw,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: 0.9,
+        child: LeaveDetailsDialog(
+          request: request,
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          onWithdraw: onWithdraw,
+        ),
       ),
     );
   }
@@ -145,143 +160,225 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
 
     final highlightColor = const Color(0xFF6366F1); // Blueish
 
+    final content = Container(
+      width: widget.width,
+      padding: widget.padding,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0D1117) : Colors.white,
+        borderRadius: widget.width == double.infinity
+            ? const BorderRadius.vertical(top: Radius.circular(24))
+            : BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          )
+        ],
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.width == double.infinity) ...[
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white24 : Colors.black12,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ],
+            // Header Section
+            _buildHeader(context, statusColor, appliedOnStr),
+            const SizedBox(height: 16),
+            Divider(height: 1, thickness: 1, color: isDark ? Colors.white10 : Colors.black12),
+            const SizedBox(height: 16),
+
+            // Scrollable part
+            widget.width == double.infinity
+                ? Expanded(
+                    child: SingleChildScrollView(
+                      child: _buildDetailsColumn(context, startDateStr, endDateStr, duration, highlightColor, status),
+                    ),
+                  )
+                : SingleChildScrollView(
+                    child: _buildDetailsColumn(context, startDateStr, endDateStr, duration, highlightColor, status),
+                  ),
+          ],
+        ),
+      ),
+    );
+
+    if (widget.width == double.infinity) {
+      // Bottom sheet keyboard handling
+      return Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: content,
+      );
+    }
+
     return Dialog(
       backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Container(
-        width: widget.width,
-        padding: widget.padding,
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF0D1117) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            )
+      child: content,
+    );
+  }
+
+  Widget _buildDetailsColumn(
+    BuildContext context,
+    String startDateStr,
+    String endDateStr,
+    int duration,
+    Color highlightColor,
+    String status,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Leave Details Section
+        _buildSectionTitle(context, "LEAVE DETAILS"),
+        const SizedBox(height: 12),
+        _buildInfoBox(context, "Type", widget.request.leaveType, isFullWidth: true),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _buildInfoBox(context, "From", startDateStr)),
+            const SizedBox(width: 12),
+            Expanded(child: _buildInfoBox(context, "To", endDateStr)),
           ],
         ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header Section
-              _buildHeader(context, statusColor, appliedOnStr),
-              const SizedBox(height: 16),
-              Divider(height: 1, thickness: 1, color: isDark ? Colors.white10 : Colors.black12),
-              const SizedBox(height: 16),
-              
-              // Leave Details Section
-              _buildSectionTitle(context, "LEAVE DETAILS"),
-              const SizedBox(height: 12),
-              _buildInfoBox(context, "Type", widget.request.leaveType, isFullWidth: true),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(child: _buildInfoBox(context, "From", startDateStr)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildInfoBox(context, "To", endDateStr)),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _buildDurationBox(context, duration, highlightColor),
-              
-              const SizedBox(height: 24),
-              
-              // Justification Section
-              _buildSectionTitle(context, "JUSTIFICATION & REMARKS"),
-              const SizedBox(height: 12),
-              _buildReasonBox(context, widget.request.reason),
+        const SizedBox(height: 12),
+        _buildDurationBox(context, duration, highlightColor),
 
-              // Attachments Section
-              if (widget.request.attachments.isNotEmpty) ...[
-                const SizedBox(height: 24),
-                _buildSectionTitle(context, "ATTACHMENTS"),
-                const SizedBox(height: 12),
-                ...widget.request.attachments.map((att) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: InkWell(
-                    onTap: () => _openAttachment(att.fileUrl, att.fileKey),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF161B22) : const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFE2E8F0)),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.description_outlined, size: 20, color: highlightColor),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              att.fileKey.split('/').last, 
-                              style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                color: isDark ? Colors.white : const Color(0xFF30363D),
-                                decoration: TextDecoration.underline,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const Icon(Icons.open_in_new, size: 16, color: Colors.grey),
-                        ],
+        const SizedBox(height: 24),
+
+        // Justification Section
+        _buildSectionTitle(context, "JUSTIFICATION & REMARKS"),
+        const SizedBox(height: 12),
+        _buildReasonBox(context, widget.request.reason),
+
+        // Attachments Section
+        if (widget.request.attachments.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          _buildSectionTitle(context, "ATTACHMENTS"),
+          const SizedBox(height: 12),
+          ...widget.request.attachments.map((att) => Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: InkWell(
+              onTap: () => _openAttachment(att.fileUrl, att.fileKey),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.description_outlined, size: 20, color: highlightColor),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        att.fileKey.split('/').last,
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          decoration: TextDecoration.underline,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ),
-                )).toList(),
-              ],
+                    const Icon(Icons.open_in_new, size: 16, color: Colors.grey),
+                  ],
+                ),
+              ),
+            ),
+          )).toList(),
+        ],
 
-              // Audit Trail (If not pending and has review info)
-              if (widget.request.status.toLowerCase() != 'pending' && widget.request.reviewedBy != null) ...[
-                const SizedBox(height: 24),
-                _buildSectionTitle(context, "REVIEW DETAILS"),
-                const SizedBox(height: 12),
-                _buildReviewBox(context),
-              ],
+        // Audit Trail (If not pending and has review info)
+        if (widget.request.status.toLowerCase() != 'pending' && widget.request.reviewedBy != null) ...[
+          const SizedBox(height: 24),
+          _buildSectionTitle(context, "REVIEW DETAILS"),
+          const SizedBox(height: 12),
+          _buildReviewBox(context),
+        ],
 
-              const SizedBox(height: 24),
-              
-              // Admin Action or User Actions
-              if (widget.isReviewMode && status == 'pending') 
-                _buildAdminActionSection(context)
-              else 
-                _buildUserActionSection(context),
-            ],
-          ),
-        ),
-      ),
+        const SizedBox(height: 24),
+
+        // Admin Action or User Actions
+        if (widget.isReviewMode && status == 'pending')
+          _buildAdminActionSection(context)
+        else
+          _buildUserActionSection(context),
+      ],
     );
   }
 
   Widget _buildHeader(BuildContext context, Color statusColor, String appliedDate) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    String? avatarUrl = widget.request.userAvatar;
+    if (avatarUrl != null && avatarUrl.isNotEmpty && !avatarUrl.startsWith('http')) {
+      avatarUrl = avatarUrl.startsWith('/') ? '${ApiConstants.baseUrl}$avatarUrl' : '${ApiConstants.baseUrl}/$avatarUrl';
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                "Leave Request #${widget.request.id != 0 ? widget.request.id : 'Pending'}",
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : const Color(0xFF30363D),
-                ),
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+                backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                    ? CachedNetworkImageProvider(avatarUrl)
+                    : null,
+                child: avatarUrl != null && avatarUrl.isNotEmpty
+                    ? null
+                    : Text(
+                        (widget.request.userName ?? 'User').isNotEmpty ? (widget.request.userName ?? 'User')[0].toUpperCase() : '?',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : const Color(0xFF4F46E5),
+                        ),
+                      ),
               ),
-              Text(
-                "By ${widget.request.userName ?? 'User'}",
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  color: isDark ? Colors.white70 : const Color(0xFF64748B),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Leave Request #${widget.request.id != 0 ? widget.request.id : 'Pending'}",
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : const Color(0xFF30363D),
+                      ),
+                    ),
+                    Text(
+                      "By ${widget.request.userName ?? 'User'}",
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: isDark ? Colors.white70 : const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -526,7 +623,7 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
             maxLines: 2,
             style: GoogleFonts.poppins(fontSize: 13, color: isDark ? Colors.white : Colors.black87),
             decoration: InputDecoration(
-              hintText: "Add remarks (required for rejection)...",
+              hintText: "Add reason (required for approval/rejection)...",
               hintStyle: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
               border: InputBorder.none,
               isDense: true,
@@ -646,8 +743,10 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
   }
 
   Future<void> _processAction(String status) async {
-    if (status.toLowerCase() == 'rejected' && _adminCommentController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("A remark is required for rejection")));
+    if ((status.toLowerCase() == 'approved' ||
+            status.toLowerCase() == 'rejected') &&
+        _adminCommentController.text.trim().isEmpty) {
+      context.showToast("It needs a reason.", isWarning: true);
       return;
     }
 

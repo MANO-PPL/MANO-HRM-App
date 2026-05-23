@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:responsive_builder/responsive_builder.dart';
 import '../../mobile/views/leave_mobile_view.dart';
 import 'leave_tablet_portrait.dart';
 import 'leave_tablet_landscape.dart';
@@ -9,13 +8,21 @@ class LeaveView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ScreenTypeLayout.builder(
-      mobile: (BuildContext context) => const LeaveMobileView(),
-      tablet: (BuildContext context) => OrientationLayoutBuilder(
-        portrait: (context) => const LeaveTabletPortrait(),
-        landscape: (context) => const LeaveTabletLandscape(),
-      ),
-      desktop: (BuildContext context) => const LeaveTabletLandscape(), // Use Master-Detail for desktop too
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 600) {
+          return const LeaveMobileView();
+        }
+        return OrientationBuilder(
+          builder: (context, orientation) {
+            if (orientation == Orientation.portrait) {
+              return const LeaveTabletPortrait();
+            } else {
+              return const LeaveTabletLandscape();
+            }
+          },
+        );
+      },
     );
   }
 }

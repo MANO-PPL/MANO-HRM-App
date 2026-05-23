@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/leave_provider.dart';
 import 'custom_date_picker_dialog.dart';
+import '../../../shared/widgets/toast_helper.dart';
 
 class LeaveRequestForm extends StatefulWidget {
   final VoidCallback onSuccess;
@@ -78,9 +79,7 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_startDate == null || _endDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select start and end dates')),
-      );
+      context.showToast('Please select start and end dates.', isWarning: true);
       return;
     }
 
@@ -106,25 +105,44 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isLoading = context.watch<LeaveProvider>().isLoadingMyLeaves;
+    final sheetColor = isDark ? const Color(0xFF161B22) : Colors.white;
+    final fieldColor = isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC);
+    final textPrimary = isDark ? const Color(0xFFC9D1D9) : const Color(0xFF0F172A);
+    final textMuted = isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B);
+    final borderColor = isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0);
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF161B22) : Colors.white,
+        color: sheetColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border.all(color: borderColor),
       ),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      child: SafeArea(
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+            Center(
+              child: Container(
+                width: 42,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.black12,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
             Text(
               'Apply for Leave',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : const Color(0xFF30363D),
+                color: textPrimary,
               ),
               textAlign: TextAlign.center,
             ),
@@ -142,8 +160,8 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
               }).toList(),
               onChanged: (val) => setState(() => _selectedLeaveType = val),
               validator: (val) => val == null ? 'Required' : null,
-              dropdownColor: isDark ? const Color(0xFF161B22) : Colors.white,
-              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              dropdownColor: sheetColor,
+              style: TextStyle(color: textPrimary),
             ),
             const SizedBox(height: 16),
 
@@ -157,7 +175,7 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
                       decoration: _inputDecoration(isDark, 'Start Date', Icons.calendar_today),
                       child: Text(
                         _startDate == null ? 'Select' : DateFormat('MMM dd, yyyy').format(_startDate!),
-                        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                        style: TextStyle(color: textPrimary),
                       ),
                     ),
                   ),
@@ -170,7 +188,7 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
                       decoration: _inputDecoration(isDark, 'End Date', Icons.event),
                       child: Text(
                         _endDate == null ? 'Select' : DateFormat('MMM dd, yyyy').format(_endDate!),
-                        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                        style: TextStyle(color: textPrimary),
                       ),
                     ),
                   ),
@@ -185,7 +203,7 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
               decoration: _inputDecoration(isDark, 'Reason', Icons.edit_note),
               maxLines: 3,
               validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              style: TextStyle(color: textPrimary),
             ),
             const SizedBox(height: 16),
 
@@ -198,9 +216,9 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                     decoration: BoxDecoration(
-                      border: Border.all(color: isDark ? Colors.white24 : Colors.black12),
+                      border: Border.all(color: borderColor),
                       borderRadius: BorderRadius.circular(12),
-                      color: isDark ? Colors.black12 : Colors.grey.shade50,
+                      color: fieldColor,
                     ),
                     child: Row(
                       children: [
@@ -213,7 +231,7 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
                           child: Text(
                             'Attach Documents (Optional)',
                             style: TextStyle(
-                              color: isDark ? Colors.white70 : Colors.black54,
+                              color: textMuted,
                             ),
                           ),
                         ),
@@ -249,7 +267,7 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
                                 file.name,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: isDark ? Colors.white : Colors.black87,
+                                  color: textPrimary,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -297,28 +315,33 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
                     ),
             ),
             SizedBox(height: MediaQuery.of(context).viewInsets.bottom + 24),
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
   InputDecoration _inputDecoration(bool isDark, String label, IconData icon) {
+    final fieldColor = isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC);
+    final borderColor = isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0);
+    final textMuted = isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B);
     return InputDecoration(
       labelText: label,
-      prefixIcon: Icon(icon, color: isDark ? Colors.white54 : Colors.grey),
+      prefixIcon: Icon(icon, color: textMuted),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.black12),
+        borderSide: BorderSide(color: borderColor),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.black12),
+        borderSide: BorderSide(color: borderColor),
       ),
       filled: true,
-      fillColor: isDark ? Colors.black12 : Colors.grey.shade50,
+      fillColor: fieldColor,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      labelStyle: TextStyle(color: isDark ? Colors.white54 : Colors.grey[600]),
+      labelStyle: TextStyle(color: textMuted),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter_application/features/leave/providers/leave_provider.dart
 import 'package:flutter_application/features/leave/models/leave_request_model.dart';
 import 'package:flutter_application/features/leave/widgets/leave_history_item.dart';
 import 'package:flutter_application/features/leave/widgets/leave_details_dialog.dart';
+import 'package:flutter_application/shared/widgets/toast_helper.dart';
 
 class AdminLeaveRequests extends StatelessWidget {
   const AdminLeaveRequests({super.key});
@@ -22,7 +23,7 @@ class AdminLeaveRequests extends StatelessWidget {
         }
 
         if (provider.pendingError != null) {
-           return Center(child: Text('Error: ${provider.pendingError}'));
+          return Center(child: Text('Error: ${provider.pendingError}'));
         }
 
         if (provider.pendingRequests.isEmpty) {
@@ -40,27 +41,34 @@ class AdminLeaveRequests extends StatelessWidget {
     );
   }
 
-  Widget _buildAdminItem(BuildContext context, LeaveRequest request, LeaveProvider provider) {
+  Widget _buildAdminItem(
+    BuildContext context,
+    LeaveRequest request,
+    LeaveProvider provider,
+  ) {
     return LeaveHistoryItem(
       request: request,
       onTap: () => _showReviewDialog(context, request, provider),
     );
   }
 
-  void _showReviewDialog(BuildContext context, LeaveRequest request, LeaveProvider provider) {
+  void _showReviewDialog(
+    BuildContext context,
+    LeaveRequest request,
+    LeaveProvider provider,
+  ) {
     LeaveDetailsDialog.showMobile(
       context,
       request: request,
       isReviewMode: true,
       onApprove: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Request Approved Successfully")),
+        context.showToast(
+          "Leave request approved successfully.",
+          isSuccess: true,
         );
       },
       onReject: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Request Rejected")),
-        );
+        context.showToast("Leave request rejected.", isSuccess: true);
       },
     );
   }

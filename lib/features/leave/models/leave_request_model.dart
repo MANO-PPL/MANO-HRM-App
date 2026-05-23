@@ -58,6 +58,7 @@ class LeaveRequest {
   final String? userName; // For admin view
   final String? userEmail; // For admin view
   final String? userPhone; // For admin view
+  final String? userAvatar; // For avatar display
   final List<LeaveAttachment> attachments;
 
   LeaveRequest({
@@ -78,6 +79,7 @@ class LeaveRequest {
     this.userName,
     this.userEmail,
     this.userPhone,
+    this.userAvatar,
     this.attachments = const [],
   });
 
@@ -135,6 +137,7 @@ class LeaveRequest {
       userName: json['user_name'],
       userEmail: json['email'],
       userPhone: json['phone_no'],
+      userAvatar: json['profile_image'] ?? json['profile_pic'] ?? json['avatar_url'],
       attachments: (json['attachments'] as List<dynamic>?)
               ?.map((e) => LeaveAttachment.fromJson(e))
               .toList() ??
@@ -161,6 +164,7 @@ class LeaveRequest {
       'user_name': userName,
       'email': userEmail,
       'phone_no': userPhone,
+      'profile_image': userAvatar,
       'attachments': attachments.map((e) => e.toJson()).toList(),
     };
   }
@@ -183,6 +187,7 @@ class LeaveRequest {
     String? userName,
     String? userEmail,
     String? userPhone,
+    String? userAvatar,
     List<LeaveAttachment>? attachments,
   }) {
     return LeaveRequest(
@@ -203,6 +208,7 @@ class LeaveRequest {
       userName: userName ?? this.userName,
       userEmail: userEmail ?? this.userEmail,
       userPhone: userPhone ?? this.userPhone,
+      userAvatar: userAvatar ?? this.userAvatar,
       attachments: attachments ?? this.attachments,
     );
   }

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'custom_date_picker_dialog.dart';
+import '../../../shared/widgets/toast_helper.dart';
 
 class LeaveForm extends StatefulWidget {
   final Function(Map<String, dynamic>) onSubmit;
@@ -34,15 +35,11 @@ class _LeaveFormState extends State<LeaveForm> {
   void _submit() {
     if (_formKey.currentState!.validate()) {
       if (_selectedType == 'Other' && _otherTypeController.text.trim().isEmpty) {
-        // Show error? We need context or scaffold. 
-        // For now, let's just not submit or send empty which will be caught by logic?
-        // Let's rely on required check, or maybe add a validator to the other field dynamically?
-        // Actually, let's pass it and let parent handle or validate here.
-        // Adding manual check:
-         return; 
+        context.showToast("Please specify the leave type.", isWarning: true);
+        return;
       }
-      
-       widget.onSubmit({
+
+      widget.onSubmit({
         'leave_type': _selectedType == 'Other' ? _otherTypeController.text : _selectedType,
         'start_date': DateFormat('yyyy-MM-dd').format(_startDate),
         'end_date': DateFormat('yyyy-MM-dd').format(_endDate),
