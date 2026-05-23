@@ -385,18 +385,18 @@ class _EmployeesViewState extends State<EmployeesView> {
     return Stack(
       children: [
         SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Column(
             children: [
               _buildFilterSection(context),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
               _isLoading 
                   ? const Center(child: CircularProgressIndicator())
                   : _buildEmployeesTable(context),
               
               if (!_isLoading) ...[
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
                 _buildPagination(context),
               ],
             ],
@@ -410,30 +410,48 @@ class _EmployeesViewState extends State<EmployeesView> {
 
   Widget _buildStatusTabs(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final containerBg = isDark ? const Color(0xFF161B22) : Colors.grey[200]!;
-    final activeBg = isDark ? const Color(0xFF0D1117) : Colors.white;
+    final containerBg = isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9);
+    final activeBg = isDark ? const Color(0xFF2D3139) : Colors.white;
+    final activeColor = isDark ? Colors.white : const Color(0xFF4F46E5);
+    final inactiveColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: containerBg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? const Color(0xFF30363D) : Colors.black.withValues(alpha: 0.05),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: ['Active', 'Inactive', 'Deleted'].map((status) {
           final isSelected = _statusFilter == status;
-          IconData icon;
-          Color statusColor;
-          if (status == 'Active') {
-            icon = Icons.check_circle_outline;
-            statusColor = Colors.green;
-          } else if (status == 'Inactive') {
-            icon = Icons.block;
-            statusColor = Colors.amber;
-          } else {
-            icon = Icons.delete_outline;
-            statusColor = Colors.red;
+          IconData iconData;
+          String label;
+          switch (status) {
+            case 'Active':
+              iconData = Icons.check_circle_outline_rounded;
+              label = 'Active';
+              break;
+            case 'Inactive':
+              iconData = Icons.remove_circle_outline_rounded;
+              label = 'Inactive';
+              break;
+            case 'Deleted':
+            default:
+              iconData = Icons.delete_outline_rounded;
+              label = 'Trash';
+              break;
           }
 
           return InkWell(
@@ -444,35 +462,43 @@ class _EmployeesViewState extends State<EmployeesView> {
                 _isDrawerOpen = false; // Close drawer when tab changes
               });
             },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            borderRadius: BorderRadius.circular(12),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               decoration: BoxDecoration(
                 color: isSelected ? activeBg : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: isSelected && !isDark ? [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  )
-                ] : null,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isSelected
+                      ? (isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0))
+                      : Colors.transparent,
+                  width: 1,
+                ),
+                boxShadow: isSelected && !isDark
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : [],
               ),
               child: Row(
                 children: [
                   Icon(
-                    icon,
+                    iconData,
                     size: 16,
-                    color: isSelected ? statusColor : Colors.grey,
+                    color: isSelected ? activeColor : inactiveColor,
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 8),
                   Text(
                     status == 'Deleted' ? 'Trash' : status,
                     style: GoogleFonts.poppins(
                       fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                      color: isSelected 
-                          ? (isDark ? Colors.white : Colors.black87) 
-                          : Colors.grey,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                      color: isSelected ? activeColor : inactiveColor,
                     ),
                   ),
                 ],
@@ -679,7 +705,7 @@ class _EmployeesViewState extends State<EmployeesView> {
             headingRowColor: MaterialStateProperty.all(Colors.transparent),
             columnSpacing: 16, 
             horizontalMargin: 16, 
-            dataRowMaxHeight: 85,
+            dataRowMaxHeight: 58,
             showCheckboxColumn: false,
             columns: [
               if (_isSelectionMode)
@@ -758,7 +784,7 @@ class _EmployeesViewState extends State<EmployeesView> {
         // Employee
         DataCell(
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(
               children: [
                 Container(
@@ -767,15 +793,15 @@ class _EmployeesViewState extends State<EmployeesView> {
                     border: isDark ? Border.all(color: Colors.blue, width: 2) : null,
                   ),
                   child: CircleAvatar(
-                    radius: 20,
+                    radius: 16,
                     backgroundColor: isDark ? const Color(0xFF0D1117) : Theme.of(context).primaryColor.withOpacity(0.1),
                     child: data.profileImage != null && data.profileImage!.isNotEmpty
                         ? ClipRRect(
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(16),
                             child: CachedNetworkImage(
                               imageUrl: data.profileImage!,
-                              width: 40,
-                              height: 40,
+                              width: 32,
+                              height: 32,
                               fit: BoxFit.cover,
                               errorWidget: (context, url, error) => Text(
                                 nameInitial,
@@ -802,7 +828,7 @@ class _EmployeesViewState extends State<EmployeesView> {
                           ),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,

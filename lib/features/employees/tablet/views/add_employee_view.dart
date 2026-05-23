@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../../../../shared/widgets/glass_container.dart';
 import '../../models/employee_model.dart';
 import '../../services/employee_service.dart';
 import '../../../../shared/services/auth_service.dart';
@@ -64,7 +63,7 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
     _selectedDeptId = emp.departmentId;
     _selectedDesgId = emp.designationId;
     _selectedShiftId = emp.shiftId;
-    _selectedUserType = emp.userType;
+    _selectedUserType = emp.userType.toLowerCase();
   }
 
   Future<void> _loadDropdownData() async {
@@ -141,8 +140,10 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(32),
+      padding: EdgeInsets.all(isMobile ? 16 : 32),
       child: Form(
         key: _formKey,
         child: Column(
@@ -167,7 +168,7 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
                   onPressed: _isLoading ? null : _saveEmployee,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF5B60F6),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24, vertical: isMobile ? 12 : 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   icon: _isLoading 
@@ -186,31 +187,40 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
             const SizedBox(height: 32),
   
             // Content Container
-            GlassContainer(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: isMobile ? 16 : 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                     // Personal Information
                     _buildSectionHeader(context, 'PERSONAL INFORMATION', Icons.person_outline),
                     const SizedBox(height: 24),
                     
-                    Row(
-                      children: [
-                        Expanded(child: _buildTextField(context, 'Full Name', 'Enter full name', _nameController, isRequired: true)),
-                        const SizedBox(width: 24),
-                        Expanded(child: _buildTextField(context, 'Password', '......', _passwordController, isPassword: true, isRequired: widget.employeeToEdit == null)),
-                      ],
-                    ),
+                    if (isMobile) ...[
+                      _buildTextField(context, 'Full Name', 'Enter full name', _nameController, isRequired: true),
+                      const SizedBox(height: 24),
+                      _buildTextField(context, 'Password', '......', _passwordController, isPassword: true, isRequired: widget.employeeToEdit == null),
+                    ] else
+                      Row(
+                        children: [
+                          Expanded(child: _buildTextField(context, 'Full Name', 'Enter full name', _nameController, isRequired: true)),
+                          const SizedBox(width: 24),
+                          Expanded(child: _buildTextField(context, 'Password', '......', _passwordController, isPassword: true, isRequired: widget.employeeToEdit == null)),
+                        ],
+                      ),
                     const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(child: _buildTextField(context, 'Email Address', 'Enter email', _emailController, isRequired: true)),
-                        const SizedBox(width: 24),
-                        Expanded(child: _buildTextField(context, 'Phone Number', 'Enter phone number', _phoneController)),
-                      ],
-                    ),
+                    if (isMobile) ...[
+                      _buildTextField(context, 'Email Address', 'Enter email', _emailController, isRequired: true),
+                      const SizedBox(height: 24),
+                      _buildTextField(context, 'Phone Number', 'Enter phone number', _phoneController),
+                    ] else
+                      Row(
+                        children: [
+                          Expanded(child: _buildTextField(context, 'Email Address', 'Enter email', _emailController, isRequired: true)),
+                          const SizedBox(width: 24),
+                          Expanded(child: _buildTextField(context, 'Phone Number', 'Enter phone number', _phoneController)),
+                        ],
+                      ),
   
                     const SizedBox(height: 48),
   
@@ -218,52 +228,90 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
                     _buildSectionHeader(context, 'WORK DETAILS', Icons.business_center_outlined),
                     const SizedBox(height: 24),
   
-                    Row(
-                      children: [
-                        Expanded(child: _buildDropdown<int>(
-                          context, 
-                          'Department', 
-                          _selectedDeptId, 
-                          _departments.map((e) => DropdownMenuItem(value: e.id, child: Text(e.name))).toList(),
-                          (val) => setState(() => _selectedDeptId = val),
-                        )),
-                        const SizedBox(width: 24),
-                        Expanded(child: _buildDropdown<int>(
-                          context, 
-                          'Designation / Role', 
-                          _selectedDesgId, 
-                          _designations.map((e) => DropdownMenuItem(value: e.id, child: Text(e.name))).toList(),
-                          (val) => setState(() => _selectedDesgId = val),
-                        )),
-                      ],
-                    ),
+                    if (isMobile) ...[
+                      _buildDropdown<int>(
+                        context, 
+                        'Department', 
+                        _departments.any((e) => e.id == _selectedDeptId) ? _selectedDeptId : null, 
+                        _departments.map((e) => DropdownMenuItem(value: e.id, child: Text(e.name))).toList(),
+                        (val) => setState(() => _selectedDeptId = val),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildDropdown<int>(
+                        context, 
+                        'Designation / Role', 
+                        _designations.any((e) => e.id == _selectedDesgId) ? _selectedDesgId : null, 
+                        _designations.map((e) => DropdownMenuItem(value: e.id, child: Text(e.name))).toList(),
+                        (val) => setState(() => _selectedDesgId = val),
+                      ),
+                    ] else
+                      Row(
+                        children: [
+                          Expanded(child: _buildDropdown<int>(
+                            context, 
+                            'Department', 
+                            _departments.any((e) => e.id == _selectedDeptId) ? _selectedDeptId : null, 
+                            _departments.map((e) => DropdownMenuItem(value: e.id, child: Text(e.name))).toList(),
+                            (val) => setState(() => _selectedDeptId = val),
+                          )),
+                          const SizedBox(width: 24),
+                          Expanded(child: _buildDropdown<int>(
+                            context, 
+                            'Designation / Role', 
+                            _designations.any((e) => e.id == _selectedDesgId) ? _selectedDesgId : null, 
+                            _designations.map((e) => DropdownMenuItem(value: e.id, child: Text(e.name))).toList(),
+                            (val) => setState(() => _selectedDesgId = val),
+                          )),
+                        ],
+                      ),
                     const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(child: _buildDropdown<int>(
-                          context, 
-                          'Shift Time', 
-                          _selectedShiftId, 
-                          _shifts.map((e) => DropdownMenuItem(value: e.id, child: Text(e.name))).toList(),
-                          (val) => setState(() => _selectedShiftId = val),
-                        )),
-                        const SizedBox(width: 24),
-                        Expanded(child: _buildDropdown<String>(
-                          context, 
-                          'User Type', 
-                          _selectedUserType, 
-                          const [
-                            DropdownMenuItem(value: 'employee', child: Text('Employee')),
-                            DropdownMenuItem(value: 'admin', child: Text('Admin')),
-                          ],
-                          (val) => setState(() => _selectedUserType = val!),
-                        )),
-                      ],
-                    ),
+                    if (isMobile) ...[
+                      _buildDropdown<int>(
+                        context, 
+                        'Shift Time', 
+                        _shifts.any((e) => e.id == _selectedShiftId) ? _selectedShiftId : null, 
+                        _shifts.map((e) => DropdownMenuItem(value: e.id, child: Text(e.name))).toList(),
+                        (val) => setState(() => _selectedShiftId = val),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildDropdown<String>(
+                        context, 
+                        'User Type', 
+                        ['employee', 'admin', 'hr'].contains(_selectedUserType) ? _selectedUserType : 'employee', 
+                        const [
+                          DropdownMenuItem(value: 'employee', child: Text('Employee')),
+                          DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                          DropdownMenuItem(value: 'hr', child: Text('HR')),
+                        ],
+                        (val) => setState(() => _selectedUserType = val!),
+                      ),
+                    ] else
+                      Row(
+                        children: [
+                          Expanded(child: _buildDropdown<int>(
+                            context, 
+                            'Shift Time', 
+                            _shifts.any((e) => e.id == _selectedShiftId) ? _selectedShiftId : null, 
+                            _shifts.map((e) => DropdownMenuItem(value: e.id, child: Text(e.name))).toList(),
+                            (val) => setState(() => _selectedShiftId = val),
+                          )),
+                          const SizedBox(width: 24),
+                          Expanded(child: _buildDropdown<String>(
+                            context, 
+                            'User Type', 
+                            ['employee', 'admin', 'hr'].contains(_selectedUserType) ? _selectedUserType : 'employee', 
+                            const [
+                              DropdownMenuItem(value: 'employee', child: Text('Employee')),
+                              DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                              DropdownMenuItem(value: 'hr', child: Text('HR')),
+                            ],
+                            (val) => setState(() => _selectedUserType = val!),
+                          )),
+                        ],
+                      ),
                   ],
                 ),
               ),
-            ),
           ],
         ),
       ),

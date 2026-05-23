@@ -368,17 +368,37 @@ class _EmployeesMobileViewState extends State<EmployeesMobileView> {
   }
 
   void _navigateToAddEdit({Employee? employee}) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          appBar: AppBar(title: Text(employee == null ? 'Add Employee' : 'Edit Employee')),
-          body: AddEmployeeView(
-            employeeToEdit: employee,
-            onCancel: () => Navigator.pop(context),
-            onSuccess: () {
-              Navigator.pop(context);
-              _fetchEmployees();
-            },
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.85,
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF161B22) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              automaticallyImplyLeading: false,
+              title: Text(
+                employee == null ? 'Add Employee' : 'Edit Employee',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+              ),
+            ),
+            body: AddEmployeeView(
+              employeeToEdit: employee,
+              onCancel: () => Navigator.pop(context),
+              onSuccess: () {
+                Navigator.pop(context);
+                _fetchEmployees();
+              },
+            ),
           ),
         ),
       ),
@@ -512,20 +532,51 @@ class _EmployeesMobileViewState extends State<EmployeesMobileView> {
 
   Widget _buildStatusTabs(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final containerBg = isDark ? const Color(0xFF161B22) : Colors.grey[200]!;
-    final activeBg = isDark ? const Color(0xFF0D1117) : Colors.white;
+    final containerBg = isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9);
+    final activeBg = isDark ? const Color(0xFF2D3139) : Colors.white;
+    final activeColor = isDark ? Colors.white : const Color(0xFF4F46E5);
+    final inactiveColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Container(
-        padding: const EdgeInsets.all(3),
+        padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
           color: containerBg,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark ? const Color(0xFF30363D) : Colors.black.withValues(alpha: 0.05),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: ['Active', 'Inactive', 'Deleted'].map((status) {
             final isSelected = _statusFilter == status;
+            IconData iconData;
+            String label;
+            switch (status) {
+              case 'Active':
+                iconData = Icons.check_circle_outline_rounded;
+                label = 'Active';
+                break;
+              case 'Inactive':
+                iconData = Icons.remove_circle_outline_rounded;
+                label = 'Inactive';
+                break;
+              case 'Deleted':
+              default:
+                iconData = Icons.delete_outline_rounded;
+                label = 'Trash';
+                break;
+            }
+
             return Expanded(
               child: InkWell(
                 onTap: () {
@@ -534,22 +585,47 @@ class _EmployeesMobileViewState extends State<EmployeesMobileView> {
                     _filterEmployees();
                   });
                 },
-                child: Container(
+                borderRadius: BorderRadius.circular(12),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   decoration: BoxDecoration(
                     color: isSelected ? activeBg : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    status == 'Deleted' ? 'Trash' : status,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                      color: isSelected 
-                          ? (isDark ? Colors.white : Colors.black87) 
-                          : Colors.grey,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected
+                          ? (isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0))
+                          : Colors.transparent,
+                      width: 1,
                     ),
+                    boxShadow: isSelected && !isDark
+                        ? [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : [],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        iconData,
+                        size: 16,
+                        color: isSelected ? activeColor : inactiveColor,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        label,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                          color: isSelected ? activeColor : inactiveColor,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -570,7 +646,7 @@ class _EmployeesMobileViewState extends State<EmployeesMobileView> {
         final isDark = Theme.of(context).brightness == Brightness.dark;
 
         final childContent = ListTile(
-          contentPadding: const EdgeInsets.all(16),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           leading: _isSelectionMode
               ? Checkbox(
                   value: isSelected,
@@ -648,14 +724,14 @@ class _EmployeesMobileViewState extends State<EmployeesMobileView> {
 
         if (isDark) {
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             child: GlassContainer(
               child: childContent,
             ),
           );
         } else {
           return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.05) : Colors.white,
             elevation: 2,
             shape: RoundedRectangleBorder(
