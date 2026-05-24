@@ -127,37 +127,41 @@ class AttendanceService {
   // - Re-encodes as JPEG at 75% quality
   // - Strips EXIF so viewers don't re-apply rotation
   Future<File> _fixOrientationAndCompress(File imageFile) async {
-    final originalSize = await imageFile.length();
-    debugPrint('_fixOrientationAndCompress: input=${originalSize} bytes path=${imageFile.path}');
+    try {
+      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS)) {
+        final originalSize = await imageFile.length();
+        debugPrint('_fixOrientationAndCompress: input=${originalSize} bytes path=${imageFile.path}');
 
-    final tmpDir = await getTemporaryDirectory();
-    final outPath = p.join(
-      tmpDir.path,
-      '${p.basenameWithoutExtension(imageFile.path)}_fixed.jpg',
-    );
+        final tmpDir = await getTemporaryDirectory();
+        final outPath = p.join(
+          tmpDir.path,
+          '${p.basenameWithoutExtension(imageFile.path)}_fixed.jpg',
+        );
 
-    final result = await FlutterImageCompress.compressAndGetFile(
-      imageFile.path,
-      outPath,
-      minWidth: 1280,   // cap longest side — handles both portrait & landscape
-      minHeight: 1280,  // flutter_image_compress scales proportionally to fit
-      quality: 75,      // 75% JPEG: visually indistinguishable, ~200-500KB
-      keepExif: false,  // bake orientation into pixels, strip EXIF tag
-    );
+        final result = await FlutterImageCompress.compressAndGetFile(
+          imageFile.path,
+          outPath,
+          minWidth: 1280,   // cap longest side — handles both portrait & landscape
+          minHeight: 1280,  // flutter_image_compress scales proportionally to fit
+          quality: 75,      // 75% JPEG: visually indistinguishable, ~200-500KB
+          keepExif: false,  // bake orientation into pixels, strip EXIF tag
+        );
 
-    if (result == null) {
-      // Don't silently swallow — propagate so the caller can show an error
-      throw Exception('Image compression failed: flutter_image_compress returned null');
+        if (result != null) {
+          final outFile = File(result.path);
+          final compressedSize = await outFile.length();
+          debugPrint(
+            '_fixOrientationAndCompress: done — '
+            '${originalSize} bytes → ${compressedSize} bytes '
+            '(${(compressedSize / 1024).toStringAsFixed(0)} KB)',
+          );
+          return outFile;
+        }
+      }
+    } catch (e) {
+      debugPrint("Image compression failed or platform not supported, using original file: $e");
     }
-
-    final outFile = File(result.path);
-    final compressedSize = await outFile.length();
-    debugPrint(
-      '_fixOrientationAndCompress: done — '
-      '${originalSize} bytes → ${compressedSize} bytes '
-      '(${(compressedSize / 1024).toStringAsFixed(0)} KB)',
-    );
-    return outFile;
+    return imageFile;
   }
   // 4. Correction Requests (New)
 

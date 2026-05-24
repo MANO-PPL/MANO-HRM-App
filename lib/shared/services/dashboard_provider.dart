@@ -1,12 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../services/admin_service.dart';
 import '../models/dashboard_model.dart';
 import 'auth_service.dart';
+import '../../features/attendance/services/attendance_service.dart';
 
 class DashboardProvider extends ChangeNotifier {
+  final AuthService _authService;
   final AdminService _adminService;
+  String? _lastUserId;
   
-  DashboardProvider(AuthService authService) : _adminService = AdminService(authService);
+  DashboardProvider(AuthService authService) 
+      : _authService = authService,
+        _adminService = AdminService(authService) {
+    _lastUserId = authService.user?.id;
+    authService.addListener(_onAuthChanged);
+  }
+
+  void _onAuthChanged() {
+    final currentUserId = _authService.user?.id;
+    if (currentUserId != _lastUserId) {
+      _cache.clear();
+      _data = null;
+      _lastUserId = currentUserId;
+      fetchDashboardData(forceRefresh: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _authService.removeListener(_onAuthChanged);
+    super.dispose();
+  }
 
   bool _isLoading = true;
   bool get isLoading => _isLoading;
@@ -54,14 +79,64 @@ class DashboardProvider extends ChangeNotifier {
       _isLoading = true;
       // notifyListeners(); // Don't notify here to avoid flicker if just switching view modes quickly
 
-      final result = await _adminService.getDashboardStats(
-        range: range,
-        month: month,
-        year: year,
-      );
+      final user = _authService.user;
+      if (user != null && user.isEmployee) {
+        // Fetch employee's own records for the current month to calculate personal stats
+        final now = DateTime.now();
+        final startOfMonth = DateTime(now.year, now.month, 1);
+        final formatter = DateFormat('yyyy-MM-dd');
+        final startStr = formatter.format(startOfMonth);
+        final endStr = formatter.format(now);
 
-      _data = result;
-      _cache[cacheKey] = result;
+        final attendanceService = AttendanceService(_authService.dio);
+        final records = await attendanceService.getMyRecords(
+          fromDate: startStr,
+          toDate: endStr,
+          userId: user.employeeId,
+        );
+
+        int presentCount = 0;
+        int absentCount = 0;
+        int lateCount = 0;
+
+        for (var rec in records) {
+          if (rec.status.toUpperCase() == 'PRESENT') {
+            presentCount++;
+            if (rec.lateMinutes > 0) {
+              lateCount++;
+            }
+          } else if (rec.status.toUpperCase() == 'ABSENT') {
+            absentCount++;
+          }
+        }
+
+        final employeeStats = DashboardStats(
+          presentToday: presentCount,      // Map to "Present Days" in UI
+          totalEmployees: 0,
+          absentToday: absentCount,        // Map to "Absent Days" in UI
+          lateCheckins: lateCount,         // Map to "Late Arrivals" in UI
+        );
+
+        final result = DashboardData(
+          stats: employeeStats,
+          trends: DashboardTrends(present: '0%', absent: '0%', late: '0%'),
+          chartData: [],
+          activities: [],
+        );
+
+        _data = result;
+        _cache[cacheKey] = result;
+      } else {
+        // Admin or HR
+        final result = await _adminService.getDashboardStats(
+          range: range,
+          month: month,
+          year: year,
+        );
+
+        _data = result;
+        _cache[cacheKey] = result;
+      }
     } catch (e) {
       debugPrint("Dashboard Error: $e");
       // Optionally handle error state

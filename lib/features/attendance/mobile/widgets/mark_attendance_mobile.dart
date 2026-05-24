@@ -132,7 +132,7 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
         success = true;
       } catch (e) {
         final msg = e.toString().toLowerCase();
-        if (isTimeIn && msg.contains("reason")) {
+        if (isTimeIn && (msg.contains("reason") || msg.contains("late"))) {
            caughtReasonError = msg;
         } else {
            if (mounted) {

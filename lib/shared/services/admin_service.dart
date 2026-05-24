@@ -27,7 +27,8 @@ class AdminService {
       );
 
       if (response.statusCode == 200 && response.data != null) {
-        final data = DashboardData.fromJson(response.data);
+        final rawData = response.data['data'] ?? response.data;
+        final data = DashboardData.fromJson(rawData);
 
         // Fallback: If no activities are returned from the main stats,
         // fetch real-time attendance to populate the feed (similar to web)
