@@ -78,7 +78,13 @@ class LocationService {
       final response = await _dio.get(ApiConstants.users, queryParameters: {'workLocation': 'true'});
       if (response.statusCode == 200 && (response.data['success'] == true || response.data['ok'] == true)) {
          final List<dynamic> list = response.data['users'];
-         return List<Map<String, dynamic>>.from(list);
+         final usersList = List<Map<String, dynamic>>.from(list);
+         usersList.sort((a, b) {
+           final aName = (a['user_name'] as String? ?? '').toLowerCase();
+           final bName = (b['user_name'] as String? ?? '').toLowerCase();
+           return aName.compareTo(bName);
+         });
+         return usersList;
       }
       return [];
     } catch (e) {

@@ -107,7 +107,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
       merged.sort((a, b) {
         if (a.status == "Absent" && b.status != "Absent") return 1;
         if (a.status != "Absent" && b.status == "Absent") return -1;
-        return 0;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       });
 
       // 2. Update Cache

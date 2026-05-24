@@ -44,8 +44,10 @@ class LeaveDetailsDialog extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => FractionallySizedBox(
-        heightFactor: 0.9,
+      builder: (context) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
         child: LeaveDetailsDialog(
           request: request,
           width: double.infinity,
@@ -64,8 +66,10 @@ class LeaveDetailsDialog extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => FractionallySizedBox(
-        heightFactor: 0.9,
+      builder: (context) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
         child: LeaveDetailsDialog(
           request: request,
           width: double.infinity,
@@ -81,8 +85,10 @@ class LeaveDetailsDialog extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => FractionallySizedBox(
-        heightFactor: 0.9,
+      builder: (context) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
         child: LeaveDetailsDialog(
           request: request,
           width: double.infinity,
@@ -203,7 +209,7 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
 
             // Scrollable part
             widget.width == double.infinity
-                ? Expanded(
+                ? Flexible(
                     child: SingleChildScrollView(
                       child: _buildDetailsColumn(context, startDateStr, endDateStr, duration, highlightColor, status),
                     ),

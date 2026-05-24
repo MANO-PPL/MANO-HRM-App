@@ -62,7 +62,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             final isLandscape = constraints.maxWidth >= 900;
 
             return SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(24, isLandscape ? 24 : 4, 24, 24),
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

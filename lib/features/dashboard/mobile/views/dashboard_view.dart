@@ -92,7 +92,7 @@ class _MobileAdminDashboardContentState
             slivers: [
               // 1. KPI Section (Grid)
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     _buildMobileKPIStack(
@@ -313,7 +313,7 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
             slivers: [
               // 1. KPI Section (Grid)
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     _buildMobileKPIStack(provider.stats, provider.trends),
