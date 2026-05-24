@@ -870,7 +870,7 @@ class _MobileDailyActivityViewState extends State<MobileDailyActivityView> {
         children: [
           // Header title strip
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

@@ -621,7 +621,7 @@ class _TabletDailyActivityViewState extends State<TabletDailyActivityView> {
           Expanded(
             flex: 7,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.only(left: 16, right: 16, top: 24, bottom: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -671,7 +671,7 @@ class _TabletDailyActivityViewState extends State<TabletDailyActivityView> {
           SizedBox(
             width: 270,
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.only(left: 16, right: 16, top: 24, bottom: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

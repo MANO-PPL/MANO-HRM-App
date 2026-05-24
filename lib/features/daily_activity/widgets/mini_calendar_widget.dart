@@ -258,8 +258,7 @@ class _MiniCalendarWidgetState extends State<MiniCalendarWidget> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d) {
-            return SizedBox(
-              width: 32,
+            return Expanded(
               child: Center(
                 child: Text(
                   d,
