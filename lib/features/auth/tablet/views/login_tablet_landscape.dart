@@ -13,35 +13,35 @@ class LoginTabletLandscape extends StatelessWidget {
 
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(48),
+        padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 550),
+          constraints: const BoxConstraints(maxWidth: 500),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // Logo
-              Image.asset('assets/mano.png', height: 100, width: 100),
-              const SizedBox(height: 32),
+              Image.asset('assets/mano.png', height: 60, width: 60),
+              const SizedBox(height: 12),
 
               // Welcome Back Text
               Text(
                 'Welcome Back',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : Colors.black,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Text(
                 'Sign in to continue to MANO Attendance',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: isDark ? Colors.grey[400] : Colors.grey[600],
-                  fontSize: 18,
+                  fontSize: 14,
                 ),
               ),
-              const SizedBox(height: 48),
+              const SizedBox(height: 16),
 
               Card(
                 elevation: 4,
@@ -50,9 +50,8 @@ class LoginTabletLandscape extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
-                clipBehavior: Clip.none,
                 child: Padding(
-                  padding: const EdgeInsets.all(48),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
                   child: Form(
                     key: controller.formKey,
                     child: Column(
@@ -68,17 +67,18 @@ class LoginTabletLandscape extends StatelessWidget {
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 color: isDark ? Colors.white70 : Colors.black87,
-                                fontSize: 16,
+                                fontSize: 14,
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 6),
                             TextFormField(
                               controller: controller.identifierController,
                               style: TextStyle(
                                 color: isDark ? Colors.white : Colors.black,
+                                fontSize: 14,
                               ),
                               decoration: InputDecoration(
-                                hintText: 'Mano',
+                                hintText: 'Enter email/phone no.',
                                 hintStyle: TextStyle(
                                   color: isDark
                                       ? Colors.white30
@@ -95,17 +95,18 @@ class LoginTabletLandscape extends StatelessWidget {
                                 prefixIcon: Icon(
                                   Icons.mail_outline,
                                   color: isDark ? Colors.white54 : Colors.grey,
+                                  size: 20,
                                 ),
                                 contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 24,
+                                  horizontal: 16,
+                                  vertical: 14,
                                 ),
                               ),
                               validator: (v) => v!.isEmpty ? 'Required' : null,
                             ),
                           ],
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 12),
 
                         // Password
                         Column(
@@ -121,7 +122,7 @@ class LoginTabletLandscape extends StatelessWidget {
                                     color: isDark
                                         ? Colors.white70
                                         : Colors.black87,
-                                    fontSize: 16,
+                                    fontSize: 14,
                                   ),
                                 ),
                                 TextButton(
@@ -145,18 +146,19 @@ class LoginTabletLandscape extends StatelessWidget {
                                     style: TextStyle(
                                       color: Color(0xFF4F46E5),
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 16,
+                                      fontSize: 14,
                                     ),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 6),
                             TextFormField(
                               controller: controller.passwordController,
                               obscureText: !controller.isPasswordVisible,
                               style: TextStyle(
                                 color: isDark ? Colors.white : Colors.black,
+                                fontSize: 14,
                               ),
                               decoration: InputDecoration(
                                 hintText: '••••••',
@@ -177,6 +179,7 @@ class LoginTabletLandscape extends StatelessWidget {
                                 prefixIcon: Icon(
                                   Icons.lock_outline,
                                   color: isDark ? Colors.white54 : Colors.grey,
+                                  size: 20,
                                 ),
                                 suffixIcon: IconButton(
                                   icon: Icon(
@@ -186,13 +189,14 @@ class LoginTabletLandscape extends StatelessWidget {
                                     color: isDark
                                         ? Colors.white54
                                         : Colors.grey,
+                                    size: 20,
                                   ),
                                   onPressed:
                                       controller.togglePasswordVisibility,
                                 ),
                                 contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 24,
+                                  horizontal: 16,
+                                  vertical: 14,
                                 ),
                               ),
                               validator: (v) => v!.isEmpty ? 'Required' : null,
@@ -201,7 +205,7 @@ class LoginTabletLandscape extends StatelessWidget {
                         ),
 
                         // Captcha
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 16),
                         Center(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 304),
@@ -209,7 +213,7 @@ class LoginTabletLandscape extends StatelessWidget {
                           ),
                         ),
 
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 16),
 
                         // Login Button
                         ElevatedButton(
@@ -219,7 +223,7 @@ class LoginTabletLandscape extends StatelessWidget {
                               ? null
                               : controller.handleLogin,
                           style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -229,8 +233,8 @@ class LoginTabletLandscape extends StatelessWidget {
                           ),
                           child: controller.isLoading
                               ? const SizedBox(
-                                  width: 24,
-                                  height: 24,
+                                  width: 20,
+                                  height: 20,
                                   child: CircularProgressIndicator(
                                     color: Colors.white,
                                     strokeWidth: 2,
@@ -242,12 +246,12 @@ class LoginTabletLandscape extends StatelessWidget {
                                     Text(
                                       'Sign in',
                                       style: TextStyle(
-                                        fontSize: 18,
+                                        fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                     SizedBox(width: 8),
-                                    Icon(Icons.arrow_forward, size: 24),
+                                    Icon(Icons.arrow_forward, size: 20),
                                   ],
                                 ),
                         ),

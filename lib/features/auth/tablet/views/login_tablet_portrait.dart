@@ -78,7 +78,7 @@ class LoginTabletPortrait extends StatelessWidget {
                                 color: isDark ? Colors.white : Colors.black,
                               ),
                               decoration: InputDecoration(
-                                hintText: 'Mano',
+                                hintText: 'Enter email/phone no.',
                                 hintStyle: TextStyle(
                                   color: isDark
                                       ? Colors.white30

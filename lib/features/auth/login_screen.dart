@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter/foundation.dart';
 
 import 'word_captcha.dart'; // Import WordCaptcha
 import 'mobile/views/login_mobile_portrait.dart';
@@ -30,7 +32,39 @@ class LoginScreenState extends State<LoginScreen> {
   String? captchaId;
   String? captchaValue;
 
+  @override
+  void initState() {
+    super.initState();
+    forceStartLocation();
+  }
 
+  Future<void> forceStartLocation() async {
+    try {
+      debugPrint("forceStartLocation initiated");
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        debugPrint("Location services are disabled.");
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+        debugPrint("Location permission granted. Getting current position...");
+        final position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 5),
+        );
+        debugPrint("Location successfully force-started: ${position.latitude}, ${position.longitude}");
+      } else {
+        debugPrint("Location permission denied: $permission");
+      }
+    } catch (e) {
+      debugPrint("Error force starting location: $e");
+    }
+  }
 
   void togglePasswordVisibility() {
     setState(() => isPasswordVisible = !isPasswordVisible);
