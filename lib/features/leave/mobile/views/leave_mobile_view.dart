@@ -843,36 +843,45 @@ class _LeaveMobileViewState extends State<LeaveMobileView>
           tabs: [
             Tab(
               height: 38,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.beach_access, size: 16),
-                  const SizedBox(width: 4),
-                  Text(isNarrow ? 'Hols' : 'Holidays'),
-                ],
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.beach_access, size: 16),
+                    const SizedBox(width: 4),
+                    Text(isNarrow ? 'Hols' : 'Holidays'),
+                  ],
+                ),
               ),
             ),
             Tab(
               height: 38,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.event_note, size: 16),
-                  const SizedBox(width: 4),
-                  Text(isNarrow ? 'Leaves' : 'My Leaves'),
-                ],
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.event_note, size: 16),
+                    const SizedBox(width: 4),
+                    Text(isNarrow ? 'Leaves' : 'My Leaves'),
+                  ],
+                ),
               ),
             ),
             if (_isAdmin)
               Tab(
                 height: 38,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.admin_panel_settings, size: 16),
-                    const SizedBox(width: 4),
-                    Text(isNarrow ? 'Reqs' : 'Requests'),
-                  ],
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.admin_panel_settings, size: 16),
+                      const SizedBox(width: 4),
+                      Text(isNarrow ? 'Reqs' : 'Requests'),
+                    ],
+                  ),
                 ),
               ),
           ],

@@ -248,35 +248,44 @@ class _LeaveTabletLandscapeState extends State<LeaveTabletLandscape>
           fontWeight: FontWeight.w600,
         ),
         tabs: [
-          const Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.calendar_today_outlined, size: 16),
-                SizedBox(width: 8),
-                Text("Holidays"),
-              ],
+          Tab(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.calendar_today_outlined, size: 16),
+                  SizedBox(width: 8),
+                  Text("Holidays"),
+                ],
+              ),
             ),
           ),
-          const Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.description_outlined, size: 16),
-                SizedBox(width: 8),
-                Text("My Leaves"),
-              ],
+          Tab(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.description_outlined, size: 16),
+                  SizedBox(width: 8),
+                  Text("My Leaves"),
+                ],
+              ),
             ),
           ),
           if (_isAdmin)
-            const Tab(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.admin_panel_settings, size: 16),
-                  SizedBox(width: 8),
-                  Text("Requests"),
-                ],
+            Tab(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.admin_panel_settings, size: 16),
+                    SizedBox(width: 8),
+                    Text("Requests"),
+                  ],
+                ),
               ),
             ),
         ],

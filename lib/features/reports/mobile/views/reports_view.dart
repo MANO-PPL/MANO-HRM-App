@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:open_filex/open_filex.dart';
@@ -393,27 +393,33 @@ class _MobileReportsContentState extends State<MobileReportsContent> with Single
         dividerColor: Colors.transparent,
         labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13),
         unselectedLabelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w500, fontSize: 13),
-        tabs: const [
+        tabs: [
           Tab(
             height: 42,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.table_chart_outlined, size: 16),
-                SizedBox(width: 6),
-                Text('Preview'),
-              ],
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.table_chart_outlined, size: 16),
+                  SizedBox(width: 6),
+                  Text('Preview'),
+                ],
+              ),
             ),
           ), 
           Tab(
             height: 42,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.history, size: 16),
-                SizedBox(width: 6),
-                Text('History'),
-              ],
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.history, size: 16),
+                  SizedBox(width: 6),
+                  Text('History'),
+                ],
+              ),
             ),
           ),
         ],

@@ -220,78 +220,152 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
     return GlassContainer(
       padding: const EdgeInsets.all(16),
       borderRadius: 16,
-      child: Row(
-        children: [
-          // Date Box
-          Container(
-            width: 50,
-            height: 50,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text('$day', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF5B60F6))),
-          ),
-          const SizedBox(width: 16),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxWidth < 460;
           
-          // Details
-          Expanded(
-            child: Column(
+          if (isCompact) {
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
+                    // Date Box
+                    Container(
+                      width: 50,
+                      height: 50,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text('$day', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF5B60F6))),
+                    ),
+                    const SizedBox(width: 16),
+                    
+                    // Details
                     Expanded(
-                      child: Text(
-                        dateStr, 
-                        style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14),
-                        overflow: TextOverflow.ellipsis,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            dateStr, 
+                            style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(color: statusColor?.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
+                                child: Text(status, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: statusText)),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  location, 
+                                  style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 8),
                   ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 12),
+                Divider(height: 1, color: Theme.of(context).dividerColor.withValues(alpha: 0.3)),
+                const SizedBox(height: 8),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: statusColor?.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
-                      child: Text(status, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: statusText)),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        location, 
-                        style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+                    _buildTimeColumn('IN', displayIn, imageUrl: record.timeInImage),
+                    _buildTimeColumn('OUT', displayOut, imageUrl: record.timeOutImage),
+                    _buildTimeColumn('HRS', hrs),
                   ],
                 ),
               ],
-            ),
-          ),
-
-          // Times
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildTimeColumn('IN', displayIn, imageUrl: record.timeInImage),
-                  const SizedBox(width: 8),
-                  _buildTimeColumn('OUT', displayOut, imageUrl: record.timeOutImage),
-                  const SizedBox(width: 8),
-                  _buildTimeColumn('HRS', hrs),
-                ],
-              )
-            ],
-          )
-        ],
+            );
+          } else {
+            return Row(
+              children: [
+                // Date Box
+                Container(
+                  width: 50,
+                  height: 50,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text('$day', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF5B60F6))),
+                ),
+                const SizedBox(width: 16),
+                
+                // Details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              dateStr, 
+                              style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: statusColor?.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
+                            child: Text(status, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: statusText)),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              location, 
+                              style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                
+                // Times
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildTimeColumn('IN', displayIn, imageUrl: record.timeInImage),
+                        const SizedBox(width: 8),
+                        _buildTimeColumn('OUT', displayOut, imageUrl: record.timeOutImage),
+                        const SizedBox(width: 8),
+                        _buildTimeColumn('HRS', hrs),
+                      ],
+                    )
+                  ],
+                )
+              ],
+            );
+          }
+        },
       ),
     );
   }

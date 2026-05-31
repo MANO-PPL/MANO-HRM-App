@@ -251,38 +251,44 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
         tabs: [
           Tab(
             height: 38,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.dashboard_rounded, size: 18),
-                const SizedBox(width: 8),
-                Text(MediaQuery.of(context).size.width < 600 ? "Dashboard" : "Live Dashboard"),
-              ],
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.dashboard_rounded, size: 18),
+                  const SizedBox(width: 8),
+                  Text(MediaQuery.of(context).size.width < 600 ? "Dashboard" : "Live Dashboard"),
+                ],
+              ),
             ),
           ), 
           Tab(
             height: 38,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.pending_actions_rounded, size: 18),
-                const SizedBox(width: 8),
-                Text(MediaQuery.of(context).size.width < 600 ? "Requests" : "Correction Requests"),
-                if (pendingCount > 0) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.red, 
-                      borderRadius: BorderRadius.circular(20),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.pending_actions_rounded, size: 18),
+                  const SizedBox(width: 8),
+                  Text(MediaQuery.of(context).size.width < 600 ? "Requests" : "Correction Requests"),
+                  if (pendingCount > 0) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.red, 
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '$pendingCount',
+                        style: GoogleFonts.poppins(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                      ),
                     ),
-                    child: Text(
-                      '$pendingCount',
-                      style: GoogleFonts.poppins(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
-                    ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ],
@@ -730,9 +736,9 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildMetricItem(context, 'Time In', inTime),
-                _buildMetricItem(context, 'Time Out', outTime),
-                _buildMetricItem(context, 'Shift', item.user.shift ?? 'General'),
+                Expanded(child: _buildMetricItem(context, 'Time In', inTime)),
+                Expanded(child: _buildMetricItem(context, 'Time Out', outTime)),
+                Expanded(child: _buildMetricItem(context, 'Shift', item.user.shift ?? 'General')),
               ],
             ),
           ],
@@ -761,6 +767,8 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
             fontSize: 11,
             color: Theme.of(context).textTheme.bodySmall?.color,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 2),
         Text(
@@ -770,6 +778,8 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
             fontWeight: FontWeight.w600,
             color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );

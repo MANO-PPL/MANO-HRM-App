@@ -709,24 +709,30 @@ class AttendanceTabBar extends StatelessWidget {
         tabs: [
           Tab(
             height: 38,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.person_outline_rounded, size: 18),
-                const SizedBox(width: 8),
-                Text(MediaQuery.of(context).size.width < 600 ? "Attendance" : "Mark Attendance"),
-              ],
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.person_outline_rounded, size: 18),
+                  const SizedBox(width: 8),
+                  Text(MediaQuery.of(context).size.width < 600 ? "Attendance" : "Mark Attendance"),
+                ],
+              ),
             ),
           ),
           Tab(
             height: 38,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.history_rounded, size: 18),
-                const SizedBox(width: 8),
-                const Text("My Attendance"),
-              ],
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.history_rounded, size: 18),
+                  const SizedBox(width: 8),
+                  const Text("My Attendance"),
+                ],
+              ),
             ),
           ),
         ],

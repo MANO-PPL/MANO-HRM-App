@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../shared/layout/responsive_layout.dart';
@@ -66,25 +66,31 @@ class DailyActivityScreen extends StatelessWidget {
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
-                tabs: const [
+                tabs: [
                   Tab(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.person_outline, size: 16),
-                        SizedBox(width: 8),
-                        Text("My DAR"),
-                      ],
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.person_outline, size: 16),
+                          SizedBox(width: 8),
+                          Text("My DAR"),
+                        ],
+                      ),
                     ),
                   ),
                   Tab(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.people_outline, size: 16),
-                        SizedBox(width: 8),
-                        Text("Employees' DAR"),
-                      ],
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.people_outline, size: 16),
+                          SizedBox(width: 8),
+                          Text("Employees' DAR"),
+                        ],
+                      ),
                     ),
                   ),
                 ],

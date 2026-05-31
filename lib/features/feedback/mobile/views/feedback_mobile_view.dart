@@ -186,25 +186,31 @@ class _FeedbackMobileViewState extends State<FeedbackMobileView>
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
-                  tabs: const [
+                  tabs: [
                     Tab(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.bug_report, size: 16),
-                          SizedBox(width: 8),
-                          Text("Bug Report"),
-                        ],
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.bug_report, size: 16),
+                            SizedBox(width: 8),
+                            Text("Bug Report"),
+                          ],
+                        ),
                       ),
                     ),
                     Tab(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.feedback, size: 16),
-                          SizedBox(width: 8),
-                          Text("Feedback"),
-                        ],
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.feedback, size: 16),
+                            SizedBox(width: 8),
+                            Text("Feedback"),
+                          ],
+                        ),
                       ),
                     ),
                   ],
