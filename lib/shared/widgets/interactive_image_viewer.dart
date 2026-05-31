@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'glass_container.dart';
@@ -16,7 +16,7 @@ class InteractiveImageViewerDialog extends StatelessWidget {
   static void show(BuildContext context, String imageUrl, {String title = "Image Preview"}) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.85),
+      barrierColor: Colors.black.withValues(alpha: 0.85),
       builder: (context) => InteractiveImageViewerDialog(
         imageUrl: imageUrl,
         title: title,
@@ -78,7 +78,7 @@ class InteractiveImageViewerDialog extends StatelessWidget {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withValues(alpha: 0.2),
                   constraints: BoxConstraints(
                     maxHeight: size.height * 0.6,
                   ),

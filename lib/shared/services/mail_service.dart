@@ -1,7 +1,6 @@
-import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 
@@ -21,7 +20,7 @@ class MailService {
     required String otp,
   }) async {
     if (_emailUser.isEmpty || _emailPass.isEmpty) {
-      print('Cannot send email: Missing credentials in .env');
+      debugPrint('Cannot send email: Missing credentials in .env');
       return false;
     }
 
@@ -36,16 +35,16 @@ class MailService {
 
     try {
       final sendReport = await send(message, smtpServer);
-      print('OTP email sent: ${sendReport.toString()}');
+      debugPrint('OTP email sent: ${sendReport.toString()}');
       return true;
     } on MailerException catch (e) {
-      print('OTP email not sent.');
+      debugPrint('OTP email not sent.');
       for (var p in e.problems) {
-        print('Problem: ${p.code}: ${p.msg}');
+        debugPrint('Problem: ${p.code}: ${p.msg}');
       }
       return false;
     } catch (e) {
-      print('Error sending OTP email: ${e.toString()}');
+      debugPrint('Error sending OTP email: ${e.toString()}');
       return false;
     }
   }
@@ -58,7 +57,7 @@ class MailService {
     List<File>? attachments,
   }) async {
     if (_emailUser.isEmpty || _emailPass.isEmpty) {
-      print('Cannot send email: Missing credentials in .env');
+      debugPrint('Cannot send email: Missing credentials in .env');
       return false;
     }
 
@@ -103,16 +102,16 @@ class MailService {
 
     try {
       final sendReport = await send(message, smtpServer);
-      print('Message sent: ${sendReport.toString()}');
+      debugPrint('Message sent: ${sendReport.toString()}');
       return true;
     } on MailerException catch (e) {
-      print('Message not sent.');
+      debugPrint('Message not sent.');
       for (var p in e.problems) {
-        print('Problem: ${p.code}: ${p.msg}');
+        debugPrint('Problem: ${p.code}: ${p.msg}');
       }
       return false;
     } catch (e) {
-      print('Error sending email: $e');
+      debugPrint('Error sending email: $e');
       return false;
     }
   }

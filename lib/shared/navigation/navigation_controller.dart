@@ -31,7 +31,6 @@ extension PageTypeExtension on PageType {
       case PageType.geoFencing: return 'Geo-Fencing';
       case PageType.feedback: return 'Feedback & Support'; // ADDED
       case PageType.profile: return 'My Profile';
-      default: return 'App'; // Safe fallback
     }
   }
 
@@ -49,7 +48,6 @@ extension PageTypeExtension on PageType {
       case PageType.geoFencing: return Icons.location_on_outlined;
       case PageType.feedback: return Icons.feedback_outlined; // ADDED
       case PageType.profile: return Icons.person_outline;
-      default: return Icons.help_outline; // Safe fallback
     }
   }
 }

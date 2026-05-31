@@ -119,10 +119,11 @@ class _LeaveMobileViewState extends State<LeaveMobileView>
         }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text("Withdraw Failed: $e")));
+      }
     }
   }
 
@@ -143,10 +144,11 @@ class _LeaveMobileViewState extends State<LeaveMobileView>
               context.showToast("Holiday added successfully.", isSuccess: true);
             }
           } catch (e) {
-            if (mounted)
+            if (mounted) {
               ScaffoldMessenger.of(
                 context,
               ).showSnackBar(SnackBar(content: Text("Error: $e")));
+            }
           }
         },
       ),
@@ -173,10 +175,11 @@ class _LeaveMobileViewState extends State<LeaveMobileView>
               );
             }
           } catch (e) {
-            if (mounted)
+            if (mounted) {
               ScaffoldMessenger.of(
                 context,
               ).showSnackBar(SnackBar(content: Text("Error: $e")));
+            }
           }
         },
       ),
@@ -275,10 +278,11 @@ class _LeaveMobileViewState extends State<LeaveMobileView>
             );
           }
         } else {
-          if (mounted)
+          if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text("No valid data found in CSV")),
             );
+          }
         }
       }
     } catch (e) {
@@ -342,8 +346,8 @@ class _LeaveMobileViewState extends State<LeaveMobileView>
                 ),
                 border: Border.all(
                   color: isDark
-                      ? Colors.white.withOpacity(0.08)
-                      : Colors.black.withOpacity(0.05),
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.black.withValues(alpha: 0.05),
                   width: 1,
                 ),
               ),
@@ -415,7 +419,7 @@ class _LeaveMobileViewState extends State<LeaveMobileView>
                           border: TableBorder.symmetric(
                             inside: BorderSide(
                               color: isDark
-                                  ? Colors.white.withOpacity(0.05)
+                                  ? Colors.white.withValues(alpha: 0.05)
                                   : Colors.grey[200]!,
                             ),
                           ),
@@ -423,7 +427,7 @@ class _LeaveMobileViewState extends State<LeaveMobileView>
                             TableRow(
                               decoration: BoxDecoration(
                                 color: isDark
-                                    ? Colors.white.withOpacity(0.02)
+                                    ? Colors.white.withValues(alpha: 0.02)
                                     : Colors.grey[50]!,
                               ),
                               children: [
@@ -677,15 +681,17 @@ class _LeaveMobileViewState extends State<LeaveMobileView>
   }
 
   Widget _buildHolidaysList(BuildContext context) {
-    if (_isLoadingHolidays)
+    if (_isLoadingHolidays) {
       return const Center(child: CircularProgressIndicator());
-    if (_holidays.isEmpty)
+    }
+    if (_holidays.isEmpty) {
       return Center(
         child: Text(
           "No holidays found",
           style: GoogleFonts.poppins(color: Colors.grey),
         ),
       );
+    }
 
     return ListView.builder(
       padding: const EdgeInsets.only(left: 16, right: 16, top: 0, bottom: 80),
@@ -714,7 +720,7 @@ class _LeaveMobileViewState extends State<LeaveMobileView>
                   decoration: BoxDecoration(
                     color: isDark
                         ? const Color(0xFF30363D)
-                        : Theme.of(context).primaryColor.withOpacity(0.1),
+                        : Theme.of(context).primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(

@@ -82,9 +82,7 @@ class ReportService {
       }
 
       // Step C: Save History
-      if (savePath != null) {
-        await _saveHistory(fileName, savePath, type);
-      }
+      await _saveHistory(fileName, savePath, type);
 
       return savePath;
     } catch (e) {
@@ -143,7 +141,7 @@ class ReportService {
               child: pw.Text("Attendance Report - $title", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 18)),
             ),
             pw.SizedBox(height: 20),
-            pw.Table.fromTextArray(
+            pw.TableHelper.fromTextArray(
               headers: columns,
               data: rows.map((row) => row.map((e) => e?.toString() ?? '-').toList()).toList(),
               headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),

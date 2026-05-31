@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import '../constants/api_constants.dart';
 import '../models/notification_model.dart';
@@ -35,7 +35,7 @@ class NotificationService extends ChangeNotifier {
          _unreadCount = response.data['unread_count'] ?? 0;
       }
     } catch (e) {
-      print('Error fetching notifications: $e');
+      debugPrint('Error fetching notifications: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -61,7 +61,7 @@ class NotificationService extends ChangeNotifier {
 
       await _dio.put(ApiConstants.notificationMarkRead.replaceAll(':id', notificationId.toString()));
     } catch (e) {
-       print('Error marking notification read: $e');
+       debugPrint('Error marking notification read: $e');
        // Revert on failure if needed (skipped for simplicity)
     }
   }
@@ -83,7 +83,7 @@ class NotificationService extends ChangeNotifier {
 
        await _dio.put(ApiConstants.notificationsReadAll);
      } catch (e) {
-       print('Error marking all notifications read: $e');
+       debugPrint('Error marking all notifications read: $e');
      }
   }
 }
