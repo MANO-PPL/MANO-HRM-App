@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../../shared/navigation/navigation_controller.dart';
@@ -112,9 +112,9 @@ class _ProfileViewState extends State<ProfileView> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF5B60F6).withOpacity(0.1),
+                    color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFF5B60F6).withOpacity(0.2)),
+                    border: Border.all(color: const Color(0xFF5B60F6).withValues(alpha: 0.2)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -305,8 +305,8 @@ class _ProfileViewState extends State<ProfileView> {
       child: GlassContainer(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        color: Colors.red.withOpacity(0.1), // Distinctive red tint
-        border: Border.all(color: Colors.red.withOpacity(0.3)),
+        color: Colors.red.withValues(alpha: 0.1), // Distinctive red tint
+        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

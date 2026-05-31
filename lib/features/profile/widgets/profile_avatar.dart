@@ -68,7 +68,9 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
            await CachedNetworkImageProvider(url).evict();
         }
 
-        context.showToast("Profile picture updated successfully!", isSuccess: true);
+        if (mounted) {
+          context.showToast("Profile picture updated successfully!", isSuccess: true);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -181,7 +183,9 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
              await CachedNetworkImageProvider(url).evict();
           }
 
-          context.showToast("Profile photo removed successfully!", isSuccess: true);
+          if (mounted) {
+            context.showToast("Profile photo removed successfully!", isSuccess: true);
+          }
         }
       } catch (e) {
         if (mounted) {
@@ -304,7 +308,7 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
   void _openViewer(String imageUrl) { // Accept resolved URL
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.9),
+      barrierColor: Colors.black.withValues(alpha: 0.9),
       builder: (context) => Stack(
         children: [
           Center(

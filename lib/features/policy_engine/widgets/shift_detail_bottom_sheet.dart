@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../shared/widgets/glass_container.dart';
 import '../models/shift_model.dart';
 
 class ShiftDetailBottomSheet extends StatelessWidget {
@@ -51,7 +50,7 @@ class ShiftDetailBottomSheet extends StatelessWidget {
             color: sheetBg,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             border: Border.all(
-              color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
+              color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05),
               width: 1,
             ),
           ),
@@ -82,7 +81,7 @@ class ShiftDetailBottomSheet extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: Colors.indigoAccent.withOpacity(0.1),
+                            color: Colors.indigoAccent.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(Icons.access_time_filled,
@@ -267,7 +266,7 @@ class ShiftDetailBottomSheet extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withOpacity(0.05)
+            ? Colors.white.withValues(alpha: 0.05)
             : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
@@ -278,7 +277,7 @@ class ShiftDetailBottomSheet extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: (iconColor ?? Colors.indigoAccent).withOpacity(0.1),
+              color: (iconColor ?? Colors.indigoAccent).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon,
