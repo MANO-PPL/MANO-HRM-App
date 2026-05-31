@@ -130,7 +130,13 @@ flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
   remove_alpha_ios: true
-  image_path: "assets/mano.png"
+  image_path: "assets/app_icon_light.png"
+  image_path_ios_dark_transparent: "assets/app_icon_dark.png"
+  image_path_ios_tinted_grayscale: "assets/app_icon_dark.png"
+  desaturate_tinted_to_grayscale_ios: true
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/app_icon_foreground.png"
+  adaptive_icon_monochrome: "assets/app_icon_foreground.png"
 
 flutter_native_splash:
   color: "#ffffff"
