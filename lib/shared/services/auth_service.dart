@@ -1,11 +1,13 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../constants/api_constants.dart';
+import '../widgets/toast_helper.dart';
 
 import '../models/user_model.dart';
 import 'package:http_parser/http_parser.dart'; // For MediaType
@@ -13,6 +15,8 @@ import 'package:mime/mime.dart'; // If available, or manually check extensions
 import 'package:http/http.dart' as http; // For MultipartRequest
 import 'dart:convert'; // For jsonDecode
 import 'mail_service.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 class AuthService extends ChangeNotifier {
   final Dio _dio = Dio();
@@ -27,6 +31,30 @@ class AuthService extends ChangeNotifier {
   String? get token => _accessToken;
 
   bool _isInitialized = false;
+
+  DateTime? _lastNetworkToastTime;
+
+  void _showNetworkToast(String message, {bool isSlow = false}) {
+    final now = DateTime.now();
+    if (_lastNetworkToastTime != null &&
+        now.difference(_lastNetworkToastTime!).inSeconds < 5) {
+      return;
+    }
+    _lastNetworkToastTime = now;
+
+    final context = navigatorKey.currentContext;
+    if (context != null && context.mounted) {
+      context.showToast(
+        message,
+        isWarning: isSlow,
+        isError: !isSlow,
+        actionLabel: "SETTINGS",
+        onActionPressed: () async {
+          await openAppSettings();
+        },
+      );
+    }
+  }
 
   // Initialize AuthService
   Future<void> init() async {
@@ -43,6 +71,15 @@ class AuthService extends ChangeNotifier {
 
     _isInitialized = true;
 
+    // Check remember_me status
+    final rememberMe = await _storage.read(key: 'remember_me');
+    if (rememberMe != 'true') {
+      // Session based: Clear cookies and access token on launch
+      await _cookieJar.deleteAll();
+      await _storage.delete(key: 'access_token');
+      _accessToken = null;
+    }
+
     // Setup Interceptor for Access Token & Refresh Logic
     _dio.interceptors.add(
       InterceptorsWrapper(
@@ -53,6 +90,22 @@ class AuthService extends ChangeNotifier {
           return handler.next(options);
         },
         onError: (DioException e, handler) async {
+          // Check for network connectivity or slow network issues
+          if (e.type == DioExceptionType.connectionTimeout ||
+              e.type == DioExceptionType.sendTimeout ||
+              e.type == DioExceptionType.receiveTimeout) {
+            _showNetworkToast(
+              "Slow network connectivity detected. Please check your internet connection.",
+              isSlow: true,
+            );
+          } else if (e.type == DioExceptionType.connectionError ||
+              e.error is SocketException) {
+            _showNetworkToast(
+              "No internet connection. Please turn on your mobile data or Wi-Fi.",
+              isSlow: false,
+            );
+          }
+
           // Handle 401 Unauthorized & 403 Forbidden (likely expired access token)
           if ((e.response?.statusCode == 403 ||
                   e.response?.statusCode == 401) &&
@@ -92,8 +145,9 @@ class AuthService extends ChangeNotifier {
     String userInput,
     String password,
     String captchaId,
-    String captchaValue,
-  ) async {
+    String captchaValue, {
+    bool rememberMe = false,
+  }) async {
     try {
       final response = await _dio.post(
         ApiConstants.login,
@@ -102,11 +156,18 @@ class AuthService extends ChangeNotifier {
           'user_password': password,
           'captchaId': captchaId,
           'captchaText': captchaValue,
+          'rememberMe': rememberMe,
         },
       );
 
       if (response.statusCode == 200) {
         _accessToken = response.data['accessToken'];
+
+        // Save rememberMe preference
+        await _storage.write(
+          key: 'remember_me',
+          value: rememberMe ? 'true' : 'false',
+        );
 
         // 1. Initial Data (Login): Store complete profile info from login response
         // Best for: Initial Dashboard Load
