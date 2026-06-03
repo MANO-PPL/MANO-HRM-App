@@ -3,6 +3,9 @@
     <!-- Internet permission -->
     <uses-permission android:name="android.permission.INTERNET" />
     
+    <!-- Push notifications permission -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    
     <!-- Camera permission -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />

@@ -1,5 +1,5 @@
 buildscript {
-    rootProject.extra["kotlin_version"] = "2.1.0"
+    rootProject.extra["kotlin_version"] = "2.2.20"
     repositories {
         google()
         mavenCentral()
