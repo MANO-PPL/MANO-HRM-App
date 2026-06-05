@@ -149,10 +149,10 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
           } catch (e) {
              final msg = e.toString().toLowerCase();
              // Check for specific error message or key keywords
-             if (msg.contains("reason' is required") || 
-                 msg.contains("late_reason") || 
-                 msg.contains("reason is required") ||
-                 msg.contains("late time in")) {
+             if (msg.contains("reason") || 
+                 msg.contains("late") || 
+                 msg.contains("remark") ||
+                 msg.contains("lateness")) {
                 // Show Input Dialog
                 if (!mounted) return;
                 Navigator.pop(context); // Hide loading
