@@ -1143,188 +1143,193 @@ class __MobileStaffManagementSheetState extends State<_MobileStaffManagementShee
                 });
               },
             )
-          : Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+          : ListView.builder(
+              padding: const EdgeInsets.only(bottom: 24),
+              itemCount: assignedUsers.isEmpty ? 3 : assignedUsers.length + 2,
+              itemBuilder: (ctx, index) {
+                if (index == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.location.name,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                "Assigned Staff (${assignedUsers.length})",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  color: Colors.indigo.withValues(alpha: 0.8),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Row(
                           children: [
-                            Text(
-                              widget.location.name,
-                              style: GoogleFonts.poppins(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : Colors.black87,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            IconButton(
+                              icon: const Icon(Icons.person_add_alt_1_outlined, color: Colors.indigo),
+                              tooltip: "Assign Staff",
+                              onPressed: () {
+                                setState(() {
+                                  _isAssignMode = true;
+                                });
+                              },
                             ),
-                            Text(
-                              "Assigned Staff (${assignedUsers.length})",
-                              style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                color: Colors.indigo.withValues(alpha: 0.8),
-                                fontWeight: FontWeight.w600,
-                              ),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => Navigator.pop(context),
                             ),
                           ],
                         ),
-                      ),
-                      Row(
+                      ],
+                    ),
+                  );
+                }
+                if (index == 1) {
+                  return const Divider(height: 1);
+                }
+                
+                if (index == 2 && assignedUsers.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 80),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.person_add_alt_1_outlined, color: Colors.indigo),
-                            tooltip: "Assign Staff",
+                          Icon(Icons.people_outline, size: 48, color: Colors.grey.withValues(alpha: 0.5)),
+                          const SizedBox(height: 12),
+                          Text(
+                            "No staff assigned to this location",
+                            style: GoogleFonts.poppins(color: Colors.grey, fontSize: 14),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
                             onPressed: () {
                               setState(() {
                                 _isAssignMode = true;
                               });
                             },
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: () => Navigator.pop(context),
-                          ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.indigo,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 0,
+                            ),
+                            icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
+                            label: const Text("Assign Staff"),
+                          )
                         ],
+                      ),
+                    ),
+                  );
+                }
+
+                final userIndex = index - 2;
+                final user = assignedUsers[userIndex];
+                final name = user['user_name'] ?? 'Unknown';
+                final role = user['desg_name'] ?? 'Staff';
+                final int userId = user['user_id'] ?? 0;
+                final profileImage = _resolveAvatarUrl(user['profile_image'] ?? user['profile_image_url'] ?? user['avatar_url']);
+
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF161B22) : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF30363D) : Colors.grey[200]!,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: Colors.indigo[100],
+                        backgroundImage: (profileImage != null && profileImage.isNotEmpty)
+                            ? NetworkImage(profileImage)
+                            : null,
+                        child: (profileImage == null || profileImage.isEmpty)
+                            ? Text(
+                                name.isNotEmpty ? name[0].toUpperCase() : '?',
+                                style: const TextStyle(
+                                  color: Colors.indigo,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name,
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            Text(
+                              role,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                        onPressed: () async {
+                          setState(() {
+                            final idx = _users.indexWhere((u) => u['user_id'] == userId);
+                            if (idx != -1) {
+                              final userCopy = Map<String, dynamic>.from(_users[idx]);
+                              final List<dynamic> currentLocs = List<dynamic>.from(userCopy['work_locations'] ?? []);
+                              currentLocs.removeWhere((l) =>
+                                  l is Map && (l['location_id'] == widget.location.id || l['loc_id'] == widget.location.id));
+                              userCopy['work_locations'] = currentLocs;
+                              _users[idx] = userCopy;
+                            }
+                          });
+                          
+                          try {
+                            await widget.locationService.assignUser(widget.location.id, userId, false);
+                            widget.onAssignmentChanged();
+                            _refreshUsers();
+                          } catch (e) {
+                            _refreshUsers();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text("Failed to remove staff: $e")),
+                              );
+                            }
+                          }
+                        },
                       ),
                     ],
                   ),
-                ),
-                const Divider(height: 1),
-                Expanded(
-                  child: assignedUsers.isEmpty
-                      ? Center(
-                          child: Column(
-                             mainAxisAlignment: MainAxisAlignment.center,
-                             children: [
-                               Icon(Icons.people_outline, size: 48, color: Colors.grey.withValues(alpha: 0.5)),
-                               const SizedBox(height: 12),
-                               Text(
-                                 "No staff assigned to this location",
-                                 style: GoogleFonts.poppins(color: Colors.grey, fontSize: 14),
-                               ),
-                               const SizedBox(height: 16),
-                               ElevatedButton.icon(
-                                 onPressed: () {
-                                   setState(() {
-                                     _isAssignMode = true;
-                                   });
-                                 },
-                                 style: ElevatedButton.styleFrom(
-                                   backgroundColor: Colors.indigo,
-                                   foregroundColor: Colors.white,
-                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                   elevation: 0,
-                                 ),
-                                 icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
-                                 label: const Text("Assign Staff"),
-                               )
-                             ],
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          itemCount: assignedUsers.length,
-                          itemBuilder: (ctx, index) {
-                            final user = assignedUsers[index];
-                            final name = user['user_name'] ?? 'Unknown';
-                            final role = user['desg_name'] ?? 'Staff';
-                            final int userId = user['user_id'] ?? 0;
-                            final profileImage = _resolveAvatarUrl(user['profile_image'] ?? user['profile_image_url'] ?? user['avatar_url']);
-
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF161B22) : Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: isDark ? const Color(0xFF30363D) : Colors.grey[200]!,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 18,
-                                    backgroundColor: Colors.indigo[100],
-                                    backgroundImage: (profileImage != null && profileImage.isNotEmpty)
-                                        ? NetworkImage(profileImage)
-                                        : null,
-                                    child: (profileImage == null || profileImage.isEmpty)
-                                        ? Text(
-                                            name.isNotEmpty ? name[0].toUpperCase() : '?',
-                                            style: const TextStyle(
-                                              color: Colors.indigo,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14,
-                                            ),
-                                          )
-                                        : null,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          name,
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: isDark ? Colors.white : Colors.black87,
-                                          ),
-                                        ),
-                                        Text(
-                                          role,
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 12,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                                    onPressed: () async {
-                                      setState(() {
-                                        final idx = _users.indexWhere((u) => u['user_id'] == userId);
-                                        if (idx != -1) {
-                                          final userCopy = Map<String, dynamic>.from(_users[idx]);
-                                          final List<dynamic> currentLocs = List<dynamic>.from(userCopy['work_locations'] ?? []);
-                                          currentLocs.removeWhere((l) =>
-                                              l is Map && (l['location_id'] == widget.location.id || l['loc_id'] == widget.location.id));
-                                          userCopy['work_locations'] = currentLocs;
-                                          _users[idx] = userCopy;
-                                        }
-                                      });
-                                      
-                                      try {
-                                        await widget.locationService.assignUser(widget.location.id, userId, false);
-                                        widget.onAssignmentChanged();
-                                        _refreshUsers();
-                                      } catch (e) {
-                                        _refreshUsers();
-                                        if (context.mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text("Failed to remove staff: $e")),
-                                          );
-                                        }
-                                      }
-                                    },
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                ),
-              ],
+                );
+              },
             ),
     );
   }
@@ -1474,252 +1479,258 @@ class _AssignStaffPopupContentState extends State<AssignStaffPopupContent> {
     final textColor = isDark ? Colors.white : Colors.black87;
     final subtitleColor = isDark ? Colors.white70 : Colors.black54;
 
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-              child: Row(
-                children: [
-                  if (widget.onBack != null)
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: widget.onBack,
-                    ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final contentHeight = isMobile 
+        ? MediaQuery.of(context).size.height * 0.78 
+        : 600.0;
+
+    return SizedBox(
+      height: contentHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: ListView.builder(
+              padding: const EdgeInsets.only(bottom: 24),
+              itemCount: filteredUsers.isEmpty ? 3 : filteredUsers.length + 2,
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                    child: Row(
                       children: [
-                        Text(
-                          "Assign Staff",
-                          style: GoogleFonts.poppins(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: textColor,
+                        if (widget.onBack != null)
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back),
+                            onPressed: widget.onBack,
+                          ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Assign Staff",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: textColor,
+                                ),
+                              ),
+                              Text(
+                                "Location: ${widget.location.name}",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: subtitleColor,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                           ),
                         ),
-                        Text(
-                          "Location: ${widget.location.name}",
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: subtitleColor,
+                        if (widget.onBack == null)
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(context),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
                       ],
                     ),
-                  ),
-                  if (widget.onBack == null)
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0D1117) : Colors.grey[100],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? Colors.white10 : Colors.grey[300]!),
-                ),
-                child: TextField(
-                  controller: _searchCtrl,
-                  style: TextStyle(color: textColor),
-                  onChanged: (val) {
-                    setState(() {
-                      _searchQuery = val;
-                    });
-                  },
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
-                            onPressed: () {
-                              _searchCtrl.clear();
-                              setState(() {
-                                _searchQuery = "";
-                              });
-                            },
-                          )
-                        : null,
-                    hintText: "Search employees...",
-                    hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.grey),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Flexible(
-              child: SizedBox(
-                height: MediaQuery.of(context).size.height * 0.5,
-                child: filteredUsers.isEmpty
-                    ? const Center(
-                        child: Text(
-                          "No employees found",
-                          style: TextStyle(color: Colors.grey, fontSize: 14),
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: filteredUsers.length,
-                        shrinkWrap: true,
-                        padding: const EdgeInsets.only(top: 8, bottom: 24),
-                        itemBuilder: (context, index) {
-                          final user = filteredUsers[index];
-                          final name = user['user_name'] ?? 'Unknown';
-                          final role = user['desg_name'] ?? 'Staff';
-                          final int userId = user['user_id'] ?? 0;
-                          final profileImage = _resolveAvatarUrl(user['profile_image'] ?? user['profile_image_url'] ?? user['avatar_url']);
-                          
-                          final List<dynamic>? userLocs = user['work_locations'];
-                          bool isAssigned = false;
-                          if (userLocs != null) {
-                            isAssigned = userLocs.any((l) =>
-                                l is Map && (l['location_id'] == widget.location.id || l['loc_id'] == widget.location.id));
-                          }
-
-                          return Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? (isAssigned ? Colors.indigo.withValues(alpha: 0.1) : Colors.transparent)
-                                  : (isAssigned ? Colors.indigo[50]!.withValues(alpha: 0.5) : Colors.transparent),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: isAssigned
-                                    ? Colors.indigo.withValues(alpha: 0.2)
-                                    : Colors.transparent,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 18,
-                                  backgroundColor: isDark
-                                      ? Colors.indigo.withValues(alpha: 0.2)
-                                      : Colors.indigo[100],
-                                  backgroundImage: (profileImage != null && profileImage.isNotEmpty)
-                                      ? NetworkImage(profileImage)
-                                      : null,
-                                  child: (profileImage == null || profileImage.isEmpty)
-                                      ? Text(
-                                          name.isNotEmpty ? name[0].toUpperCase() : '?',
-                                          style: const TextStyle(
-                                            color: Colors.indigo,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                                          ),
-                                        )
-                                      : null,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        name,
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: textColor,
-                                        ),
-                                      ),
-                                      Text(
-                                        role,
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 12,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                _buildToggleButton(userId, name, isAssigned),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ),
-          ],
-        ),
-        AnimatedPositioned(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutBack,
-          bottom: _isToastVisible ? 16.0 : -80.0,
-          left: 0,
-          right: 0,
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 200),
-            opacity: _isToastVisible ? 1.0 : 0.0,
-            child: _toastMessage == null 
-                ? const SizedBox.shrink() 
-                : Center(
+                  );
+                }
+                if (index == 1) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
-                        color: _isToastError
-                            ? const Color(0xFFDA3637)
-                            : (_isToastSuccess ? const Color(0xFF2EA043) : Colors.indigo),
+                        color: isDark ? const Color(0xFF0D1117) : Colors.grey[100],
                         borderRadius: BorderRadius.circular(12),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 10,
-                            offset: Offset(0, 4),
-                          )
-                        ],
+                        border: Border.all(color: isDark ? Colors.white10 : Colors.grey[300]!),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (!_isToastSuccess && !_isToastError)
-                            const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                          else
-                            Icon(
-                              _isToastError
-                                  ? Icons.error_outline
-                                  : Icons.check_circle_outline,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _toastMessage!,
-                            style: GoogleFonts.poppins(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+                      child: TextField(
+                        controller: _searchCtrl,
+                        style: TextStyle(color: textColor),
+                        onChanged: (val) {
+                          setState(() {
+                            _searchQuery = val;
+                          });
+                        },
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.search, size: 20),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    _searchCtrl.clear();
+                                    setState(() {
+                                      _searchQuery = "";
+                                    });
+                                  },
+                                )
+                              : null,
+                          hintText: "Search employees...",
+                          hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.grey),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
                       ),
                     ),
+                  );
+                }
+                if (index == 2 && filteredUsers.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Center(
+                      child: Text(
+                        "No employees found",
+                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                      ),
+                    ),
+                  );
+                }
+
+                final userIndex = index - 2;
+                final user = filteredUsers[userIndex];
+                final name = user['user_name'] ?? 'Unknown';
+                final role = user['desg_name'] ?? 'Staff';
+                final int userId = user['user_id'] ?? 0;
+                final profileImage = _resolveAvatarUrl(user['profile_image'] ?? user['profile_image_url'] ?? user['avatar_url']);
+                
+                final List<dynamic>? userLocs = user['work_locations'];
+                bool isAssigned = false;
+                if (userLocs != null) {
+                  isAssigned = userLocs.any((l) =>
+                      l is Map && (l['location_id'] == widget.location.id || l['loc_id'] == widget.location.id));
+                }
+
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? (isAssigned ? Colors.indigo.withValues(alpha: 0.1) : Colors.transparent)
+                        : (isAssigned ? Colors.indigo[50]!.withValues(alpha: 0.5) : Colors.transparent),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isAssigned
+                          ? Colors.indigo.withValues(alpha: 0.2)
+                          : Colors.transparent,
+                    ),
                   ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: isDark
+                            ? Colors.indigo.withValues(alpha: 0.2)
+                            : Colors.indigo[100],
+                        backgroundImage: (profileImage != null && profileImage.isNotEmpty)
+                            ? NetworkImage(profileImage)
+                            : null,
+                        child: (profileImage == null || profileImage.isEmpty)
+                            ? Text(
+                                name.isNotEmpty ? name[0].toUpperCase() : '?',
+                                style: const TextStyle(
+                                  color: Colors.indigo,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name,
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: textColor,
+                              ),
+                            ),
+                            Text(
+                              role,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      _buildToggleButton(userId, name, isAssigned),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-      ],
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutBack,
+            bottom: _isToastVisible ? 16.0 : -80.0,
+            left: 0,
+            right: 0,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: _isToastVisible ? 1.0 : 0.0,
+              child: _toastMessage == null 
+                  ? const SizedBox.shrink() 
+                  : Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _isToastError
+                              ? const Color(0xFFDA3637)
+                              : (_isToastSuccess ? const Color(0xFF2EA043) : Colors.indigo),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 10,
+                              offset: Offset(0, 4),
+                            )
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (!_isToastSuccess && !_isToastError)
+                              const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            else
+                              Icon(
+                                _isToastError
+                                    ? Icons.error_outline
+                                    : Icons.check_circle_outline,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _toastMessage!,
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

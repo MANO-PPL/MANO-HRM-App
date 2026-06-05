@@ -54,6 +54,14 @@ class ShiftService {
         'start_time': shift.startTime,
         'end_time': shift.endTime
       };
+      rules['grace_period'] = {
+        'minutes': shift.gracePeriodMins
+      };
+      rules['overtime'] = {
+        'enabled': shift.isOvertimeEnabled,
+        'threshold': shift.overtimeThresholdHours,
+        'buffer': shift.policyRules['overtime']?['buffer'] ?? 0.5
+      };
 
       final payload = {
         'shift_name': shift.name,
