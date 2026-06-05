@@ -89,6 +89,13 @@ class NotificationService extends ChangeNotifier {
         provisional: false,
       );
 
+      // Suppress default foreground system notifications (off-app ones) on iOS when app is open
+      await messaging.setForegroundNotificationPresentationOptions(
+        alert: false,
+        badge: false,
+        sound: false,
+      );
+
       _fcmPermissionStatus = settings.authorizationStatus.name;
       notifyListeners();
 
