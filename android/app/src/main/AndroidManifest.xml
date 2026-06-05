@@ -60,6 +60,30 @@
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="YOUR_GOOGLE_MAPS_API_KEY_HERE" />
+
+        <!--
+            FCM: Default notification channel for background / killed-state messages.
+            Must match the channelId created in LocalNotificationService and
+            the android.notification.channelId sent in the backend FCM payload.
+        -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="high_importance_channel" />
+
+        <!--
+            FCM: Custom small status-bar icon (must be monochrome / white on transparent).
+            Used when FCM auto-displays a notification (app in background / killed).
+        -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+
+        <!--
+            FCM: Accent color applied to the notification icon circle.
+        -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_color" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
