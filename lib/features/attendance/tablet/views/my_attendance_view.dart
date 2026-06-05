@@ -22,6 +22,7 @@ import '../../providers/attendance_provider.dart'; // Import Provider
 import '../../admin/views/admin_correction_requests.dart';
 import '../../widgets/attendance_header_widget.dart';
 import '../../../../shared/widgets/interactive_image_viewer.dart';
+import '../../../../shared/widgets/loading_screen.dart';
 
 class MyAttendanceView extends StatefulWidget {
   const MyAttendanceView({super.key});
@@ -224,10 +225,13 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
           isCheckedIn = activeRecord;
         }
 
-        return DefaultTabController(
-          length: 2,
-              child: Column(
-            children: [
+        return LoadingScreen(
+          isLoading: provider.isLoading,
+          message: "Loading attendance records...",
+          child: DefaultTabController(
+            length: 2,
+            child: Column(
+              children: [
               AttendanceHeaderWidget(showTabBar: false),
               // Render the tab bar separately so it remains above the body and accepts taps
               Padding(
@@ -258,7 +262,8 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
                   ],
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -445,8 +450,8 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
   }
 
   Widget _buildHistoryList(BuildContext context, List<AttendanceRecord> records, bool isLoading) {
-    if (isLoading) {
-      return const Center(child: CircularProgressIndicator());
+    if (isLoading && records.isEmpty) {
+      return const SizedBox.shrink();
     }
     
     if (records.isEmpty) {

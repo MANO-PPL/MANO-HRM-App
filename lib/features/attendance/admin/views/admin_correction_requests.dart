@@ -1,4 +1,4 @@
-﻿
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +10,7 @@ import '../../models/correction_request.dart';
 import '../../services/attendance_service.dart';
 import '../../providers/attendance_provider.dart';
 import '../widgets/correction_detail_dialog.dart';
+import '../../../../shared/widgets/loading_screen.dart';
 
 /// Role-aware correction requests list.
 /// - Admin / HR: see all org requests, can approve / reject.
@@ -97,8 +98,11 @@ class _AdminCorrectionRequestsState extends State<AdminCorrectionRequests> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return LoadingScreen(
+      isLoading: _isLoading,
+      message: "Loading correction requests...",
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Header Row: Title + Tabs
         Padding(
@@ -144,8 +148,8 @@ class _AdminCorrectionRequestsState extends State<AdminCorrectionRequests> {
 
         // Content
         Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
+          child: _requests.isEmpty && _isLoading
+              ? const SizedBox.shrink()
               : _requests.isEmpty
                   ? _buildEmptyState(isDark)
                   : RefreshIndicator(
@@ -160,8 +164,9 @@ class _AdminCorrectionRequestsState extends State<AdminCorrectionRequests> {
                     ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildEmptyState(bool isDark) {
     final isPending = _filterStatus == 'Pending';

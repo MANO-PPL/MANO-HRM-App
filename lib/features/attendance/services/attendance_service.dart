@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import '../../../../shared/constants/api_constants.dart';
+import '../../../../shared/models/shift_model.dart';
 import '../models/attendance_record.dart';
 import '../models/correction_request.dart';
 
@@ -18,6 +19,32 @@ class AttendanceService {
     final base = path.split('/').last.split('\\').last;
     final idx = base.lastIndexOf('.');
     return idx == -1 ? base : base.substring(0, idx);
+  }
+
+  // 0. Get the employee's assigned shift policy (correction deadline, timing, etc.)
+  // Tries GET /employee/my-shift first; falls back to GET /policies/shifts[0]
+  Future<Shift?> getMyShiftPolicy() async {
+    try {
+      final response = await _dio.get(ApiConstants.myShift);
+      if (response.statusCode == 200 && response.data != null) {
+        final raw = response.data['data'] ?? response.data;
+        if (raw is Map<String, dynamic>) return Shift.fromJson(raw);
+      }
+    } catch (_) {
+      // Endpoint may not exist yet; fall back to policyShifts
+    }
+    try {
+      final response = await _dio.get(ApiConstants.policyShifts);
+      if (response.statusCode == 200 && response.data != null) {
+        final list = response.data['data'];
+        if (list is List && list.isNotEmpty) {
+          return Shift.fromJson(list.first as Map<String, dynamic>);
+        }
+      }
+    } catch (e) {
+      debugPrint('getMyShiftPolicy fallback failed: $e');
+    }
+    return null;
   }
 
   // 1. Get My Records

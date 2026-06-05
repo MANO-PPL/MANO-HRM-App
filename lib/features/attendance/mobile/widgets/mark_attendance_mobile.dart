@@ -50,7 +50,14 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       if (mounted) {
-        context.showToast("Location services are disabled.", isWarning: true);
+        context.showToast(
+          "Location services are disabled.",
+          isWarning: true,
+          actionLabel: "ENABLE",
+          onActionPressed: () async {
+            await Geolocator.openLocationSettings();
+          },
+        );
       }
       return null;
     }
@@ -68,7 +75,14 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
     
     if (permission == LocationPermission.deniedForever) {
       if (mounted) {
-        context.showToast("Location permission permanently denied.", isWarning: true);
+        context.showToast(
+          "Location permission permanently denied.",
+          isWarning: true,
+          actionLabel: "SETTINGS",
+          onActionPressed: () async {
+            await openAppSettings();
+          },
+        );
       }
       return null;
     }
@@ -222,10 +236,18 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
            isCheckedIn = records.any((r) => r.timeOut == null);
         }
 
+        final missedDate = provider.missedPunchDate;
+
         return ListView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           physics: const BouncingScrollPhysics(),
           children: [
+            // 0. Missed Punch Warning Banner
+            if (missedDate != null) ...[
+              _buildMissedPunchBanner(context, missedDate, provider),
+              const SizedBox(height: 16),
+            ],
+
             // 1. Action Buttons
             _buildActionButtons(context, isCheckedIn),
             const SizedBox(height: 24),
@@ -258,6 +280,95 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildMissedPunchBanner(BuildContext context, DateTime missedDate, AttendanceProvider provider) {
+    final dateLabel = DateFormat('EEE, MMM d').format(missedDate);
+    final deadlineDays = provider.correctionDeadlineDays;
+    final expiry = missedDate.add(Duration(days: deadlineDays));
+    final daysLeft = expiry.difference(DateTime.now()).inDays;
+    final daysLeftLabel = daysLeft <= 0 ? 'Expired' : '$daysLeft day${daysLeft == 1 ? '' : 's'} left';
+    final isExpired = daysLeft <= 0;
+
+    return InkWell(
+      onTap: isExpired
+          ? null
+          : () {
+              CorrectionRequestDialogMobile.show(
+                context,
+                date: missedDate,
+                attendanceId: null,
+              ).then((_) => provider.clearMissedPunch());
+            },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isExpired
+                ? [Colors.red.shade900, Colors.red.shade700]
+                : [const Color(0xFFEA580C), const Color(0xFFF97316)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: (isExpired ? Colors.red : Colors.orange).withValues(alpha: 0.35),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isExpired ? Icons.block_rounded : Icons.warning_amber_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isExpired ? 'Missed Punch — Deadline Passed' : '⚠️  Missed Time-Out Detected',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    isExpired
+                        ? 'No time-out recorded for $dateLabel. The correction window has expired.'
+                        : 'No time-out on $dateLabel. Tap to submit correction ($daysLeftLabel).',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: Colors.white.withValues(alpha: 0.9),
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (!isExpired) ...[
+              const SizedBox(width: 8),
+              Icon(Icons.chevron_right, color: Colors.white.withValues(alpha: 0.8)),
+            ],
+          ],
+        ),
+      ),
     );
   }
 

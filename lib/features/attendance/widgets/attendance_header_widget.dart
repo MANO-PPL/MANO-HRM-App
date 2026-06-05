@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:dio/dio.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../shared/services/auth_service.dart';
+import '../../../shared/widgets/toast_helper.dart';
 
 class AttendanceHeaderWidget extends StatefulWidget {
   final bool showTabBar;
@@ -62,6 +64,16 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> {
           _address = 'Location Services Disabled';
           _isLoadingLoc = false;
         });
+        if (mounted) {
+          context.showToast(
+            "Location services are disabled.",
+            isWarning: true,
+            actionLabel: "ENABLE",
+            onActionPressed: () async {
+              await Geolocator.openLocationSettings();
+            },
+          );
+        }
         return;
       }
 
@@ -82,6 +94,16 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> {
           _address = 'Location Access Denied';
           _isLoadingLoc = false;
         });
+        if (mounted) {
+          context.showToast(
+            "Location permission permanently denied.",
+            isWarning: true,
+            actionLabel: "SETTINGS",
+            onActionPressed: () async {
+              await openAppSettings();
+            },
+          );
+        }
         return;
       }
 

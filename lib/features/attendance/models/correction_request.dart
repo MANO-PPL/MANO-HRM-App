@@ -91,7 +91,7 @@ class AttendanceCorrectionRequest {
       id: json['acr_id']?.toString() ?? json['id']?.toString() ?? '',
       userId: json['user_id']?.toString() ?? '',
       userName: json['user_name']?.toString() ?? 'Unknown',
-      userAvatar: json['profile_image']?.toString() ?? json['profile_pic']?.toString() ?? json['avatar_url']?.toString(),
+      userAvatar: json['profile_image']?.toString() ?? json['profile_image_url']?.toString() ?? json['profile_pic']?.toString() ?? json['avatar_url']?.toString(),
       requestDate: parsedDate,
       type: _parseType(json['correction_type']?.toString()),
       method: _parseMethod(json['correction_method']?.toString()),

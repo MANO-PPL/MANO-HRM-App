@@ -2,31 +2,66 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // Import dotenv
-import 'features/dashboard/dashboard_screen.dart';
-import 'features/auth/login_screen.dart'; // Import new LoginScreen
-import 'shared/providers/theme_simple.dart';
-import 'shared/widgets/orientation_guard.dart';
-import 'shared/services/auth_service.dart';
+import 'package:flutter_application/features/dashboard/dashboard_screen.dart';
+import 'package:flutter_application/features/auth/login_screen.dart'; // Import new LoginScreen
+import 'package:flutter_application/shared/providers/theme_simple.dart';
+import 'package:flutter_application/shared/widgets/orientation_guard.dart';
+import 'package:flutter_application/shared/widgets/loading_screen.dart';
+import 'package:flutter_application/shared/services/auth_service.dart';
+import 'package:flutter_application/shared/services/network_monitor.dart';
 
-import 'shared/services/notification_service.dart';
-import 'shared/services/dashboard_provider.dart';
-import 'features/attendance/providers/attendance_provider.dart';
-import 'features/leave/providers/leave_provider.dart';
-import 'features/leave/services/leave_service.dart'; // Import LeaveService
-import 'shared/services/permission_service.dart'; // Import PermissionService
+import 'package:flutter_application/shared/services/notification_service.dart';
+import 'package:flutter_application/shared/services/local_notification_service.dart';
+import 'package:flutter_application/shared/services/dashboard_provider.dart';
+import 'package:flutter_application/features/attendance/providers/attendance_provider.dart';
+import 'package:flutter_application/features/leave/providers/leave_provider.dart';
+import 'package:flutter_application/features/leave/services/leave_service.dart'; // Import LeaveService
+import 'package:flutter_application/shared/services/permission_service.dart'; // Import PermissionService
+import 'package:flutter_application/shared/services/chatbot_service.dart'; // Import ChatbotService
+import 'package:flutter_application/shared/services/socket_service.dart';
+import 'package:flutter_application/features/collaboration/services/chat_service.dart';
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // Must re-initialise Firebase in the background isolate
+  await Firebase.initializeApp();
+  debugPrint('FCM background message received: ${message.messageId}');
+
+  // Only display a local notification if the message does not contain a notification payload
+  // (to prevent duplicate notifications on Android/iOS when the system automatically displays the notification).
+  if (message.notification == null) {
+    final title = message.data['title'] ?? 'MANO';
+    final body = message.data['body'] ?? '';
+    if (title.isNotEmpty || body.isNotEmpty) {
+      await LocalNotificationService.showNotification(
+        title: title,
+        body: body,
+        data: message.data,
+      );
+    }
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+
+  // Register background handler BEFORE any other FCM setup
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // Initialise local notification channel + plugin (must happen in main isolate)
+  await LocalNotificationService.initialize(
+    onNotificationTap: (response) {
+      // Foreground / resumed-from-background tap:
+      // Navigate to notifications screen via the global navigator key.
+      NotificationService.handleNotificationNavigation();
+    },
+  );
 
   // Configure Edge-to-Edge
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      systemNavigationBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-    ),
-  );
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
   // Load environment variables
@@ -39,7 +74,6 @@ void main() async {
   final authService = AuthService();
   await authService.init();
 
-  final notificationService = NotificationService(authService);
   // Optional: Start fetching notifications immediately if auth is ready,
   // but usually better to wait for auth check in AuthWrapper.
 
@@ -47,8 +81,25 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider<AuthService>.value(value: authService),
-        ChangeNotifierProvider<NotificationService>.value(
-          value: notificationService,
+        ChangeNotifierProvider<NetworkMonitor>.value(value: NetworkMonitor()),
+        ChangeNotifierProxyProvider<AuthService, SocketService>(
+          create: (context) => SocketService(context.read<AuthService>()),
+          update: (context, auth, previous) {
+            final service = previous ?? SocketService(auth);
+            service.updateAuth(auth);
+            return service;
+          },
+        ),
+        ChangeNotifierProxyProvider2<AuthService, SocketService, NotificationService>(
+          create: (context) => NotificationService(
+            context.read<AuthService>(),
+            context.read<SocketService>(),
+          ),
+          update: (context, auth, socket, previous) {
+            final service = previous ?? NotificationService(auth, socket);
+            service.updateAuthAndSocket(auth, socket);
+            return service;
+          },
         ),
         ChangeNotifierProvider<DashboardProvider>(
           create: (_) => DashboardProvider(authService),
@@ -65,6 +116,14 @@ void main() async {
         ProxyProvider<AuthService, LeaveService>(
           update: (_, auth, _) => LeaveService(auth.dio),
         ),
+        ChangeNotifierProxyProvider<AuthService, ChatbotService>(
+          create: (context) => ChatbotService(context.read<AuthService>()),
+          update: (context, auth, previous) =>
+              previous ?? ChatbotService(auth),
+        ),
+        ProxyProvider<AuthService, ChatService>(
+          update: (_, auth, previous) => ChatService(auth.dio),
+        ),
         Provider<PermissionService>.value(value: permissionService),
       ],
       child: const AttendanceApp(),
@@ -80,7 +139,22 @@ class AttendanceApp extends StatelessWidget {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (context, currentMode, child) {
+        final isDark = currentMode == ThemeMode.dark ||
+            (currentMode == ThemeMode.system &&
+                MediaQuery.platformBrightnessOf(context) == Brightness.dark);
+
+        SystemChrome.setSystemUIOverlayStyle(
+          SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+            statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+            systemNavigationBarColor: Colors.transparent,
+            systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          ),
+        );
+
         return MaterialApp(
+          navigatorKey: navigatorKey,
           title: 'Admin Dashboard',
           debugShowCheckedModeBanner: false,
           theme: _buildTheme(Brightness.light),
@@ -159,6 +233,35 @@ class _AuthWrapperState extends State<AuthWrapper> {
   void initState() {
     super.initState();
     _checkAuth();
+    // Register reconnect callback to reload data when network is restored
+    NetworkMonitor().addReconnectCallback(_onNetworkReconnected);
+  }
+
+  @override
+  void dispose() {
+    NetworkMonitor().removeReconnectCallback(_onNetworkReconnected);
+    super.dispose();
+  }
+
+  /// Called by NetworkMonitor whenever the device regains internet connectivity.
+  void _onNetworkReconnected() {
+    if (!mounted) return;
+    final authService = context.read<AuthService>();
+    if (authService.isAuthenticated) {
+      // Re-check auth status to ensure token is still valid
+      authService.checkAuthStatus();
+      // Refresh notifications
+      context.read<NotificationService>().fetchNotifications();
+      // Refresh dashboard data
+      context.read<DashboardProvider>().fetchDashboardData(forceRefresh: true);
+      // Refresh attendance records & policy & correction counts
+      context.read<AttendanceProvider>().fetchRecords(DateTime.now(), forceRefresh: true);
+      context.read<AttendanceProvider>().checkMissedPunch();
+      context.read<AttendanceProvider>().fetchPendingCorrectionCount(userId: authService.user?.employeeId);
+      // Refresh leaves (both personal history and admin pending requests)
+      context.read<LeaveProvider>().fetchMyLeaves(forceRefresh: true);
+      context.read<LeaveProvider>().fetchPendingRequests(forceRefresh: true);
+    }
   }
 
   Future<void> _checkAuth() async {
@@ -185,7 +288,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const LoadingScreen(message: "Initializing MANO...");
     }
 
     // Watch for auth changes

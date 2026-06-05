@@ -7,6 +7,7 @@ import '../../widgets/attendance_history_tab.dart';
 import '../../widgets/attendance_analytics_tab.dart';
 import 'package:flutter_application/features/attendance/admin/views/admin_correction_requests.dart';
 import '../../widgets/attendance_header_widget.dart';
+import '../../../../shared/widgets/loading_screen.dart';
 
 class MobileMyAttendanceContent extends StatefulWidget {
   const MobileMyAttendanceContent({super.key});
@@ -22,7 +23,10 @@ class _MobileMyAttendanceContentState extends State<MobileMyAttendanceContent> {
   Widget build(BuildContext context) {
     return Consumer<AttendanceProvider>(
       builder: (context, provider, child) {
-        return Container(
+        return LoadingScreen(
+          isLoading: provider.isLoading,
+          message: "Loading attendance records...",
+          child: Container(
           color: Theme.of(context).brightness == Brightness.dark
               ? Colors.transparent
               : const Color(0xFFF8F9FA),
@@ -58,11 +62,12 @@ class _MobileMyAttendanceContentState extends State<MobileMyAttendanceContent> {
                 ],
               ),
             ),
+          ),
         ),
-      );
-    },
-  );
-}
+       );
+      },
+    );
+  }
 }
 
 class _MyAttendanceReportsTab extends StatefulWidget {
