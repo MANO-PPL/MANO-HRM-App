@@ -51,3 +51,4 @@ app.*.map.json
 google-services.json
 google-services (*).json
 android/app/google-services.json
+GoogleService-Info.plist
