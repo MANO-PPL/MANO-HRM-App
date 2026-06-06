@@ -59,27 +59,28 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> {
 
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!mounted) return;
       if (!serviceEnabled) {
         setState(() {
           _address = 'Location Services Disabled';
           _isLoadingLoc = false;
         });
-        if (mounted) {
-          context.showToast(
-            "Location services are disabled.",
-            isWarning: true,
-            actionLabel: "ENABLE",
-            onActionPressed: () async {
-              await Geolocator.openLocationSettings();
-            },
-          );
-        }
+        context.showToast(
+          "Location services are disabled.",
+          isWarning: true,
+          actionLabel: "ENABLE",
+          onActionPressed: () async {
+            await Geolocator.openLocationSettings();
+          },
+        );
         return;
       }
 
       LocationPermission permission = await Geolocator.checkPermission();
+      if (!mounted) return;
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
+        if (!mounted) return;
         if (permission == LocationPermission.denied) {
           setState(() {
             _address = 'Location Access Denied';
@@ -94,22 +95,21 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> {
           _address = 'Location Access Denied';
           _isLoadingLoc = false;
         });
-        if (mounted) {
-          context.showToast(
-            "Location permission permanently denied.",
-            isWarning: true,
-            actionLabel: "SETTINGS",
-            onActionPressed: () async {
-              await openAppSettings();
-            },
-          );
-        }
+        context.showToast(
+          "Location permission permanently denied.",
+          isWarning: true,
+          actionLabel: "SETTINGS",
+          onActionPressed: () async {
+            await openAppSettings();
+          },
+        );
         return;
       }
 
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       );
+      if (!mounted) return;
 
       final url = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.latitude}&lon=${position.longitude}';
 
@@ -121,6 +121,7 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> {
           },
         ),
       );
+      if (!mounted) return;
 
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data as Map<String, dynamic>;
@@ -149,10 +150,12 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> {
         });
       }
     } catch (e) {
-      setState(() {
-        _address = 'Location Error';
-        _isLoadingLoc = false;
-      });
+      if (mounted) {
+        setState(() {
+          _address = 'Location Error';
+          _isLoadingLoc = false;
+        });
+      }
     }
   }
 

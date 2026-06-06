@@ -8,6 +8,7 @@ import '../constants/api_constants.dart';
 import '../models/notification_model.dart';
 import 'auth_service.dart';
 import 'socket_service.dart';
+import 'local_notification_service.dart';
 import '../widgets/toast_helper.dart';
 
 class NotificationService extends ChangeNotifier {
@@ -103,6 +104,24 @@ class NotificationService extends ChangeNotifier {
           settings.authorizationStatus == AuthorizationStatus.provisional) {
         debugPrint('FCM: Permission granted — ${settings.authorizationStatus}');
 
+        // On iOS, wait for APNs token to be ready before calling getToken()
+        if (Platform.isIOS) {
+          int retries = 0;
+          String? apnsToken;
+          while (retries < 10) {
+            apnsToken = await messaging.getAPNSToken();
+            if (apnsToken != null) break;
+            debugPrint('FCM: APNs token not ready yet. Retrying in 1s...');
+            await Future.delayed(const Duration(seconds: 1));
+            retries++;
+          }
+          if (apnsToken == null) {
+            debugPrint('FCM Warning: APNs token is null. FCM token registration might fail.');
+          } else {
+            debugPrint('FCM: APNs token is ready: $apnsToken');
+          }
+        }
+
         // Get & register token
         final token = await messaging.getToken();
         if (token != null) {
@@ -145,15 +164,15 @@ class NotificationService extends ChangeNotifier {
         final title = message.notification?.title ?? message.data['title'] ?? 'MANO';
         final body = message.notification?.body ?? message.data['body'] ?? '';
 
-        // Show a heads-up banner via flutter_local_notifications (SKIPPED in foreground per user request)
-        // if (title.isNotEmpty || body.isNotEmpty) {
-        //   LocalNotificationService.showNotification(
-        //     title: title,
-        //     body: body,
-        //     data: message.data,
-        //     id: notifId ?? 0,
-        //   );
-        // }
+        // Show a heads-up banner via flutter_local_notifications
+        if (title.isNotEmpty || body.isNotEmpty) {
+          LocalNotificationService.showNotification(
+            title: title,
+            body: body,
+            data: message.data,
+            id: notifId ?? 0,
+          );
+        }
 
         // Also show an in-app dropdown banner for immediate awareness (refer WhatsApp/Instagram style)
         final ctx = navigatorKey.currentContext;
@@ -214,7 +233,7 @@ class NotificationService extends ChangeNotifier {
           'device_type': Platform.isIOS ? 'ios' : 'android',
         },
       );
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         _registeredUserId = userId;
         debugPrint('FCM: Token registered with backend successfully.');
       } else {
@@ -222,6 +241,30 @@ class NotificationService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('FCM: Failed to register token with backend: $e');
+    }
+  }
+
+  Future<void> _fetchAndRegisterToken() async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+      
+      if (Platform.isIOS) {
+        final apnsToken = await messaging.getAPNSToken();
+        if (apnsToken == null) {
+          debugPrint('FCM: iOS APNs Token not ready yet during fetch.');
+          return;
+        }
+      }
+
+      final token = await messaging.getToken();
+      if (token != null) {
+        _fcmToken = token;
+        debugPrint('FCM Token fetched: $token');
+        await _registerFCMTokenOnServer(token);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('FCM: Error fetching token: $e');
     }
   }
 
@@ -253,9 +296,15 @@ class NotificationService extends ChangeNotifier {
     // Initialise FCM if not yet done (e.g. first call after login)
     if (_authService.isAuthenticated && !_fcmInitialized) {
       initializeFCM();
-    } else if (_authService.isAuthenticated && _fcmToken != null && _registeredUserId != _authService.user?.id) {
-      // Re-register the token if the user is authenticated but token wasn't registered for this user yet
-      await _registerFCMTokenOnServer(_fcmToken!);
+    } else if (_authService.isAuthenticated) {
+      final userId = _authService.user?.id;
+      if (_fcmToken != null) {
+        if (_registeredUserId != userId) {
+          await _registerFCMTokenOnServer(_fcmToken!);
+        }
+      } else if (_fcmInitialized) {
+        await _fetchAndRegisterToken();
+      }
     }
     // NOTE: We no longer re-register the token on every fetchNotifications call.
     // Token registration only happens once in initializeFCM and on token refresh.
@@ -335,9 +384,23 @@ class NotificationService extends ChangeNotifier {
 
   void updateAuthAndSocket(AuthService auth, SocketService socket) {
     _socketService = socket;
-    // Recheck / update token registration if auth changed
-    if (_authService.isAuthenticated && _fcmToken != null && _registeredUserId != _authService.user?.id) {
-      _registerFCMTokenOnServer(_fcmToken!);
+    
+    if (!auth.isAuthenticated) {
+      // Clear cached values on logout so next login triggers registration
+      _registeredUserId = null;
+    } else {
+      // Recheck / update token registration if auth changed
+      final userId = auth.user?.id;
+      if (_fcmToken != null) {
+        if (_registeredUserId != userId) {
+          _registerFCMTokenOnServer(_fcmToken!);
+        }
+      } else {
+        // Authenticated but no token, try fetching
+        if (_fcmInitialized) {
+          _fetchAndRegisterToken();
+        }
+      }
     }
     _listenToSocket();
   }
@@ -392,13 +455,13 @@ class NotificationService extends ChangeNotifier {
       final title = newNotif.title;
       final body = newNotif.message;
 
-      // Show local notification banner via flutter_local_notifications (SKIPPED in foreground per user request)
-      // LocalNotificationService.showNotification(
-      //   title: title,
-      //   body: body,
-      //   id: newNotif.id,
-      //   data: json,
-      // );
+      // Show local notification banner via flutter_local_notifications
+      LocalNotificationService.showNotification(
+        title: title,
+        body: body,
+        id: newNotif.id,
+        data: json,
+      );
 
       // Show in-app dropdown banner (refer WhatsApp/Instagram style)
       final ctx = navigatorKey.currentContext;

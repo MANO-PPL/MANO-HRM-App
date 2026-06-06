@@ -24,6 +24,7 @@ class LoginScreenState extends State<LoginScreen> {
   final formKey = GlobalKey<FormState>();
   final identifierController = TextEditingController();
   final passwordController = TextEditingController();
+  final GlobalKey<WordCaptchaState> captchaKey = GlobalKey<WordCaptchaState>();
 
   bool isLoading = false;
   bool isPasswordVisible = false;
@@ -127,9 +128,10 @@ class LoginScreenState extends State<LoginScreen> {
         (route) => false,
       );
     } catch (e) {
-      _showError(e.toString());
-      // Refresh captcha on error? Ideally yes, but WordCaptcha handles its own refresh.
-      // We might want to force refresh it, but for now user can tap refresh.
+      if (mounted) {
+        context.showExceptionToast(e);
+        captchaKey.currentState?.loadCaptcha();
+      }
     } finally {
       if (mounted) {
         setState(() => isLoading = false);
@@ -140,16 +142,13 @@ class LoginScreenState extends State<LoginScreen> {
 
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: Theme.of(context).colorScheme.error,
-      ),
-    );
+    if (mounted) {
+      context.showToast(msg, isError: true);
+    }
   }
 
   Widget buildCaptcha() {
-    return WordCaptcha(onCaptchaChanged: onCaptchaChanged);
+    return WordCaptcha(key: captchaKey, onCaptchaChanged: onCaptchaChanged);
   }
 
 
@@ -158,31 +157,35 @@ class LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-    return Scaffold(
-      resizeToAvoidBottomInset: true,
-      body: Stack(
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth < 600) {
-                return LoginMobilePortrait(controller: this);
-              }
-              return OrientationBuilder(
-                builder: (_, orientation) {
-                  return orientation == Orientation.portrait
-                      ? LoginTabletPortrait(controller: this)
-                      : LoginTabletLandscape(controller: this);
-                },
-              );
-            },
-          ),
-          if (isLoading)
-            Positioned.fill(
-              child: const LoadingScreen(
-                message: "Establishing secure session...",
-              ),
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scaffold(
+        resizeToAvoidBottomInset: true,
+        body: Stack(
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 600) {
+                  return LoginMobilePortrait(controller: this);
+                }
+                return OrientationBuilder(
+                  builder: (_, orientation) {
+                    return orientation == Orientation.portrait
+                        ? LoginTabletPortrait(controller: this)
+                        : LoginTabletLandscape(controller: this);
+                  },
+                );
+              },
             ),
-        ],
+            if (isLoading)
+              Positioned.fill(
+                child: const LoadingScreen(
+                  message: "Establishing secure session...",
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

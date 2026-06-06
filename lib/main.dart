@@ -30,6 +30,9 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   debugPrint('FCM background message received: ${message.messageId}');
 
+  // Eagerly initialize local notification settings inside the background isolate
+  await LocalNotificationService.initialize();
+
   // Only display a local notification if the message does not contain a notification payload
   // (to prevent duplicate notifications on Android/iOS when the system automatically displays the notification).
   if (message.notification == null) {
@@ -237,6 +240,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   void initState() {
     super.initState();
+    // Force eager initialization of NotificationService to request FCM permissions and register token at startup
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Provider.of<NotificationService>(context, listen: false);
+      }
+    });
     _checkAuth();
     // Register reconnect callback to reload data when network is restored
     NetworkMonitor().addReconnectCallback(_onNetworkReconnected);

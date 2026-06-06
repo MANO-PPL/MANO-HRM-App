@@ -19,8 +19,8 @@ android {
         applicationId = "co.mano.attendance"
         minSdk = 24
         targetSdk = 35
-        versionCode = 12
-        versionName = "2.0.8"
+        versionCode = 16
+        versionName = "1.0.0"
         multiDexEnabled = true // Fixes "crash" due to method limit on older devices
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

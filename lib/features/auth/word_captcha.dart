@@ -11,10 +11,10 @@ class WordCaptcha extends StatefulWidget {
   const WordCaptcha({super.key, required this.onCaptchaChanged});
 
   @override
-  State<WordCaptcha> createState() => _WordCaptchaState();
+  State<WordCaptcha> createState() => WordCaptchaState();
 }
 
-class _WordCaptchaState extends State<WordCaptcha> {
+class WordCaptchaState extends State<WordCaptcha> {
   String? _captchaId;
   String? _captchaSvgString;
   String? _errorMessage;
@@ -24,10 +24,10 @@ class _WordCaptchaState extends State<WordCaptcha> {
   @override
   void initState() {
     super.initState();
-    _loadCaptcha();
+    loadCaptcha();
   }
 
-  Future<void> _loadCaptcha() async {
+  Future<void> loadCaptcha() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -127,7 +127,7 @@ class _WordCaptchaState extends State<WordCaptcha> {
             const SizedBox(width: 12),
             // Refresh Button
             InkWell(
-              onTap: _loadCaptcha,
+              onTap: loadCaptcha,
               borderRadius: BorderRadius.circular(8),
               child: Container(
                 height: 60,
