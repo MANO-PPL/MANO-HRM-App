@@ -4,6 +4,8 @@ import '../services/admin_service.dart';
 import '../models/dashboard_model.dart';
 import 'auth_service.dart';
 import '../../features/attendance/services/attendance_service.dart';
+import '../../features/employees/models/employee_model.dart';
+import '../constants/api_constants.dart';
 
 class DashboardProvider extends ChangeNotifier {
   final AuthService _authService;
@@ -22,6 +24,7 @@ class DashboardProvider extends ChangeNotifier {
     if (currentUserId != _lastUserId) {
       _cache.clear();
       _data = null;
+      _userWorkLocations = [];
       _lastUserId = currentUserId;
       fetchDashboardData(forceRefresh: true);
     }
@@ -51,6 +54,9 @@ class DashboardProvider extends ChangeNotifier {
   DashboardData? _data;
   DashboardData? get data => _data;
 
+  List<EmployeeWorkLocation> _userWorkLocations = [];
+  List<EmployeeWorkLocation> get userWorkLocations => _userWorkLocations;
+
   // Initial empty data to prevent null checks everywhere if needed
   DashboardStats get stats => _data?.stats ?? DashboardStats(presentToday: 0, totalEmployees: 0, absentToday: 0, lateCheckins: 0);
   DashboardTrends get trends => _data?.trends ?? DashboardTrends(present: '0%', absent: '0%', late: '0%');
@@ -79,8 +85,27 @@ class DashboardProvider extends ChangeNotifier {
       _isLoading = true;
       // notifyListeners(); // Don't notify here to avoid flicker if just switching view modes quickly
 
+      // Fetch user profile to get fresh avatar image, department, designation from backend
+      await _authService.fetchUserProfile();
+
       final user = _authService.user;
       if (user != null && user.isEmployee) {
+        // Fetch employee work locations
+        try {
+          final locRes = await _authService.dio.get(ApiConstants.employeeLocations);
+          if (locRes.statusCode == 200 && locRes.data['locations'] != null) {
+            final List<dynamic> locList = locRes.data['locations'];
+            _userWorkLocations = locList
+                .map((x) => EmployeeWorkLocation.fromJson(x as Map<String, dynamic>))
+                .toList();
+          } else {
+            _userWorkLocations = [];
+          }
+        } catch (e) {
+          debugPrint("Failed to fetch employee locations: $e");
+          _userWorkLocations = [];
+        }
+
         // Fetch employee's own records for the current month to calculate personal stats
         final now = DateTime.now();
         final startOfMonth = DateTime(now.year, now.month, 1);

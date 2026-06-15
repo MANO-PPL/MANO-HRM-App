@@ -8,6 +8,10 @@ import '../widgets/action_card.dart';
 import '../widgets/activity_feed.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/trends_chart.dart';
+import '../../../../shared/services/auth_service.dart';
+import '../../widgets/employee_dashboard_widgets.dart';
+import '../../../../features/attendance/providers/attendance_provider.dart';
+import '../../../../shared/widgets/toast_helper.dart';
 
 class AdminDashboardView extends StatefulWidget {
   const AdminDashboardView({super.key});
@@ -22,11 +26,25 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<DashboardProvider>(context, listen: false).fetchDashboardData();
+      Provider.of<AttendanceProvider>(context, listen: false)
+          .fetchRecords(DateTime.now(), forceRefresh: true)
+          .then((_) {
+            if (mounted) {
+              context.checkAndShowShiftStartBanner();
+            }
+          });
     });
   }
 
   // Quick actions specific to Admin
   final List<Map<String, dynamic>> adminQuickActions = [
+    {
+      'title': 'Mark Attendance',
+      'subtitle': 'Punch In / Out',
+      'icon': Icons.fingerprint,
+      'color': const Color(0xFF10B981),
+      'page': PageType.myAttendance,
+    },
     {
       'title': 'Manage Shifts',
       'subtitle': 'Update work schedules',
@@ -52,6 +70,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthService>().user;
     return Consumer<DashboardProvider>(
       builder: (context, provider, child) {
         return LoadingScreen(
@@ -62,21 +81,36 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             final isLandscape = constraints.maxWidth >= 900;
 
             return SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(16, isLandscape ? 24 : 4, 16, 24),
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 24),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Row 1: KPI Cards
-                  _buildKPISection(provider.stats, provider.trends, isLandscape),
-                  const SizedBox(height: 32),
+                  EmployeeHeaderStack(
+                    userName: user?.name ?? 'Admin',
+                    department: user?.department,
+                    designation: user?.designation,
+                  ),
+                  const SizedBox(height: 24),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Row 1: KPI Cards
+                        _buildKPISection(provider.stats, provider.trends, isLandscape),
+                        const SizedBox(height: 32),
 
-                  // Row 2: Quick Actions
-                  _buildQuickActions(isLandscape),
-                  const SizedBox(height: 32),
+                        // Row 2: Quick Actions
+                        _buildQuickActions(isLandscape),
+                        const SizedBox(height: 32),
 
-                  // Row 3: Split View (Chart, Feed, and Anomalies)
-                  _buildSplitView(provider, isLandscape),
-                  const SizedBox(height: 16),
+                        // Row 3: Split View (Chart, Feed, and Anomalies)
+                        _buildSplitView(provider, isLandscape),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             );
@@ -211,10 +245,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
+              crossAxisCount: 4,
               crossAxisSpacing: 20,
               mainAxisSpacing: 20,
-              childAspectRatio: 2.5,
+              childAspectRatio: 2.0,
             ),
             itemCount: adminQuickActions.length,
             itemBuilder: (context, index) {

@@ -11,6 +11,9 @@ import '../../tablet/widgets/trends_chart.dart';
 import '../../../../shared/navigation/navigation_controller.dart';
 import 'employee_dashboard_mobile.dart';
 import '../../../../shared/widgets/loading_screen.dart';
+import '../../widgets/employee_dashboard_widgets.dart';
+import '../../../../features/attendance/providers/attendance_provider.dart';
+import '../../../../shared/widgets/toast_helper.dart';
 
 class MobileDashboardContent extends StatelessWidget {
   const MobileDashboardContent({super.key});
@@ -45,6 +48,13 @@ class _MobileAdminDashboardContentState
     extends State<MobileAdminDashboardContent> {
   final List<Map<String, dynamic>> adminQuickActions = [
     {
+      'title': 'Mark Attendance',
+      'subtitle': 'Punch In / Out',
+      'icon': Icons.fingerprint,
+      'color': const Color(0xFF10B981),
+      'page': PageType.myAttendance,
+    },
+    {
       'title': 'Manage Shifts',
       'icon': Icons.work_outline,
       'color': const Color(0xFF8B5CF6),
@@ -72,11 +82,19 @@ class _MobileAdminDashboardContentState
         context,
         listen: false,
       ).fetchDashboardData();
+      Provider.of<AttendanceProvider>(context, listen: false)
+          .fetchRecords(DateTime.now(), forceRefresh: true)
+          .then((_) {
+            if (mounted) {
+              context.checkAndShowShiftStartBanner();
+            }
+          });
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthService>().user;
     return Consumer<DashboardProvider>(
       builder: (context, provider, child) {
         final subTextColor = Theme.of(context).textTheme.bodySmall?.color;
@@ -87,6 +105,13 @@ class _MobileAdminDashboardContentState
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
+              SliverToBoxAdapter(
+                child: EmployeeHeaderStack(
+                  userName: user?.name ?? 'Admin',
+                  department: user?.department,
+                  designation: user?.designation,
+                ),
+              ),
               // 1. KPI Section (Grid)
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
@@ -268,6 +293,13 @@ class MobileHrDashboardContent extends StatefulWidget {
 class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
   final List<Map<String, dynamic>> hrQuickActions = [
     {
+      'title': 'Mark Attendance',
+      'subtitle': 'Punch In / Out',
+      'icon': Icons.fingerprint,
+      'color': const Color(0xFF10B981),
+      'page': PageType.myAttendance,
+    },
+    {
       'title': 'Add Employee',
       'icon': Icons.person_add_outlined,
       'color': const Color(0xFF6366F1),
@@ -295,11 +327,19 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
         context,
         listen: false,
       ).fetchDashboardData();
+      Provider.of<AttendanceProvider>(context, listen: false)
+          .fetchRecords(DateTime.now(), forceRefresh: true)
+          .then((_) {
+            if (mounted) {
+              context.checkAndShowShiftStartBanner();
+            }
+          });
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthService>().user;
     return Consumer<DashboardProvider>(
       builder: (context, provider, child) {
         final subTextColor = Theme.of(context).textTheme.bodySmall?.color;
@@ -310,6 +350,13 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
+              SliverToBoxAdapter(
+                child: EmployeeHeaderStack(
+                  userName: user?.name ?? 'HR Manager',
+                  department: user?.department,
+                  designation: user?.designation,
+                ),
+              ),
               // 1. KPI Section (Grid)
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),

@@ -3,16 +3,51 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../../shared/services/dashboard_provider.dart';
 import '../../../../shared/services/auth_service.dart';
-import '../../../../shared/navigation/navigation_controller.dart'; 
+import '../../../../features/attendance/providers/attendance_provider.dart';
+import '../../../../features/leave/providers/leave_provider.dart';
 import '../../widgets/employee_dashboard_widgets.dart';
 import '../../../../shared/widgets/loading_screen.dart';
+import '../../../../shared/widgets/toast_helper.dart';
 
-class MobileEmployeeDashboardContent extends StatelessWidget {
+class MobileEmployeeDashboardContent extends StatefulWidget {
   const MobileEmployeeDashboardContent({super.key});
+
+  @override
+  State<MobileEmployeeDashboardContent> createState() => _MobileEmployeeDashboardContentState();
+}
+
+class _MobileEmployeeDashboardContentState extends State<MobileEmployeeDashboardContent> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<DashboardProvider>(context, listen: false).fetchDashboardData(forceRefresh: true);
+      Provider.of<AttendanceProvider>(context, listen: false)
+          .fetchRecords(DateTime.now(), forceRefresh: true)
+          .then((_) {
+            if (mounted) {
+              context.checkAndShowShiftStartBanner();
+            }
+          });
+      Provider.of<LeaveProvider>(context, listen: false).fetchMyLeaves(forceRefresh: true);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthService>().user;
+    final leaveProvider = context.watch<LeaveProvider>();
+    final myLeaves = leaveProvider.myLeaves;
+
+    // Calculate real leave balance from approved requests
+    int approvedDays = 0;
+    for (var leave in myLeaves) {
+      if (leave.status.toLowerCase() == 'approved') {
+        final diff = leave.endDate.difference(leave.startDate).inDays + 1;
+        approvedDays += diff;
+      }
+    }
+    final leaveBalance = (12 - approvedDays).clamp(0, 12);
     
     return Consumer<DashboardProvider>(
       builder: (context, provider, child) {
@@ -23,101 +58,197 @@ class MobileEmployeeDashboardContent extends StatelessWidget {
           message: "Loading dashboard...",
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+            padding: const EdgeInsets.only(bottom: 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                 // 1. Hero
-                 EmployeeHero(
-                  userName: user?.name ?? 'Employee', 
-                  onAttendanceTap: () => navigateTo(PageType.myAttendance), 
-                  onHolidayTap: () => navigateTo(PageType.leavesAndHolidays),
-                  onLeaveTap: () => navigateTo(PageType.leavesAndHolidays),
-                ),
-                const SizedBox(height: 24),
-  
-                // 2. Stats Grid (2x2)
-                GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.3, // Adjust for portrait
-                  children: [
-                    EmployeeStatCard(
-                      label: 'Present Days',
-                      value: stats.presentToday.toString(),
-                      icon: Icons.check_circle_outline,
-                      iconColor: const Color(0xFF10B981),
-                    ),
-                    EmployeeStatCard(
-                      label: 'Absent Days',
-                      value: stats.absentToday.toString(),
-                      icon: Icons.cancel_outlined,
-                      iconColor: const Color(0xFFEF4444),
-                    ),
-                    EmployeeStatCard(
-                      label: 'Late Arrivals',
-                      value: stats.lateCheckins.toString(),
-                      icon: Icons.access_time,
-                      iconColor: const Color(0xFFF59E0B),
-                    ),
-                    const EmployeeStatCard(
-                      label: 'Leave Balance',
-                      value: '8', // Mock
-                      badgeText: 'Yearly',
-                      icon: Icons.coffee,
-                      iconColor: Color(0xFF3B82F6),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-  
-                // 3. Info Cards (Stacked)
-                EmployeeInfoCard(
-                  title: 'Your Work Location',
-                  icon: Icons.location_on_outlined,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).brightness == Brightness.dark 
-                          ? Colors.white.withValues(alpha: 0.05) 
-                          : Colors.grey[100],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Theme.of(context).brightness == Brightness.dark 
-                            ? Colors.white.withValues(alpha: 0.1) 
-                            : Colors.grey[300]!,
-                      ),
-                    ),
-                    child: Text(
-                      'Standard locations. Ensure you are within the geofence.',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        color: Theme.of(context).brightness == Brightness.dark 
-                            ? Colors.grey[400] 
-                            : Colors.grey[700],
-                        height: 1.5,
-                      ),
-                    ),
-                  ),
+                // 1. Edge-to-Edge Gradient Header
+                EmployeeHeaderStack(
+                  userName: user?.name ?? 'Employee',
+                  department: user?.department,
+                  designation: user?.designation,
                 ),
                 const SizedBox(height: 16),
-                EmployeeInfoCard(
-                  title: 'Policies & Reminders',
-                  icon: Icons.info_outline,
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: AttendanceStatusCard(),
+                ),
+                const SizedBox(height: 16),
+  
+                // 2. Dashboard content wrapped in horizontal padding
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _buildBulletPoint(context, 'Mark attendance before 09:30 AM.'),
+                      // Quick Actions
+                      const EmployeeQuickActions(),
                       const SizedBox(height: 12),
-                      _buildBulletPoint(context, 'Apply for leave 2 days prior.'),
+        
+                      // Stats Grid (2x2) with dynamic aspect ratio based on screen size
+                      GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: MediaQuery.of(context).size.width < 360 ? 1.15 : 1.35,
+                        children: [
+                          EmployeeStatCard(
+                            label: 'Present Days',
+                            value: stats.presentToday.toString(),
+                            icon: Icons.check_circle_outline,
+                            iconColor: const Color(0xFF10B981),
+                          ),
+                          EmployeeStatCard(
+                            label: 'Absent Days',
+                            value: stats.absentToday.toString(),
+                            icon: Icons.cancel_outlined,
+                            iconColor: const Color(0xFFEF4444),
+                          ),
+                          EmployeeStatCard(
+                            label: 'Late Arrivals',
+                            value: stats.lateCheckins.toString(),
+                            icon: Icons.access_time,
+                            iconColor: const Color(0xFFF59E0B),
+                          ),
+                          EmployeeStatCard(
+                            label: 'Leave Balance',
+                            value: leaveBalance.toString(),
+                            badgeText: 'Yearly',
+                            icon: Icons.coffee,
+                            iconColor: const Color(0xFF3B82F6),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+        
+                      // Info Cards (Stacked)
+                      EmployeeInfoCard(
+                        title: 'Your Work Location',
+                        icon: Icons.location_on_outlined,
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).brightness == Brightness.dark 
+                                ? Colors.white.withValues(alpha: 0.03) 
+                                : Colors.grey[50],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Theme.of(context).brightness == Brightness.dark 
+                                  ? Colors.white.withValues(alpha: 0.08) 
+                                  : Colors.grey[200]!,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.verified_user_outlined, size: 14, color: Color(0xFF10B981)),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Geofence Active & Protected',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF10B981),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (provider.userWorkLocations.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Assigned Locations:',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context).brightness == Brightness.dark 
+                                        ? Colors.grey[300] 
+                                        : Colors.grey[700],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: provider.userWorkLocations.map((loc) {
+                                    final locActive = loc.isActive;
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: locActive 
+                                            ? const Color(0xFF3B82F6).withValues(alpha: 0.1) 
+                                            : Colors.grey.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: locActive 
+                                              ? const Color(0xFF3B82F6).withValues(alpha: 0.25) 
+                                              : Colors.grey.withValues(alpha: 0.25),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.location_on_outlined, 
+                                            size: 12, 
+                                            color: locActive ? const Color(0xFF3B82F6) : Colors.grey
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            loc.name,
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                              color: locActive 
+                                                  ? (Theme.of(context).brightness == Brightness.dark ? Colors.blue[300] : Colors.blue[700]) 
+                                                  : Colors.grey,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+                              const SizedBox(height: 12),
+                              Text(
+                                provider.userWorkLocations.isEmpty
+                                    ? 'You are currently assigned to standard work locations. Please ensure you are within the geofenced area when marking attendance.'
+                                    : 'Please ensure you are within one of the geofenced areas above when marking attendance.',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: Theme.of(context).brightness == Brightness.dark 
+                                      ? Colors.grey[400] 
+                                      : Colors.grey[600],
+                                  height: 1.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      EmployeeInfoCard(
+                        title: 'Policies & Reminders',
+                        icon: Icons.info_outline,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildBulletPoint(context, 'Mark attendance before 09:30 AM to avoid late remarks.'),
+                            const SizedBox(height: 10),
+                            _buildBulletPoint(context, 'Apply for leave at least 2 days in advance.'),
+                            const SizedBox(height: 10),
+                            _buildBulletPoint(context, 'Missed a punch-out? Submit a correction request via the Attendance page within 2 days to avoid marked absences.'),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                 const SizedBox(height: 80), // Bottom padding
               ],
             ),
           ),
@@ -127,12 +258,13 @@ class MobileEmployeeDashboardContent extends StatelessWidget {
   }
 
   Widget _buildBulletPoint(BuildContext context, String text) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 6),
-          child: CircleAvatar(radius: 3, backgroundColor: Theme.of(context).primaryColor),
+          child: CircleAvatar(radius: 3.5, backgroundColor: primaryColor),
         ),
         const SizedBox(width: 12),
         Expanded(
