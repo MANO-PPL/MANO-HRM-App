@@ -19,7 +19,7 @@ android {
         applicationId = "co.mano.attendance"
         minSdk = 24
         targetSdk = 35
-        versionCode = 16
+        versionCode = 17
         versionName = "1.0.0"
         multiDexEnabled = true // Fixes "crash" due to method limit on older devices
 
