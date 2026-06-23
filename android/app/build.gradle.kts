@@ -18,8 +18,8 @@ android {
     defaultConfig {
         applicationId = "co.mano.attendance"
         minSdk = 24
-        targetSdk = 35
-        versionCode = 17
+        targetSdk = 36
+        versionCode = 18
         versionName = "1.0.0"
         multiDexEnabled = true // Fixes "crash" due to method limit on older devices
 
@@ -67,6 +67,13 @@ android {
                 "proguard-rules.pro"
             )
             signingConfig = signingConfigs.getByName("release")
+        }
+    }
+
+    packaging {
+        jniLibs {
+            pickFirsts.add("**/libapp.so")
+            pickFirsts.add("**/libflutter.so")
         }
     }
 }

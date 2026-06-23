@@ -41,5 +41,12 @@ class MainActivity : FlutterFragmentActivity() {
                 result.notImplemented()
             }
         }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "co.mano.attendance/background").setMethodCallHandler { call, result ->
+            if (call.method == "startBackgroundTask" || call.method == "endBackgroundTask") {
+                result.success(true)
+            } else {
+                result.notImplemented()
+            }
+        }
     }
 }

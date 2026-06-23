@@ -1,4 +1,5 @@
 import 'dart:ui' show Color;
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
@@ -125,8 +126,13 @@ class LocalNotificationService {
     final notifId = id != 0 ? id : DateTime.now().millisecondsSinceEpoch % 100000;
 
     try {
-      await _plugin.show(notifId, title, body, details,
-          payload: data?.toString());
+      await _plugin.show(
+        notifId,
+        title,
+        body,
+        details,
+        payload: data != null ? jsonEncode(data) : null,
+      );
     } catch (e) {
       debugPrint('LocalNotificationService: error showing notification: $e');
     }
@@ -183,7 +189,7 @@ class LocalNotificationService {
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
-        payload: data?.toString(),
+        payload: data != null ? jsonEncode(data) : null,
       );
       debugPrint('LocalNotificationService: Scheduled notification $id at $localTime');
     } catch (e) {

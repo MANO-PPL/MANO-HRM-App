@@ -10,6 +10,7 @@ import 'auth_service.dart';
 import 'socket_service.dart';
 import 'local_notification_service.dart';
 import '../widgets/toast_helper.dart';
+import '../navigation/navigation_controller.dart';
 
 class NotificationService extends ChangeNotifier {
   final Dio _dio;
@@ -59,19 +60,37 @@ class NotificationService extends ChangeNotifier {
 
   // ── Static navigation helper ──────────────────────────────────────────────
 
-  /// Called from:
-  ///  • [main.dart] `LocalNotificationService.onNotificationTap` (foreground/background tap)
-  ///  • [initializeFCM] `onMessageOpenedApp` (background FCM tap)
-  ///  • [initializeFCM] `getInitialMessage` (killed-state FCM tap)
-  ///
-  /// Navigates the user to the Notifications section of the dashboard.
-  static void handleNotificationNavigation() {
+  /// Navigates the user to the respective page of the dashboard depending on the notification details.
+  static void handleNotificationNavigation([Map<String, dynamic>? data]) {
     // Give the UI a moment to settle if the app was just woken up
     Future.delayed(const Duration(milliseconds: 500), () {
       final ctx = navigatorKey.currentContext;
       if (ctx == null) return;
       // Pop everything back to the root (DashboardScreen) first
       navigatorKey.currentState?.popUntil((route) => route.isFirst);
+
+      if (data != null) {
+        final String? type = data['type']?.toString().toUpperCase();
+        final String? relatedEntityType = data['related_entity_type']?.toString().toUpperCase();
+
+        if (type == 'LEAVE' || relatedEntityType == 'LEAVE') {
+          navigateTo(PageType.leavesAndHolidays);
+        } else if (type == 'ATTENDANCE' || relatedEntityType == 'ATTENDANCE' || relatedEntityType == 'CORRECTION') {
+          navigateTo(PageType.myAttendance);
+        } else if (type == 'SHIFT' || relatedEntityType == 'SHIFT') {
+          navigateTo(PageType.policyEngine);
+        } else if (type == 'LOCATION' || relatedEntityType == 'LOCATION') {
+          navigateTo(PageType.geoFencing);
+        } else if (type == 'DAR' || relatedEntityType == 'DAR') {
+          navigateTo(PageType.dailyActivity);
+        } else if (type == 'FEEDBACK' || relatedEntityType == 'FEEDBACK') {
+          navigateTo(PageType.feedback);
+        } else if (type == 'CHAT' || type == 'CHAT_MESSAGE' || relatedEntityType == 'CHAT_MESSAGE') {
+          navigateTo(PageType.collaboration);
+        } else if (relatedEntityType == 'HOLIDAY') {
+          navigateTo(PageType.leavesAndHolidays);
+        }
+      }
     });
   }
 
@@ -182,7 +201,7 @@ class NotificationService extends ChangeNotifier {
             body: body,
             type: notifType,
             onTap: () {
-              handleNotificationNavigation();
+              handleNotificationNavigation(message.data);
             },
           );
         }
@@ -192,7 +211,7 @@ class NotificationService extends ChangeNotifier {
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         debugPrint('FCM: App opened from background via notification tap');
         fetchNotifications(refresh: true);
-        handleNotificationNavigation();
+        handleNotificationNavigation(message.data);
       });
 
       // ── Killed-state tap (app was fully closed, user tapped the notification) ─
@@ -202,7 +221,7 @@ class NotificationService extends ChangeNotifier {
         // Wait for app to fully initialise, then navigate
         Future.delayed(const Duration(seconds: 1), () {
           fetchNotifications(refresh: true);
-          handleNotificationNavigation();
+          handleNotificationNavigation(initialMessage.data);
         });
       }
 
@@ -471,7 +490,7 @@ class NotificationService extends ChangeNotifier {
           body: body,
           type: newNotif.type,
           onTap: () {
-            handleNotificationNavigation();
+            handleNotificationNavigation(json);
           },
         );
       }
