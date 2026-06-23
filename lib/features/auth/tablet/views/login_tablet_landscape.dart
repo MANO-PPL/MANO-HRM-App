@@ -203,38 +203,6 @@ class LoginTabletLandscape extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        GestureDetector(
-                          onTap: () => controller.toggleRememberMe(),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                height: 24,
-                                width: 24,
-                                child: Checkbox(
-                                  value: controller.rememberMe,
-                                  onChanged: (val) => controller.setRememberMe(val ?? false),
-                                  activeColor: const Color(0xFF4F46E5),
-                                  checkColor: Colors.white,
-                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Keep me signed in',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                  color: isDark ? Colors.white70 : Colors.black87,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                         const SizedBox(height: 16),
                         Center(
                           child: ConstrainedBox(

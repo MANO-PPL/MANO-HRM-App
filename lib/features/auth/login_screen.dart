@@ -28,15 +28,11 @@ class LoginScreenState extends State<LoginScreen> {
 
   bool isLoading = false;
   bool isPasswordVisible = false;
-  bool rememberMe = false;
+  bool rememberMe = true;
 
-  void setRememberMe(bool value) {
-    setState(() => rememberMe = value);
-  }
+  void setRememberMe(bool value) {}
 
-  void toggleRememberMe() {
-    setState(() => rememberMe = !rememberMe);
-  }
+  void toggleRememberMe() {}
 
   // New Captcha State
   String? captchaId;

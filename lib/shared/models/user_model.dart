@@ -67,4 +67,18 @@ class User {
       designation: designation ?? this.designation,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'username': username,
+      'email': email,
+      'role': role,
+      'profile_image': profileImage,
+      'phone': phone,
+      'department': department,
+      'designation': designation,
+    };
+  }
 }

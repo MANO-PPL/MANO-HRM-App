@@ -85,13 +85,15 @@ class AuthService extends ChangeNotifier {
 
     _isInitialized = true;
 
-    // Check remember_me status
-    final rememberMe = await _storage.read(key: 'remember_me');
-    if (rememberMe != 'true') {
-      // Session based: Clear cookies and access token on launch
-      await _cookieJar.deleteAll();
-      await _storage.delete(key: 'access_token');
-      _accessToken = null;
+    // Load saved token & user profile (always persist session on mobile, matching Attendance-Web behavior)
+    _accessToken = await _storage.read(key: 'access_token');
+    final cachedUser = await _storage.read(key: 'user');
+    if (cachedUser != null) {
+      try {
+        _currentUser = User.fromJson(jsonDecode(cachedUser));
+      } catch (e) {
+        debugPrint("Error decoding cached user: $e");
+      }
     }
 
     // Initialize and start the singleton NetworkMonitor
@@ -169,11 +171,21 @@ class AuthService extends ChangeNotifier {
                 );
                 return handler.resolve(clonedReq);
               } else {
-                // Refresh failed, force logout
+                // Refresh failed without throwing, force logout
                 await logout();
               }
             } catch (refreshError) {
-              await logout();
+              if (refreshError is DioException) {
+                final status = refreshError.response?.statusCode;
+                if (status == 401 || status == 403) {
+                  // Only force logout if the backend explicitly rejected the refresh token (401/403)
+                  await logout();
+                } else {
+                  debugPrint("Refresh failed due to network/server error ($status). Keeping session intact.");
+                }
+              } else {
+                debugPrint("Refresh failed due to unexpected error ($refreshError). Keeping session intact.");
+              }
             }
           }
           final friendly = friendlyError(e);
@@ -211,6 +223,7 @@ class AuthService extends ChangeNotifier {
 
       if (response.statusCode == 200) {
         _accessToken = response.data['accessToken'];
+        await _storage.write(key: 'access_token', value: _accessToken);
 
         // Save rememberMe preference
         await _storage.write(
@@ -222,6 +235,10 @@ class AuthService extends ChangeNotifier {
         // Best for: Initial Dashboard Load
         if (response.data['user'] != null) {
           _currentUser = User.fromJson(response.data['user']);
+          await _storage.write(
+            key: 'user',
+            value: jsonEncode(_currentUser!.toJson()),
+          );
         } else {
           // Fallback if user object missing (unlikely per docs)
           await getMe();
@@ -253,14 +270,21 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<String?> refreshToken() async {
+    if (!NetworkMonitor().isOnline) {
+      debugPrint("Offline: Skipping refreshToken API call. Returning current token.");
+      return _accessToken;
+    }
     try {
       // The cookie is automatically sent by Dio
       final response = await _dio.post(ApiConstants.refresh);
 
       if (response.statusCode == 200) {
         final newToken = response.data['accessToken'];
-        _accessToken = newToken;
-        return newToken;
+        if (newToken != null) {
+          _accessToken = newToken;
+          await _storage.write(key: 'access_token', value: newToken);
+          return newToken;
+        }
       }
     } catch (e) {
       if (e is DioException) {
@@ -274,6 +298,7 @@ class AuthService extends ChangeNotifier {
       } else {
         debugPrint("Refresh failed: $e");
       }
+      rethrow;
     }
     return null;
   }
@@ -415,6 +440,13 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<Map<String, dynamic>?> checkAuthStatus() async {
+    if (!NetworkMonitor().isOnline) {
+      debugPrint("Offline: Skipping auth status check. Keeping existing session.");
+      if (_currentUser != null) {
+        return {'user': _currentUser!};
+      }
+      return null;
+    }
     try {
       // Mimic React's initAuth: Try refresh first
       final newToken = await refreshToken();
@@ -425,6 +457,12 @@ class AuthService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint("Check auth status failed: $e");
+      if (e is DioException) {
+        final status = e.response?.statusCode;
+        if (status == 401 || status == 403) {
+          await logout();
+        }
+      }
     }
     return null;
   }
@@ -459,6 +497,11 @@ class AuthService extends ChangeNotifier {
         } else {
           _currentUser = newUserPartial;
         }
+
+        await _storage.write(
+          key: 'user',
+          value: jsonEncode(_currentUser!.toJson()),
+        );
 
         notifyListeners();
         return _currentUser;
@@ -495,6 +538,11 @@ class AuthService extends ChangeNotifier {
         } else {
           _currentUser = profileUser;
         }
+
+        await _storage.write(
+          key: 'user',
+          value: jsonEncode(_currentUser!.toJson()),
+        );
 
         notifyListeners();
         return _currentUser;
@@ -551,6 +599,10 @@ class AuthService extends ChangeNotifier {
             // Immediate Local Update
             if (_currentUser != null) {
               _currentUser = _currentUser!.copyWith(profileImage: newAvatarUrl);
+              await _storage.write(
+                key: 'user',
+                value: jsonEncode(_currentUser!.toJson()),
+              );
               notifyListeners();
             } else {
               await getMe();
@@ -592,6 +644,10 @@ class AuthService extends ChangeNotifier {
           _currentUser = _currentUser!.copyWith(
             profileImage: null,
           ); // Clear image
+          await _storage.write(
+            key: 'user',
+            value: jsonEncode(_currentUser!.toJson()),
+          );
           notifyListeners();
         } else {
           await getMe();
