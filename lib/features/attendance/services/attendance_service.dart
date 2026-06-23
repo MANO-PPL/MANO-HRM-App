@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
 
@@ -12,6 +13,7 @@ import '../models/correction_request.dart';
 
 class AttendanceService {
   final Dio _dio;
+  static const MethodChannel _backgroundChannel = MethodChannel('co.mano.attendance/background');
 
   AttendanceService(this._dio);
 
@@ -93,16 +95,39 @@ class AttendanceService {
     required double accuracy,
     required File imageFile,
     String? lateReason,
+    String? timestamp,
   }) async {
     try {
+      try {
+        await _backgroundChannel.invokeMethod('startBackgroundTask');
+      } catch (e) {
+        debugPrint("Failed to start background task: $e");
+      }
+
       final fixedFile = await _fixOrientationAndCompress(imageFile);
       final fileName = '${_basenameWithoutExtension(imageFile.path)}.jpg';
+
+      String? utcTimestamp;
+      if (timestamp != null) {
+        try {
+          utcTimestamp = DateTime.parse(timestamp).toUtc().toIso8601String();
+        } catch (_) {
+          utcTimestamp = timestamp;
+        }
+      }
 
       FormData formData = FormData.fromMap({
         "latitude": latitude.toStringAsFixed(4),
         "longitude": longitude.toStringAsFixed(4),
         "accuracy": accuracy.toStringAsFixed(2),
         if (lateReason != null) "late_reason": lateReason,
+        if (utcTimestamp != null) ...{
+          "timestamp": utcTimestamp,
+          "created_at": utcTimestamp,
+          "time": utcTimestamp,
+          "date": utcTimestamp,
+          "time_in": utcTimestamp,
+        },
         "image": await MultipartFile.fromFile(
           fixedFile.path,
           filename: fileName,
@@ -118,6 +143,12 @@ class AttendanceService {
       return response.data;
     } catch (e) {
       throw _parseError(e);
+    } finally {
+      try {
+        await _backgroundChannel.invokeMethod('endBackgroundTask');
+      } catch (e) {
+        debugPrint("Failed to end background task: $e");
+      }
     }
   }
 
@@ -127,15 +158,38 @@ class AttendanceService {
     required double longitude,
     required double accuracy,
     required File imageFile,
+    String? timestamp,
   }) async {
     try {
+      try {
+        await _backgroundChannel.invokeMethod('startBackgroundTask');
+      } catch (e) {
+        debugPrint("Failed to start background task: $e");
+      }
+
       final fixedFile = await _fixOrientationAndCompress(imageFile);
       final fileName = '${_basenameWithoutExtension(imageFile.path)}.jpg';
+
+      String? utcTimestamp;
+      if (timestamp != null) {
+        try {
+          utcTimestamp = DateTime.parse(timestamp).toUtc().toIso8601String();
+        } catch (_) {
+          utcTimestamp = timestamp;
+        }
+      }
 
       FormData formData = FormData.fromMap({
         "latitude": latitude.toStringAsFixed(4),
         "longitude": longitude.toStringAsFixed(4),
         "accuracy": accuracy.toStringAsFixed(2),
+        if (utcTimestamp != null) ...{
+          "timestamp": utcTimestamp,
+          "created_at": utcTimestamp,
+          "time": utcTimestamp,
+          "date": utcTimestamp,
+          "time_out": utcTimestamp,
+        },
         "image": await MultipartFile.fromFile(
           fixedFile.path,
           filename: fileName,
@@ -149,6 +203,12 @@ class AttendanceService {
       return response.data;
     } catch (e) {
       throw _parseError(e);
+    } finally {
+      try {
+        await _backgroundChannel.invokeMethod('endBackgroundTask');
+      } catch (e) {
+        debugPrint("Failed to end background task: $e");
+      }
     }
   }
 
@@ -384,12 +444,33 @@ class AttendanceService {
   Exception _parseError(dynamic e) {
     if (e is DioException) {
       debugPrint("AttService Error: ${e.response?.statusCode} - ${e.response?.data}");
+      final isNetwork = e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionError ||
+          e.error is SocketException;
+      
+      String msg = e.message ?? e.toString();
       if (e.response?.data != null && e.response!.data is Map) {
-        final msg = e.response?.data['message'] ?? e.message;
-        return Exception(msg);
+        msg = e.response?.data['message'] ?? msg;
       }
-      return Exception(e.message ?? e.toString());
+      return AttendanceApiException(
+        msg,
+        statusCode: e.response?.statusCode,
+        isNetworkError: isNetwork,
+      );
     }
-    return Exception(e.toString());
+    return AttendanceApiException(e.toString());
   }
+}
+
+class AttendanceApiException implements Exception {
+  final String message;
+  final int? statusCode;
+  final bool isNetworkError;
+
+  AttendanceApiException(this.message, {this.statusCode, this.isNetworkError = false});
+
+  @override
+  String toString() => message;
 }

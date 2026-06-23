@@ -1,15 +1,18 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application/shared/services/local_notification_service.dart';
 import '../../../shared/services/auth_service.dart';
 import '../../../shared/models/shift_model.dart';
 import '../models/attendance_record.dart';
 import '../services/attendance_service.dart';
 
+
 class AttendanceProvider with ChangeNotifier {
   final AuthService _authService;
   late final AttendanceService _attendanceService;
-
   // Cache: "userId_YYYY-MM-DD" -> List<AttendanceRecord>
   final Map<String, List<AttendanceRecord>> _recordsCache = {};
 
@@ -68,6 +71,7 @@ class AttendanceProvider with ChangeNotifier {
 
   // Getters
   List<AttendanceRecord> get records => _currentRecords;
+
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -147,7 +151,7 @@ class AttendanceProvider with ChangeNotifier {
     final cacheKey = '${userId}_$dateStr';
     _error = null;
 
-    // 1. Return from Cache if available and not forcing refresh
+    // 1. Return from memory cache if available and not forcing refresh
     if (!forceRefresh && _recordsCache.containsKey(cacheKey)) {
       _currentRecords = _recordsCache[cacheKey]!;
       if (dateStr == DateFormat('yyyy-MM-dd').format(DateTime.now())) {
@@ -156,6 +160,23 @@ class AttendanceProvider with ChangeNotifier {
       }
       notifyListeners();
       return;
+    }
+
+    // Try to load from persistent cache first if memory cache is empty
+    if (!_recordsCache.containsKey(cacheKey)) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cachedStr = prefs.getString('cached_attendance_$cacheKey');
+        if (cachedStr != null) {
+          final List<dynamic> decoded = jsonDecode(cachedStr);
+          final list = decoded.map((item) => AttendanceRecord.fromJson(item)).toList();
+          _recordsCache[cacheKey] = list;
+          _currentRecords = list;
+          notifyListeners();
+        }
+      } catch (e) {
+        debugPrint("Error loading persistent records cache: $e");
+      }
     }
 
     // 2. Fetch from API
@@ -173,6 +194,16 @@ class AttendanceProvider with ChangeNotifier {
       // Update Cache
       _recordsCache[cacheKey] = data;
       _currentRecords = data;
+
+      // Save to SharedPreferences for persistence
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final serialized = jsonEncode(data.map((r) => r.toJson()).toList());
+        await prefs.setString('cached_attendance_$cacheKey', serialized);
+      } catch (e) {
+        debugPrint("Error saving persistent records cache: $e");
+      }
+
       if (dateStr == DateFormat('yyyy-MM-dd').format(DateTime.now())) {
         _scheduleShiftEndNotification();
         _scheduleShiftStartNotification();
@@ -180,7 +211,12 @@ class AttendanceProvider with ChangeNotifier {
       
     } catch (e) {
       _error = e.toString();
-      _currentRecords = []; 
+      // Keep cached records if available, otherwise clear
+      if (_recordsCache.containsKey(cacheKey)) {
+        _currentRecords = _recordsCache[cacheKey]!;
+      } else {
+        _currentRecords = [];
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -356,4 +392,5 @@ class AttendanceProvider with ChangeNotifier {
       LocalNotificationService.cancelNotification(notificationId);
     }
   }
+
 }

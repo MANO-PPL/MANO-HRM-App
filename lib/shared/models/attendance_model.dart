@@ -87,4 +87,23 @@ class AttendanceRecord {
       }
     }
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'attendance_id': attendanceId,
+      'user_id': userId,
+      'time_in': timeIn,
+      'time_out': timeOut,
+      'time_in_lat': timeInLat,
+      'time_in_lng': timeInLng,
+      'time_out_lat': timeOutLat,
+      'time_out_lng': timeOutLng,
+      'time_in_address': timeInAddress,
+      'time_out_address': timeOutAddress,
+      'time_in_image': timeInImage,
+      'time_out_image': timeOutImage,
+      'late_minutes': lateMinutes,
+      'status': status,
+    };
+  }
 }
