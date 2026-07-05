@@ -30,6 +30,9 @@ class AuthService extends ChangeNotifier {
   String? _accessToken;
   User? _currentUser;
 
+  // Future lock to synchronize concurrent token refreshes
+  Future<String?>? _refreshFuture;
+
   bool get isAuthenticated => _accessToken != null;
   User? get user => _currentUser;
   String? get token => _accessToken;
@@ -149,15 +152,26 @@ class AuthService extends ChangeNotifier {
             );
           }
 
-          // Handle 401 Unauthorized & 403 Forbidden (likely expired access token)
-          if ((e.response?.statusCode == 403 ||
-                  e.response?.statusCode == 401) &&
-              _accessToken != null) {
+          // Guard 1: Avoid recursive refresh loops if the failed request is the refresh endpoint itself
+          final isRefreshRequest = e.requestOptions.path == ApiConstants.refresh;
+
+          // Guard 2: Avoid infinite loops on genuine permission errors (e.g. 403 Forbidden retry fails again)
+          final isRetry = e.requestOptions.headers['X-Retry'] == 'true';
+
+          // Handle 401 Unauthorized (likely expired access token)
+          if (e.response?.statusCode == 401 &&
+              _accessToken != null &&
+              !isRefreshRequest &&
+              !isRetry) {
             try {
-              final newAccessToken = await refreshToken();
+              // Await synchronized refresh future to avoid race conditions
+              final newAccessToken = await _synchronizedRefreshToken();
               if (newAccessToken != null) {
                 final opts = e.requestOptions;
                 opts.headers['Authorization'] = 'Bearer $newAccessToken';
+                // Tag as retry to prevent loops if endpoint remains restricted
+                opts.headers['X-Retry'] = 'true';
+
                 final clonedReq = await _dio.request(
                   opts.path,
                   options: Options(
@@ -202,12 +216,29 @@ class AuthService extends ChangeNotifier {
     );
   }
 
+  /// Wrapper around refreshToken that ensures only one active network call 
+  /// is made to the backend refresh endpoint at a time.
+  Future<String?> _synchronizedRefreshToken() async {
+    if (_refreshFuture != null) {
+      debugPrint("Token refresh already in progress. Awaiting existing request...");
+      return _refreshFuture;
+    }
+
+    _refreshFuture = refreshToken();
+    try {
+      final newToken = await _refreshFuture;
+      return newToken;
+    } finally {
+      _refreshFuture = null; // Clear lock
+    }
+  }
+
   Future<Map<String, dynamic>> login(
     String userInput,
     String password,
     String captchaId,
     String captchaValue, {
-    bool rememberMe = false,
+    bool rememberMe = true,
   }) async {
     try {
       final response = await _dio.post(
@@ -439,6 +470,36 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  Future<void> changePassword(String newPassword) async {
+    try {
+      final response = await _dio.post(
+        ApiConstants.changePassword,
+        data: {'newPassword': newPassword},
+      );
+      if (response.statusCode == 200) {
+        if (_currentUser != null) {
+          _currentUser = _currentUser!.copyWith(forcePasswordChange: false);
+          await _storage.write(
+            key: 'user',
+            value: jsonEncode(_currentUser!.toJson()),
+          );
+          notifyListeners();
+        }
+      } else {
+        throw Exception(response.data['message'] ?? 'Failed to change password');
+      }
+    } catch (e) {
+      if (e is DioException &&
+          e.response?.data != null &&
+          e.response!.data is Map) {
+        throw Exception(
+          e.response!.data['message'] ?? 'Failed to change password',
+        );
+      }
+      rethrow;
+    }
+  }
+
   Future<Map<String, dynamic>?> checkAuthStatus() async {
     if (!NetworkMonitor().isOnline) {
       debugPrint("Offline: Skipping auth status check. Keeping existing session.");
@@ -493,6 +554,7 @@ class AuthService extends ChangeNotifier {
             department: newUserPartial.department ?? _currentUser!.department,
             designation:
                 newUserPartial.designation ?? _currentUser!.designation,
+            forcePasswordChange: newUserPartial.forcePasswordChange,
           );
         } else {
           _currentUser = newUserPartial;
