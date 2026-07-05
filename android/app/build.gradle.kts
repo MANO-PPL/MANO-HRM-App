@@ -13,13 +13,14 @@ android {
 
     // SDK 36 required by plugins (camera, geolocator, etc.)
     compileSdk = 36
-    // optional: ndkVersion = "21.4.7075529" // uncomment and set if you need a specific ndk
+    // NDK r28: required for 16 KB page size support on modern Android devices
+    ndkVersion = "28.0.13004108"
 
     defaultConfig {
         applicationId = "co.mano.attendance"
         minSdk = 24
         targetSdk = 36
-        versionCode = 20
+        versionCode = 21
         versionName = "1.0.0"
         multiDexEnabled = true // Fixes "crash" due to method limit on older devices
 
