@@ -8,6 +8,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // Import dotenv
 import 'package:flutter_application/features/dashboard/dashboard_screen.dart';
 import 'package:flutter_application/features/auth/login_screen.dart'; // Import new LoginScreen
+import 'package:flutter_application/features/auth/views/force_password_change_screen.dart';
 import 'package:flutter_application/shared/providers/theme_simple.dart';
 import 'package:flutter_application/shared/widgets/orientation_guard.dart';
 import 'package:flutter_application/shared/widgets/loading_screen.dart';
@@ -324,9 +325,17 @@ class _AuthWrapperState extends State<AuthWrapper> {
     }
 
     // Watch for auth changes
-    final isAuthenticated = context.watch<AuthService>().isAuthenticated;
+    final authService = context.watch<AuthService>();
+    final isAuthenticated = authService.isAuthenticated;
 
     if (isAuthenticated) {
+      final user = authService.user;
+      if (user != null && user.forcePasswordChange) {
+        return const OrientationGuard(
+          key: ValueKey('force_password_change'),
+          child: ForcePasswordChangeScreen(),
+        );
+      }
       return const OrientationGuard(
         key: ValueKey('auth_dashboard'),
         child: DashboardScreen(),

@@ -8,6 +8,7 @@ class User {
   final String? phone;
   final String? department;
   final String? designation;
+  final bool forcePasswordChange;
 
   User({
     required this.id,
@@ -19,6 +20,7 @@ class User {
     this.phone,
     this.department,
     this.designation,
+    this.forcePasswordChange = false,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -33,6 +35,9 @@ class User {
       phone: json['phone'] ?? json['phone_no'],
       department: json['department'] ?? json['dept_name'],
       designation: json['designation'] ?? json['desg_name'],
+      forcePasswordChange: json['force_password_change'] == 1 ||
+          json['force_password_change'] == true ||
+          json['force_password_change'].toString().toLowerCase() == 'true',
     );
   }
 
@@ -54,6 +59,7 @@ class User {
     String? phone,
     String? department,
     String? designation,
+    bool? forcePasswordChange,
   }) {
     return User(
       id: id ?? this.id,
@@ -65,6 +71,7 @@ class User {
       phone: phone ?? this.phone,
       department: department ?? this.department,
       designation: designation ?? this.designation,
+      forcePasswordChange: forcePasswordChange ?? this.forcePasswordChange,
     );
   }
 
@@ -79,6 +86,7 @@ class User {
       'phone': phone,
       'department': department,
       'designation': designation,
+      'force_password_change': forcePasswordChange,
     };
   }
 }
