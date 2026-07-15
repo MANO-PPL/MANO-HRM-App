@@ -88,5 +88,10 @@
 		<array>
 			<string>remote-notification</string>
 		</array>
+		<!-- Allow users to access exported files via iOS Files app -->
+		<key>UIFileSharingEnabled</key>
+		<true/>
+		<key>LSSupportsOpeningDocumentsInPlace</key>
+		<true/>
 	</dict>
 </plist>

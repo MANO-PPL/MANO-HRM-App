@@ -11,6 +11,7 @@ import '../../../../shared/services/chatbot_service.dart';
 
 import '../../widgets/profile_avatar.dart';
 import '../../../../shared/models/user_model.dart';
+import '../../../../shared/utils/error_logger.dart';
 
 class MobileProfileContent extends StatefulWidget {
   const MobileProfileContent({super.key});
@@ -20,12 +21,24 @@ class MobileProfileContent extends StatefulWidget {
 }
 
 class _MobileProfileContentState extends State<MobileProfileContent> {
+  int _logCount = 0;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<AuthService>(context, listen: false).fetchUserProfile();
     });
+    _loadLogCount();
+  }
+
+  Future<void> _loadLogCount() async {
+    final logs = await ErrorLogger.getErrors();
+    if (mounted) {
+      setState(() {
+        _logCount = logs.length;
+      });
+    }
   }
 
   @override
@@ -51,6 +64,10 @@ class _MobileProfileContentState extends State<MobileProfileContent> {
 
           // Settings Card
           _buildSettingsCard(context),
+          const SizedBox(height: 16),
+
+          // Diagnostics Card
+          _buildDiagnosticsCard(context),
           const SizedBox(height: 16),
 
           // Logout Card
@@ -374,6 +391,131 @@ class _MobileProfileContentState extends State<MobileProfileContent> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildDiagnosticsCard(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return GlassContainer(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Diagnostics & Logs',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).textTheme.titleLarge?.color,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1, thickness: 1, color: Colors.white10),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey[100],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.terminal_outlined, size: 20, color: Colors.grey[400]),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Local Unsent Logs',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _logCount == 0
+                          ? '0 unsent error logs stored locally.'
+                          : '$_logCount unsent error logs stored locally.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _logCount == 0
+                      ? null
+                      : () async {
+                          await ErrorLogger.exportErrors(context);
+                        },
+                  icon: const Icon(Icons.download, size: 16),
+                  label: const Text('Export Logs'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF5B60F6),
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey[800],
+                    disabledForegroundColor: Colors.grey[600],
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              if (_logCount > 0) ...[
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    CustomDialog.show(
+                      context: context,
+                      title: "Clear Logs",
+                      message: "Are you sure you want to clear all local diagnostic logs?",
+                      positiveButtonText: "Clear",
+                      isDestructive: true,
+                      onPositivePressed: () async {
+                        await ErrorLogger.clearErrors();
+                        await _loadLogCount();
+                        if (context.mounted) {
+                          context.showToast('Diagnostic logs cleared', isSuccess: true);
+                        }
+                      },
+                      negativeButtonText: "Cancel",
+                      onNegativePressed: () {},
+                    );
+                  },
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  label: const Text('Clear'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.red,
+                    shadowColor: Colors.transparent,
+                    side: const BorderSide(color: Colors.red),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

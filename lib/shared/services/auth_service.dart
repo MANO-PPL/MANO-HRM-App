@@ -10,6 +10,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../constants/api_constants.dart';
 import '../widgets/toast_helper.dart';
 import '../utils/error_helper.dart';
+import '../utils/error_logger.dart';
 import 'network_monitor.dart';
 
 import '../models/user_model.dart';
@@ -132,6 +133,19 @@ class AuthService extends ChangeNotifier {
           return handler.next(options);
         },
         onError: (DioException e, handler) async {
+          // Log network or api errors locally on device
+          ErrorLogger.logError(
+            e.error ?? e.message ?? 'DioException',
+            type: 'network',
+            extraInfo: {
+              'path': e.requestOptions.path,
+              'method': e.requestOptions.method,
+              'statusCode': e.response?.statusCode,
+              'statusMessage': e.response?.statusMessage,
+              'typeString': e.type.toString(),
+            },
+          );
+
           // Check for network connectivity or slow network issues
           // NetworkMonitor handles "offline" toasts globally; only show here for
           // timeout issues (slow network) or if NetworkMonitor hasn't fired yet.
