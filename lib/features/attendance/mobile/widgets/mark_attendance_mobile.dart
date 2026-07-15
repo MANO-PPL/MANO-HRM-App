@@ -413,7 +413,7 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
                   Text(
                     isExpired
                         ? 'No time-out recorded for $dateLabel. The correction window has expired.'
-                        : 'No time-out on $dateLabel. Tap to submit correction ($daysLeftLabel).',
+                        : 'No time-out recorded for $dateLabel ($daysLeftLabel).',
                     style: GoogleFonts.poppins(
                       fontSize: 11,
                       color: Colors.white.withValues(alpha: 0.9),
@@ -424,8 +424,32 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
               ),
             ),
             if (!isExpired) ...[
-              const SizedBox(width: 8),
-              Icon(Icons.chevron_right, color: Colors.white.withValues(alpha: 0.8)),
+              const SizedBox(width: 12),
+              ElevatedButton(
+                onPressed: () {
+                  CorrectionRequestDialogMobile.show(
+                    context,
+                    date: missedDate,
+                    attendanceId: null,
+                  ).then((_) => provider.clearMissedPunch());
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFFEA580C),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'Fix Now',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ],
           ],
         ),
