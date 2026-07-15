@@ -242,14 +242,19 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
       } catch (e) {
         if (mounted) {
           Navigator.pop(context); // Close loading
-          context.showToast("Failed: $e", isError: true);
+          context.showExceptionToast(
+            e,
+            fallback: isTimeIn
+                ? 'Failed to clock in. Please try again.'
+                : 'Failed to clock out. Please try again.',
+          );
         }
       }
     } catch (e) {
        if (mounted) {
-         context.showToast("Camera Error: $e", isError: true);
+         context.showExceptionToast(e, fallback: 'Camera error. Please try again.');
        }
-    } finally {
+     } finally {
       if (mounted) {
         setState(() {
           _isProcessing = false;

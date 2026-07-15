@@ -105,3 +105,69 @@ bool isNetworkError(Object error) {
   }
   return error is SocketException;
 }
+
+/// Automatically cleans and simplifies raw error messages before showing them to users.
+String sanitizeErrorMessage(String message) {
+  final lower = message.toLowerCase();
+  
+  // Extract clean part from common prefixes
+  String content = message;
+  final prefixes = [
+    'failed: ',
+    'error: ',
+    'failed to delete: ',
+    'camera error: ',
+    'camera/location error: ',
+    'upload failed: ',
+    'assignment failed: ',
+    'failed to save template: ',
+    'failed to restore employee: ',
+    'failed to permanently delete: ',
+    'failed to update status: ',
+  ];
+  
+  for (final prefix in prefixes) {
+    if (lower.startsWith(prefix)) {
+      content = message.substring(prefix.length);
+      break;
+    }
+  }
+
+  final cleanContent = friendlyError(content, fallback: 'Something went wrong. Please try again.');
+  
+  if (cleanContent == 'Something went wrong. Please try again.') {
+    if (lower.startsWith('failed to delete: ') || lower.startsWith('failed to permanently delete: ')) {
+      return 'Failed to delete. Please try again.';
+    } else if (lower.startsWith('camera error: ') || lower.startsWith('camera/location error: ')) {
+      return 'Camera or location error. Please try again.';
+    } else if (lower.startsWith('upload failed: ')) {
+      return 'Upload failed. Please check the file and try again.';
+    } else if (lower.startsWith('failed to update status: ')) {
+      return 'Failed to update status. Please try again.';
+    } else if (lower.startsWith('assignment failed: ')) {
+      return 'Failed to assign location. Please try again.';
+    } else if (lower.startsWith('failed to restore employee: ')) {
+      return 'Failed to restore employee. Please try again.';
+    } else if (lower.startsWith('failed to save template: ')) {
+      return 'Failed to save template. Please try again.';
+    }
+    return 'An error occurred. Please try again.';
+  }
+  
+  // Re-attach prefix if appropriate and not redundant
+  if (lower.startsWith('failed to delete: ') && !cleanContent.toLowerCase().startsWith('failed')) {
+    return 'Failed to delete: $cleanContent';
+  } else if (lower.startsWith('camera error: ') && !cleanContent.toLowerCase().startsWith('camera')) {
+    return 'Camera error: $cleanContent';
+  } else if (lower.startsWith('camera/location error: ') && !cleanContent.toLowerCase().startsWith('camera')) {
+    return 'Camera or location error: $cleanContent';
+  } else if (lower.startsWith('upload failed: ') && !cleanContent.toLowerCase().startsWith('upload')) {
+    return 'Upload failed: $cleanContent';
+  } else if (lower.startsWith('failed to update status: ') && !cleanContent.toLowerCase().startsWith('failed')) {
+    return 'Failed to update status: $cleanContent';
+  } else if (lower.startsWith('assignment failed: ') && !cleanContent.toLowerCase().startsWith('assignment')) {
+    return 'Assignment failed: $cleanContent';
+  }
+  
+  return cleanContent;
+}

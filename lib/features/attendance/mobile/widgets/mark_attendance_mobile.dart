@@ -193,7 +193,12 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
         } else {
            if (mounted) {
              Navigator.pop(context); // Pop Loading
-             context.showToast("Failed: $e", isError: true);
+             context.showExceptionToast(
+               e,
+               fallback: isTimeIn
+                   ? 'Failed to clock in. Please try again.'
+                   : 'Failed to clock out. Please try again.',
+             );
            }
            setState(() {
              _isProcessing = false;
@@ -238,14 +243,14 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
         } catch (e) {
           if (mounted) {
             Navigator.pop(context); // Pop Loading
-            context.showToast("Failed: $e", isError: true);
+            context.showExceptionToast(e, fallback: 'Failed to submit late arrival reason.');
           }
         }
       }
 
     } catch (e) {
        if (mounted) {
-         context.showToast("Camera/Location Error: $e", isError: true);
+         context.showExceptionToast(e, fallback: 'Camera or location error. Please try again.');
        }
     } finally {
       if (mounted) {

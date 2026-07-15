@@ -219,7 +219,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
               _users[userIndex] = userCopy;
             }
           });
-          context.showToast("Assignment failed: $e", isError: true);
+          context.showExceptionToast(e, fallback: 'Assignment failed. Please try again.');
         }
       }
   }

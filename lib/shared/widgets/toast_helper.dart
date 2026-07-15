@@ -36,6 +36,8 @@ extension ToastExtension on BuildContext {
   }) {
     if (!mounted) return;
 
+    final displayMessage = isError ? sanitizeErrorMessage(message) : message;
+
     try {
       _currentToastEntry?.remove();
     } catch (_) {}
@@ -66,7 +68,7 @@ extension ToastExtension on BuildContext {
     entry = OverlayEntry(
       builder: (context) {
         return AnimatedToastWidget(
-          message: message,
+          message: displayMessage,
           icon: icon,
           bgColor: bgColor,
           actionLabel: actionLabel,
