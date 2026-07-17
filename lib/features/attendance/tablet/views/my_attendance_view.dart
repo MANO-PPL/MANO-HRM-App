@@ -161,18 +161,18 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
     // 0. Try the real-time position stream first if it is fresh and accurate
     if (_realtimePosition != null) {
       final age = DateTime.now().difference(_realtimePosition!.timestamp);
-      if (age.inSeconds < 15 && _realtimePosition!.accuracy <= 50) {
+      if (age.inSeconds < 15 && _realtimePosition!.accuracy <= 100) {
         debugPrint("Using fresh stream position: age=${age.inSeconds}s, accuracy=${_realtimePosition!.accuracy}m");
         return _realtimePosition;
       }
     }
 
-    // 1. Try last known position FIRST. If it is fresh (under 60s) and accurate, use it immediately for instant retrieval.
+    // 1. Try last known position FIRST. If it is fresh (under 15 minutes), use it immediately for instant retrieval.
     try {
       final lastKnown = await Geolocator.getLastKnownPosition();
       if (lastKnown != null) {
         final age = DateTime.now().difference(lastKnown.timestamp);
-        if (age.inSeconds < 60 && lastKnown.accuracy <= 50) {
+        if (age.inMinutes < 15) {
           debugPrint("Using fresh last known position: age=${age.inSeconds}s, accuracy=${lastKnown.accuracy}m");
           return lastKnown;
         }
@@ -181,31 +181,28 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
       debugPrint("Error checking last known location: $e");
     }
 
-    // 2. Otherwise, fetch high accuracy with a strict timeout
+    // 2. Otherwise, fetch high accuracy with a strict timeout (2 seconds)
     try {
       return await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 4),
+          timeLimit: Duration(seconds: 2),
         ),
       );
     } catch (e) {
-      debugPrint("High accuracy location fetch failed or timed out: $e. Trying last known/balanced fallback...");
+      debugPrint("High accuracy location fetch failed/timed out. Trying any last known fallback...");
       try {
         final lastKnown = await Geolocator.getLastKnownPosition();
         if (lastKnown != null) return lastKnown;
-      } catch (e) {
-        debugPrint("Failed to get last known position: $e");
-      }
+      } catch (_) {}
       try {
         return await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.medium,
-            timeLimit: Duration(seconds: 3),
+            timeLimit: Duration(seconds: 2),
           ),
         );
-      } catch (e) {
-        debugPrint("Medium accuracy location fetch failed: $e");
+      } catch (_) {
         return null;
       }
     }

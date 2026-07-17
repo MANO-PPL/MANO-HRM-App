@@ -100,9 +100,29 @@ class AttendanceProvider with ChangeNotifier {
     final today = DateTime.now();
     DateTime? found;
 
+    // 1. Fetch pending correction requests to exclude dates already submitted
+    Set<String> pendingDates = {};
+    try {
+      final pendingRequests = await _attendanceService.getCorrectionRequests(
+        status: 'pending',
+        userId: _authService.user?.employeeId,
+      );
+      pendingDates = pendingRequests
+          .map((req) => DateFormat('yyyy-MM-dd').format(req.requestDate))
+          .toSet();
+    } catch (e) {
+      debugPrint('Error fetching pending corrections for missed punch check: $e');
+    }
+
     for (int i = 1; i <= deadline; i++) {
       final checkDate = today.subtract(Duration(days: i));
       final checkStr = DateFormat('yyyy-MM-dd').format(checkDate);
+
+      // If a correction request is already pending for this date, ignore it
+      if (pendingDates.contains(checkStr)) {
+        continue;
+      }
+
       final userId = _authService.user?.employeeId ?? 'anon';
       final cacheKey = '${userId}_$checkStr';
 
