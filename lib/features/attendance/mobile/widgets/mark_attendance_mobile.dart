@@ -468,7 +468,13 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
     }
     
     if (mounted) {
-      Provider.of<AttendanceProvider>(context, listen: false).startRealtimeSync(DateTime.now());
+      // 1. Await today's record loading
+      await Provider.of<AttendanceProvider>(context, listen: false)
+          .fetchRecords(DateTime.now(), forceRefresh: true);
+      // 2. Start background sync for geocoding and image loading
+      if (mounted) {
+        Provider.of<AttendanceProvider>(context, listen: false).startRealtimeSync(DateTime.now());
+      }
     }
   }
 

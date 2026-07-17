@@ -413,7 +413,13 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
             isSuccess: true,
           );
 
-          Provider.of<AttendanceProvider>(context, listen: false).startRealtimeSync(DateTime.now());
+          // 1. Await today's record loading
+          await Provider.of<AttendanceProvider>(context, listen: false)
+              .fetchRecords(DateTime.now(), forceRefresh: true);
+          // 2. Start background sync for geocoding and image loading
+          if (mounted) {
+            Provider.of<AttendanceProvider>(context, listen: false).startRealtimeSync(DateTime.now());
+          }
         }
         final isBg = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
         if (isBg) {

@@ -240,6 +240,9 @@ class AttendanceProvider with ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+      if (forceRefresh) {
+        checkMissedPunch();
+      }
     }
   }
 
@@ -292,9 +295,6 @@ class AttendanceProvider with ChangeNotifier {
     }).catchError((e) {
       debugPrint("Error clearing persistent cache: $e");
     });
-    
-    // Re-check missed punch after an action (e.g. user just timed out)
-    checkMissedPunch();
   }
 
   // Polls the server after a punch to fetch geocoded address and image URL in real time
