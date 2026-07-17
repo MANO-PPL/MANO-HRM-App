@@ -16,8 +16,15 @@ class CorrectionRequestForm extends StatefulWidget {
   final VoidCallback onSuccess;
   final VoidCallback? onClose; // Added
   final DateTime? initialDate;
+  final CorrectionType? initialType; // Added
 
-  const CorrectionRequestForm({super.key, required this.onSuccess, this.onClose, this.initialDate});
+  const CorrectionRequestForm({
+    super.key,
+    required this.onSuccess,
+    this.onClose,
+    this.initialDate,
+    this.initialType,
+  });
 
   @override
   State<CorrectionRequestForm> createState() => _CorrectionRequestFormState();
@@ -38,8 +45,11 @@ class _CorrectionRequestFormState extends State<CorrectionRequestForm> {
   TimeOfDay? _timeIn;
   TimeOfDay? _timeOut;
 
-  // Method: Add Session (List of maps)
-  List<Map<String, TimeOfDay>> _sessions = [];
+  // Method: Add Session (List of maps with nullable TimeOfDay)
+  List<Map<String, TimeOfDay?>> _sessions = [];
+
+  // Frozen snapshot for original_data (populated on fetch and submitted)
+  List<Map<String, String>> _originalSessions = [];
   
   // Attachments
   final List<PlatformFile> _selectedFiles = [];
@@ -62,6 +72,7 @@ class _CorrectionRequestFormState extends State<CorrectionRequestForm> {
   void initState() {
     super.initState();
     _requestDate = widget.initialDate ?? DateTime.now();
+    _type = widget.initialType ?? CorrectionType.missedPunch;
     final authService = Provider.of<AuthService>(context, listen: false);
     _service = AttendanceService(authService.dio);
     
@@ -83,9 +94,45 @@ class _CorrectionRequestFormState extends State<CorrectionRequestForm> {
     
     if (permission == LocationPermission.deniedForever) return null;
 
-    return await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-    );
+    // 1. Try last known position FIRST. If it is fresh (under 15s), use it immediately.
+    try {
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        final age = DateTime.now().difference(lastKnown.timestamp);
+        if (age.inSeconds < 15) {
+          debugPrint("Using fresh last known position: age=${age.inSeconds}s");
+          return lastKnown;
+        }
+      }
+    } catch (e) {
+      debugPrint("Error checking last known location: $e");
+    }
+
+    // 2. Otherwise, fetch high accuracy with a strict timeout
+    try {
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      debugPrint("Correction location fetch failed or timed out: $e. Trying fallback...");
+      try {
+        final lastKnown = await Geolocator.getLastKnownPosition();
+        if (lastKnown != null) return lastKnown;
+      } catch (_) {}
+      try {
+        return await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 3),
+          ),
+        );
+      } catch (_) {
+        return null;
+      }
+    }
   }
 
   Future<void> _submit() async {
@@ -116,6 +163,14 @@ class _CorrectionRequestFormState extends State<CorrectionRequestForm> {
         );
         return;
       }
+      for (var s in _sessions) {
+        if (s['in'] == null || s['out'] == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Please select both 'Time In' and 'Time Out' for all sessions")),
+          );
+          return;
+        }
+      }
       correctionData = {
         'sessions': _sessions.map((s) => {
           'time_in': '${s['in']!.hour.toString().padLeft(2, '0')}:${s['in']!.minute.toString().padLeft(2, '0')}:00',
@@ -135,6 +190,7 @@ class _CorrectionRequestFormState extends State<CorrectionRequestForm> {
         correctionMethod: _method.toString().split('.').last.replaceAll(RegExp(r'(?=[A-Z])'), '_').toLowerCase(),
         reason: _reasonController.text,
         correctionData: correctionData, // service now auto-converts to proposed_data array
+        originalData: _originalSessions, // Pass original sessions
         latitude: position?.latitude,
         longitude: position?.longitude,
         attachments: _selectedFiles.isNotEmpty ? _selectedFiles : null,
@@ -203,37 +259,68 @@ class _CorrectionRequestFormState extends State<CorrectionRequestForm> {
         final validRecords = records.where((r) => r.timeIn != null).toList();
         
         if (validRecords.isNotEmpty) {
-          // Sort by timeIn to get the earliest/first session
+          // Sort chronologically by timeIn
           validRecords.sort((a, b) => a.timeIn!.compareTo(b.timeIn!));
           
-          final record = validRecords.first;
-        if (record.timeIn != null || record.timeOut != null) {
           setState(() {
-            if (record.timeIn != null) {
-              final dtIn = DateTime.parse(record.timeIn!);
-              _timeIn = TimeOfDay.fromDateTime(dtIn);
+            _sessions = validRecords.map((r) {
+              TimeOfDay? inTime;
+              TimeOfDay? outTime;
+              if (r.timeIn != null) {
+                inTime = TimeOfDay.fromDateTime(DateTime.parse(r.timeIn!));
+              }
+              if (r.timeOut != null) {
+                outTime = TimeOfDay.fromDateTime(DateTime.parse(r.timeOut!));
+              }
+              return {
+                'in': inTime,
+                'out': outTime,
+              };
+            }).toList();
+
+            _originalSessions = validRecords.map((r) {
+              String tIn = '';
+              String tOut = '';
+              if (r.timeIn != null) {
+                tIn = DateFormat('HH:mm').format(DateTime.parse(r.timeIn!));
+              }
+              if (r.timeOut != null) {
+                tOut = DateFormat('HH:mm').format(DateTime.parse(r.timeOut!));
+              }
+              return {
+                'time_in': tIn,
+                'time_out': tOut,
+              };
+            }).toList();
+
+            // Also set _timeIn and _timeOut for reset mode
+            final firstRecord = validRecords.first;
+            if (firstRecord.timeIn != null) {
+              _timeIn = TimeOfDay.fromDateTime(DateTime.parse(firstRecord.timeIn!));
             }
-            if (record.timeOut != null) {
-              final dtOut = DateTime.parse(record.timeOut!);
-              _timeOut = TimeOfDay.fromDateTime(dtOut);
-            }
-            
-            // Sync sessions if in addSession mode
-            if (_timeIn != null || _timeOut != null) {
-               _sessions = [{
-                 'in': _timeIn ?? const TimeOfDay(hour: 9, minute: 0),
-                 'out': _timeOut ?? const TimeOfDay(hour: 18, minute: 0),
-               }];
+            final lastRecord = validRecords.last;
+            if (lastRecord.timeOut != null) {
+              _timeOut = TimeOfDay.fromDateTime(DateTime.parse(lastRecord.timeOut!));
+            } else {
+              _timeOut = null;
             }
           });
-        }
+        } else {
+          // Clear if no valid records
+          setState(() {
+            _timeIn = null;
+            _timeOut = null;
+            _sessions = [{'in': null, 'out': null}];
+            _originalSessions = [];
+          });
         }
       } else {
         // Clear if no records
         setState(() {
           _timeIn = null;
           _timeOut = null;
-          _sessions = [];
+          _sessions = [{'in': null, 'out': null}];
+          _originalSessions = [];
         });
       }
     } catch (e) {

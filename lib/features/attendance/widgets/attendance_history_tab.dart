@@ -335,7 +335,6 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
                             child: Text(
                               location, 
                               style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],

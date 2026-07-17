@@ -18,7 +18,7 @@ class AttendanceHeaderWidget extends StatefulWidget {
   State<AttendanceHeaderWidget> createState() => _AttendanceHeaderWidgetState();
 }
 
-class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> {
+class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> with WidgetsBindingObserver {
   late DateTime _currentTime;
   Timer? _timer;
 
@@ -29,6 +29,7 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _currentTime = DateTime.now();
     _startClock();
     _fetchAndGeocodeLocation();
@@ -36,8 +37,16 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _fetchAndGeocodeLocation();
+    }
   }
 
   void _startClock() {
@@ -106,46 +115,101 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> {
         return;
       }
 
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-      );
-      if (!mounted) return;
+      Position? position;
 
-      final url = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.latitude}&lon=${position.longitude}';
-
-      final response = await _dio.get(
-        url,
-        options: Options(
-          headers: {
-            'User-Agent': 'Attendance-App/1.0 (madhavan200@gmail.com)',
-          },
-        ),
-      );
-      if (!mounted) return;
-
-      if (response.statusCode == 200 && response.data != null) {
-        final data = response.data as Map<String, dynamic>;
-        final addr = data['address'] as Map<String, dynamic>?;
-        String? simplifiedAddress;
-
-        if (addr != null) {
-          simplifiedAddress = addr['suburb'] ??
-              addr['neighbourhood'] ??
-              addr['city_district'] ??
-              addr['city'] ??
-              addr['town'] ??
-              addr['village'];
+      // 1. Try to get a fresh last known position first (under 15s age) for speed
+      try {
+        final lastKnown = await Geolocator.getLastKnownPosition();
+        if (lastKnown != null) {
+          final age = DateTime.now().difference(lastKnown.timestamp);
+          if (age.inSeconds < 15) {
+            position = lastKnown;
+          }
         }
+      } catch (_) {}
 
-        simplifiedAddress ??= (data['display_name'] as String?)?.split(',').first;
+      // 2. Otherwise, request a new position with timeout fallback
+      if (position == null) {
+        try {
+          position = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              timeLimit: Duration(seconds: 4),
+            ),
+          );
+        } catch (e) {
+          debugPrint("Header location fetch failed/timed out: $e. Trying fallback...");
+          try {
+            position = await Geolocator.getLastKnownPosition();
+          } catch (_) {}
+          if (position == null) {
+            try {
+              position = await Geolocator.getCurrentPosition(
+                locationSettings: const LocationSettings(
+                  accuracy: LocationAccuracy.medium,
+                  timeLimit: Duration(seconds: 3),
+                ),
+              );
+            } catch (_) {}
+          }
+        }
+      }
 
+      if (!mounted) return;
+      if (position == null) {
         setState(() {
-          _address = simplifiedAddress ?? 'Unknown Location';
+          _address = 'Could not acquire location';
           _isLoadingLoc = false;
         });
-      } else {
+        return;
+      }
+      final pos = position;
+
+      final url = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.latitude}&lon=${pos.longitude}';
+
+      try {
+        final response = await _dio.get(
+          url,
+          options: Options(
+            headers: {
+              'User-Agent': 'Attendance-App/1.0 (madhavan200@gmail.com)',
+            },
+            sendTimeout: const Duration(seconds: 4),
+            receiveTimeout: const Duration(seconds: 4),
+          ),
+        );
+        if (!mounted) return;
+
+        if (response.statusCode == 200 && response.data != null) {
+          final data = response.data as Map<String, dynamic>;
+          final addr = data['address'] as Map<String, dynamic>?;
+          String? simplifiedAddress;
+
+          if (addr != null) {
+            simplifiedAddress = addr['suburb'] ??
+                addr['neighbourhood'] ??
+                addr['city_district'] ??
+                addr['city'] ??
+                addr['town'] ??
+                addr['village'];
+          }
+
+          simplifiedAddress ??= (data['display_name'] as String?)?.split(',').first;
+
+          setState(() {
+            _address = simplifiedAddress ?? 'Unknown Location';
+            _isLoadingLoc = false;
+          });
+          return;
+        }
+      } catch (e) {
+        debugPrint("Geocoding API failed or timed out: $e");
+      }
+
+      // Fallback: Show raw coordinates if Nominatim is unreachable or slow
+      if (mounted) {
         setState(() {
-          _address = '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
+          _address = '${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}';
           _isLoadingLoc = false;
         });
       }

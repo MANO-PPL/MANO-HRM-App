@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/shared/services/dashboard_provider.dart';
 import 'package:flutter_application/features/attendance/providers/attendance_provider.dart';
 import 'package:flutter_application/features/leave/providers/leave_provider.dart';
 import '../../widgets/employee_dashboard_widgets.dart';
 import '../../../../shared/widgets/toast_helper.dart';
+import 'package:flutter_application/features/attendance/tablet/widgets/correction_request_dialog.dart';
+import 'package:flutter_application/features/attendance/models/correction_request.dart';
 
 class EmployeeDashboardView extends StatefulWidget {
   const EmployeeDashboardView({super.key});
@@ -37,6 +40,8 @@ class _EmployeeDashboardViewState extends State<EmployeeDashboardView> {
     final user = context.watch<AuthService>().user;
     final leaveProvider = context.watch<LeaveProvider>();
     final myLeaves = leaveProvider.myLeaves;
+    final attendanceProvider = context.watch<AttendanceProvider>();
+    final missedPunchDate = attendanceProvider.missedPunchDate;
 
     // Calculate real leave balance from approved requests
     int approvedDays = 0;
@@ -74,6 +79,14 @@ class _EmployeeDashboardViewState extends State<EmployeeDashboardView> {
                     child: AttendanceStatusCard(),
                   ),
                   const SizedBox(height: 16),
+
+                  if (missedPunchDate != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: _buildMissedPunchBanner(context, missedPunchDate, attendanceProvider),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
 
                   // 2. Dashboard content wrapped in horizontal padding
                   Padding(
@@ -316,6 +329,124 @@ class _EmployeeDashboardViewState extends State<EmployeeDashboardView> {
         const SizedBox(height: 12),
         _buildBulletPoint(context, '⚠️ Missed a punch-out? Submit a correction request via the Attendance page within 2 days to avoid marked absences.'),
       ],
+    );
+  }
+
+  Widget _buildMissedPunchBanner(BuildContext context, DateTime missedDate, AttendanceProvider provider) {
+    final dateLabel = DateFormat('EEE, MMM d').format(missedDate);
+    final deadlineDays = provider.correctionDeadlineDays;
+    // Expiry = end-of-day on (missedDate + deadlineDays days)
+    final expiry = DateTime(missedDate.year, missedDate.month, missedDate.day)
+        .add(Duration(days: deadlineDays + 1)); // +1 so the full last day counts
+    final hoursLeft = expiry.difference(DateTime.now()).inHours;
+    final daysLeft = expiry.difference(DateTime.now()).inDays;
+    final daysLeftLabel = hoursLeft <= 0 ? 'Expired' : daysLeft == 0 ? 'Last chance today' : '$daysLeft day${daysLeft == 1 ? '' : 's'} left';
+    final isExpired = hoursLeft <= 0;
+
+    return InkWell(
+      onTap: isExpired
+          ? null
+          : () {
+              CorrectionRequestDialog.show(
+                context,
+                date: missedDate,
+                attendanceId: null,
+                type: CorrectionType.missedPunch,
+              ).then((_) => provider.clearMissedPunch());
+            },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isExpired
+                ? [Colors.red.shade900, Colors.red.shade700]
+                : [const Color(0xFFEA580C), const Color(0xFFF97316)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: (isExpired ? Colors.red : Colors.orange).withValues(alpha: 0.35),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isExpired ? Icons.block_rounded : Icons.warning_amber_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isExpired ? 'Missed Punch — Deadline Passed' : '⚠️  Missed Time-Out Detected',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    isExpired
+                        ? 'No time-out recorded for $dateLabel. The correction window has expired.'
+                        : 'No time-out recorded for $dateLabel ($daysLeftLabel).',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: Colors.white.withValues(alpha: 0.9),
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (!isExpired) ...[
+              const SizedBox(width: 12),
+              ElevatedButton(
+                onPressed: () {
+                  CorrectionRequestDialog.show(
+                    context,
+                    date: missedDate,
+                    attendanceId: null,
+                    type: CorrectionType.missedPunch,
+                  ).then((_) => provider.clearMissedPunch());
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFFEA580C),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'Fix Now',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
