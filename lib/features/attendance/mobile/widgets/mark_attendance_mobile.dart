@@ -34,6 +34,8 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
   final ImagePicker _picker = ImagePicker();
   DateTime _selectedDate = DateTime.now();
   bool _isProcessing = false;
+  bool _isTimeInProcessing = false;
+  bool _isTimeOutProcessing = false;
   StreamSubscription<Position>? _positionStreamSub;
   Position? _realtimePosition;
 
@@ -107,7 +109,15 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
   }
 
   Future<Position?> _getCurrentLocation() async {
+    final locationStopwatch = Stopwatch()..start();
+
+    void logLocationStage(String stage, Stopwatch stopwatch) {
+      debugPrint('Attendance location flow (mobile): $stage took ${stopwatch.elapsedMilliseconds} ms');
+    }
+
+    final serviceCheckStopwatch = Stopwatch()..start();
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    logLocationStage('location service check', serviceCheckStopwatch);
     if (!serviceEnabled) {
       if (mounted) {
         context.showToast(
@@ -122,13 +132,18 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
       return null;
     }
 
+    final permissionCheckStopwatch = Stopwatch()..start();
     LocationPermission permission = await Geolocator.checkPermission();
+    logLocationStage('permission check', permissionCheckStopwatch);
     if (permission == LocationPermission.denied) {
+      final permissionRequestStopwatch = Stopwatch()..start();
       permission = await Geolocator.requestPermission();
+      logLocationStage('permission request', permissionRequestStopwatch);
       if (permission == LocationPermission.denied) {
         if (mounted) {
           context.showToast("Location permission denied.", isWarning: true);
         }
+        debugPrint('Attendance location flow (mobile): total took ${locationStopwatch.elapsedMilliseconds} ms');
         return null;
       }
     }
@@ -144,6 +159,7 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
           },
         );
       }
+      debugPrint('Attendance location flow (mobile): total took ${locationStopwatch.elapsedMilliseconds} ms');
       return null;
     }
 
@@ -203,6 +219,14 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
   Future<void> _handleAttendanceAction(bool isTimeIn) async {
     if (_isProcessing) return;
 
+    final flowStopwatch = Stopwatch()..start();
+
+    void logStage(String stage, Stopwatch stopwatch) {
+      debugPrint(
+        'Attendance flow (${isTimeIn ? 'Time In' : 'Time Out'}): $stage took ${stopwatch.elapsedMilliseconds} ms',
+      );
+    }
+
     if (!NetworkMonitor().isOnline) {
       if (mounted) {
         context.showToast("No internet connection. Offline check-in/out is disabled.", isError: true);
@@ -212,23 +236,35 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
 
     setState(() {
       _isProcessing = true;
+      if (isTimeIn) {
+        _isTimeInProcessing = true;
+      } else {
+        _isTimeOutProcessing = true;
+      }
     });
 
-    // Start getting location in the background
+    // Start getting location in the background immediately
+    final locationStopwatch = Stopwatch()..start();
     final Future<Position?> locationFuture = _getCurrentLocation();
 
     try {
+      final cameraPermissionStopwatch = Stopwatch()..start();
       var status = await Permission.camera.status;
       if (!status.isGranted) {
         status = await Permission.camera.request();
         if (!status.isGranted) {
+          logStage('camera permission', cameraPermissionStopwatch);
           setState(() {
             _isProcessing = false;
+            _isTimeInProcessing = false;
+            _isTimeOutProcessing = false;
           });
           return;
         }
       }
+      logStage('camera permission', cameraPermissionStopwatch);
 
+      final cameraCaptureStopwatch = Stopwatch()..start();
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera, 
         preferredCameraDevice: CameraDevice.front,
@@ -236,31 +272,31 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
         maxHeight: 1024,
         imageQuality: 70,
       );
+      logStage('camera capture', cameraCaptureStopwatch);
       
       if (photo == null) {
         setState(() {
           _isProcessing = false;
+          _isTimeInProcessing = false;
+          _isTimeOutProcessing = false;
         });
         return;
       }
 
       if (!mounted) return;
 
-      // Await location now that camera has finished
+      // Await location in parallel (or wait for the background request to finish)
+      final locationWaitStopwatch = Stopwatch()..start();
       final position = await locationFuture;
+      logStage('location fetch', locationStopwatch);
+      logStage('waiting for location after camera', locationWaitStopwatch);
       if (position == null) {
         setState(() {
           _isProcessing = false;
+          _isTimeInProcessing = false;
+          _isTimeOutProcessing = false;
         });
-        return; // error toast shown inside _getCurrentLocation
-      }
-      
-      void showLoading() {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => const Center(child: CircularProgressIndicator()),
-        );
+        return;
       }
 
       final punchTimestamp = DateTime.now().toIso8601String();
@@ -287,12 +323,13 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
       }
 
       // Online Submit Flow
-      showLoading();
       bool success = false;
       String? caughtReasonError;
 
       try {
+        final apiStopwatch = Stopwatch()..start();
         await performApiCall(null);
+        logStage(isTimeIn ? 'Time In API call' : 'Time Out API call', apiStopwatch);
         success = true;
       } catch (e) {
         final msg = e.toString().toLowerCase();
@@ -305,13 +342,14 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
            caughtReasonError = msg;
         } else {
            if (mounted) {
-             Navigator.pop(context); // Pop Loading
+             final lateReasonStopwatch = Stopwatch()..start();
              context.showExceptionToast(
                e,
                fallback: isTimeIn
                    ? 'Failed to clock in. Please try again.'
                    : 'Failed to clock out. Please try again.',
              );
+             logStage('error handling before fallback toast', lateReasonStopwatch);
            }
            final isBg = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
            if (isBg) {
@@ -322,6 +360,8 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
            }
            setState(() {
              _isProcessing = false;
+             _isTimeInProcessing = false;
+             _isTimeOutProcessing = false;
            });
            return;
         }
@@ -329,7 +369,6 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
 
       if (success) {
         if (mounted) {
-          Navigator.pop(context); // Pop Loading
           await _showSuccessDialog(isTimeIn);
         }
         final isBg = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
@@ -341,13 +380,14 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
         }
         setState(() {
           _isProcessing = false;
+          _isTimeInProcessing = false;
+          _isTimeOutProcessing = false;
         });
         return;
       }
 
       if (caughtReasonError != null) {
         if (!mounted) return;
-        Navigator.pop(context); // Pop Loading before showing LateArrivalDialog
 
         final isBg = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
         if (isBg) {
@@ -366,18 +406,20 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
         if (reason == null || reason.isEmpty) {
           setState(() {
             _isProcessing = false;
+            _isTimeInProcessing = false;
+            _isTimeOutProcessing = false;
           });
           return;
         }
 
         if (!mounted) return;
-        showLoading();
 
         try {
+          final retryApiStopwatch = Stopwatch()..start();
           await performApiCall(reason);
+          logStage('Time In API retry with late reason', retryApiStopwatch);
           
           if (mounted) {
-             Navigator.pop(context); // Pop Loading
              context.showToast("Late arrival reason submitted successfully.", isSuccess: true);
              await _showSuccessDialog(isTimeIn);
           }
@@ -390,7 +432,6 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
           }
         } catch (e) {
           if (mounted) {
-            Navigator.pop(context); // Pop Loading
             context.showExceptionToast(e, fallback: 'Failed to submit late arrival reason.');
           }
           final isBgNow = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
@@ -411,8 +452,13 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
       if (mounted) {
         setState(() {
           _isProcessing = false;
+          _isTimeInProcessing = false;
+          _isTimeOutProcessing = false;
         });
       }
+      debugPrint(
+        'Attendance flow (${isTimeIn ? 'Time In' : 'Time Out'}) total completed in ${flowStopwatch.elapsedMilliseconds} ms',
+      );
     }
   }
 
@@ -626,6 +672,7 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
           icon: Icons.arrow_forward_rounded,
           color: const Color(0xFF10B981),
           isActive: !isCheckedIn, 
+          isLoading: _isTimeInProcessing,
           onTap: () {
             if (isCheckedIn) {
               context.showToast("You have already checked in.", isWarning: true);
@@ -642,6 +689,7 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
           icon: Icons.logout_rounded,
           color: const Color(0xFFEF4444),
           isActive: isCheckedIn,
+          isLoading: _isTimeOutProcessing,
           onTap: () {
             if (!isCheckedIn) {
               context.showToast("You have already checked out.", isWarning: true);
@@ -660,20 +708,22 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
     required IconData icon,
     required Color color,
     required bool isActive,
+    required bool isLoading,
     required VoidCallback onTap,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+    final bool canTap = isActive && !_isProcessing;
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      onTap: canTap ? onTap : null,
       child: GlassContainer(
         width: double.infinity,
         borderRadius: 20,
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: onTap,
+            onTap: canTap ? onTap : null,
             borderRadius: BorderRadius.circular(20),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -683,14 +733,22 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: isActive ? color.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.1),
+                      color: (isActive || isLoading) ? color.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      icon, 
-                      color: isActive ? color : Colors.grey, 
-                      size: 24
-                    ),
+                    child: isLoading
+                        ? Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.0,
+                              valueColor: AlwaysStoppedAnimation<Color>(color),
+                            ),
+                          )
+                        : Icon(
+                            icon, 
+                            color: isActive ? color : Colors.grey, 
+                            size: 24
+                          ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -704,12 +762,14 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
                           style: GoogleFonts.poppins(
                             fontSize: 16, 
                             fontWeight: FontWeight.bold, 
-                            color: isDark ? Colors.white : Colors.black87,
+                            color: isDark 
+                                ? (isActive || isLoading ? Colors.white : Colors.white38) 
+                                : (isActive || isLoading ? Colors.black87 : Colors.black38),
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          subLabel, 
+                          isLoading ? 'Processing punch...' : subLabel, 
                           style: GoogleFonts.poppins(
                             fontSize: 11, 
                             color: Colors.grey,
@@ -721,7 +781,9 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
                   ),
                   Icon(
                     Icons.chevron_right, 
-                    color: isDark ? Colors.white38 : Colors.grey[400],
+                    color: isDark 
+                        ? (isActive && !isLoading ? Colors.white38 : Colors.white10) 
+                        : (isActive && !isLoading ? Colors.grey[400] : Colors.grey[200]),
                   ),
                 ],
               ),

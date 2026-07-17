@@ -40,6 +40,8 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
   final ImagePicker _picker = ImagePicker();
   DateTime _selectedDate = DateTime.now();
   bool _isProcessing = false;
+  bool _isTimeInProcessing = false;
+  bool _isTimeOutProcessing = false;
   StreamSubscription<Position>? _positionStreamSub;
   Position? _realtimePosition;
 
@@ -115,21 +117,35 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
   }
 
   Future<Position?> _getCurrentLocation() async {
+    final locationStopwatch = Stopwatch()..start();
+
+    void logLocationStage(String stage, Stopwatch stopwatch) {
+      debugPrint('Attendance location flow (tablet): $stage took ${stopwatch.elapsedMilliseconds} ms');
+    }
+
+    final serviceCheckStopwatch = Stopwatch()..start();
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    logLocationStage('location service check', serviceCheckStopwatch);
     if (!serviceEnabled) {
       if (mounted) {
         context.showToast("Location services are disabled.", isWarning: true);
       }
+      debugPrint('Attendance location flow (tablet): total took ${locationStopwatch.elapsedMilliseconds} ms');
       return null;
     }
 
+    final permissionCheckStopwatch = Stopwatch()..start();
     LocationPermission permission = await Geolocator.checkPermission();
+    logLocationStage('permission check', permissionCheckStopwatch);
     if (permission == LocationPermission.denied) {
+      final permissionRequestStopwatch = Stopwatch()..start();
       permission = await Geolocator.requestPermission();
+      logLocationStage('permission request', permissionRequestStopwatch);
       if (permission == LocationPermission.denied) {
         if (mounted) {
           context.showToast("Location permission denied.", isWarning: true);
         }
+        debugPrint('Attendance location flow (tablet): total took ${locationStopwatch.elapsedMilliseconds} ms');
         return null;
       }
     }
@@ -138,6 +154,7 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
       if (mounted) {
         context.showToast("Location permission permanently denied.", isWarning: true);
       }
+      debugPrint('Attendance location flow (tablet): total took ${locationStopwatch.elapsedMilliseconds} ms');
       return null;
     }
 
@@ -196,6 +213,14 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
   Future<void> _handleAttendanceAction(bool isTimeIn) async {
     if (_isProcessing) return;
 
+    final flowStopwatch = Stopwatch()..start();
+
+    void logStage(String stage, Stopwatch stopwatch) {
+      debugPrint(
+        'Attendance flow (${isTimeIn ? 'Time In' : 'Time Out'}): $stage took ${stopwatch.elapsedMilliseconds} ms',
+      );
+    }
+
     if (!NetworkMonitor().isOnline) {
       if (mounted) {
         context.showToast("No internet connection. Offline check-in/out is disabled.", isError: true);
@@ -205,12 +230,19 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
 
     setState(() {
       _isProcessing = true;
+      if (isTimeIn) {
+        _isTimeInProcessing = true;
+      } else {
+        _isTimeOutProcessing = true;
+      }
     });
 
-    // Start getting location in the background
+    // Start getting location in the background immediately
+    final locationStopwatch = Stopwatch()..start();
     final Future<Position?> locationFuture = _getCurrentLocation();
 
     try {
+      final cameraPermissionStopwatch = Stopwatch()..start();
       var status = await Permission.camera.status;
       if (!status.isGranted) {
         status = await Permission.camera.request();
@@ -229,19 +261,27 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
                icon: Icons.camera_alt_outlined,
              );
           }
+          logStage('camera permission', cameraPermissionStopwatch);
           setState(() {
             _isProcessing = false;
+            _isTimeInProcessing = false;
+            _isTimeOutProcessing = false;
           });
           return;
         }
         if (!status.isGranted) {
+          logStage('camera permission', cameraPermissionStopwatch);
           setState(() {
             _isProcessing = false;
+            _isTimeInProcessing = false;
+            _isTimeOutProcessing = false;
           });
           return;
         }
       }
+      logStage('camera permission', cameraPermissionStopwatch);
 
+      final cameraCaptureStopwatch = Stopwatch()..start();
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera, 
         preferredCameraDevice: CameraDevice.front,
@@ -249,33 +289,34 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
         maxHeight: 1024,
         imageQuality: 70,
       );
+      logStage('camera capture', cameraCaptureStopwatch);
       
       if (photo == null) {
         setState(() {
           _isProcessing = false;
+          _isTimeInProcessing = false;
+          _isTimeOutProcessing = false;
         });
         return; // User canceled
       }
 
       if (!mounted) return;
 
-      // Await location now that camera has finished
+      // Await location in parallel
+      final locationWaitStopwatch = Stopwatch()..start();
       final position = await locationFuture;
+      logStage('location fetch', locationStopwatch);
+      logStage('waiting for location after camera', locationWaitStopwatch);
       if (position == null) {
         setState(() {
           _isProcessing = false;
+          _isTimeInProcessing = false;
+          _isTimeOutProcessing = false;
         });
         return; // error shown in _getCurrentLocation
       }
 
       if (!mounted) return;
-
-      // Show loading
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => const Center(child: CircularProgressIndicator()),
-      );
 
       final punchTimestamp = DateTime.now().toIso8601String();
 
@@ -294,7 +335,9 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
       try {
         if (isTimeIn) {
           try {
+           final apiStopwatch = Stopwatch()..start();
              await performTimeIn(); // Try without reason first
+           logStage('Time In API call', apiStopwatch);
           } catch (e) {
              final msg = e.toString().toLowerCase();
              if (msg.contains("reason") || 
@@ -302,7 +345,6 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
                  msg.contains("remark") ||
                  msg.contains("lateness")) {
                 if (!mounted) return;
-                Navigator.pop(context); // Hide loading
                 
                 final isBg = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
                 if (isBg) {
@@ -312,6 +354,8 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
                   );
                   setState(() {
                     _isProcessing = false;
+                    _isTimeInProcessing = false;
+                    _isTimeOutProcessing = false;
                   });
                   return;
                 }
@@ -320,15 +364,9 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
                 
                 if (reason != null && reason.isNotEmpty) {
                    if (!mounted) return;
-                   showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (_) => const Center(child: CircularProgressIndicator()),
-                   );
                    try {
                      await performTimeIn(reason: reason); // Retry
                    } catch (retryErr) {
-                     if (mounted) Navigator.pop(context); // Close loading
                      final isBgNow = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
                      if (isBgNow) {
                        LocalNotificationService.showNotification(
@@ -351,6 +389,8 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
                 } else {
                    setState(() {
                      _isProcessing = false;
+                     _isTimeInProcessing = false;
+                     _isTimeOutProcessing = false;
                    });
                    return; // Cancelled
                 }
@@ -359,6 +399,7 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
              }
           }
         } else {
+          final apiStopwatch = Stopwatch()..start();
           await _attendanceService.timeOut(
             latitude: position.latitude,
             longitude: position.longitude,
@@ -366,11 +407,10 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
             imageFile: File(photo.path),
             timestamp: punchTimestamp,
           );
+          logStage('Time Out API call', apiStopwatch);
         }
         
         if (mounted) {
-          Navigator.pop(context); // Close loading
-          
           context.showToast(
             isTimeIn ? "Checked in successfully!" : "Checked out successfully!",
             isSuccess: true,
@@ -387,7 +427,6 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
         }
       } catch (e) {
         if (mounted) {
-          Navigator.pop(context); // Close loading
           context.showExceptionToast(
             e,
             fallback: isTimeIn
@@ -411,8 +450,13 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
       if (mounted) {
         setState(() {
           _isProcessing = false;
+          _isTimeInProcessing = false;
+          _isTimeOutProcessing = false;
         });
       }
+      debugPrint(
+        'Attendance flow (${isTimeIn ? 'Time In' : 'Time Out'}) total completed in ${flowStopwatch.elapsedMilliseconds} ms',
+      );
     }
   }
 
@@ -496,6 +540,7 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
           icon: Icons.login,
           color: const Color(0xFF10B981), // Green
           isActive: !isCheckedIn,
+          isLoading: _isTimeInProcessing,
           onTap: () {
             if (isCheckedIn) {
               context.showToast("You have already checked in.", isWarning: true);
@@ -513,6 +558,7 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
           icon: Icons.logout,
           color: const Color(0xFFEF4444), // Red
           isActive: isCheckedIn,
+          isLoading: _isTimeOutProcessing,
           onTap: () {
             if (!isCheckedIn) {
               context.showToast("You have already checked out.", isWarning: true);
@@ -531,11 +577,14 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
     required IconData icon,
     required Color color,
     required bool isActive,
+    required bool isLoading,
     required VoidCallback onTap,
   }) {
+    final bool canTap = isActive && !_isProcessing;
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      onTap: canTap ? onTap : null,
       child: GlassContainer(
         height: 100,
         width: double.infinity,
@@ -543,7 +592,7 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: onTap,
+            onTap: canTap ? onTap : null,
             borderRadius: BorderRadius.circular(20),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -553,14 +602,22 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      color: isActive ? color.withValues(alpha: 0.2) : color.withValues(alpha: 0.1),
+                      color: (isActive || isLoading) ? color.withValues(alpha: 0.2) : color.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Icon(
-                      icon,
-                      color: isActive ? color : color.withValues(alpha: 0.7),
-                      size: 28,
-                    ),
+                    child: isLoading
+                        ? Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              valueColor: AlwaysStoppedAnimation<Color>(color),
+                            ),
+                          )
+                        : Icon(
+                            icon,
+                            color: isActive ? color : color.withValues(alpha: 0.7),
+                            size: 28,
+                          ),
                   ),
                   const SizedBox(width: 20),
                   Column(
@@ -572,11 +629,11 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
                         style: GoogleFonts.poppins(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
-                          color: Theme.of(context).textTheme.bodyLarge?.color?.withValues(alpha: isActive ? 1.0 : 0.5),
+                          color: Theme.of(context).textTheme.bodyLarge?.color?.withValues(alpha: (isActive || isLoading) ? 1.0 : 0.5),
                         ),
                       ),
                       Text(
-                        subLabel,
+                        isLoading ? 'Processing punch...' : subLabel,
                         style: GoogleFonts.poppins(
                           fontSize: 13,
                           color: Theme.of(context).textTheme.bodySmall?.color,
@@ -585,7 +642,7 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
                     ],
                   ),
                   const Spacer(),
-                  if (isActive)
+                  if (isActive && !isLoading)
                     Icon(Icons.chevron_right, color: Theme.of(context).textTheme.bodySmall?.color),
                 ],
               ),

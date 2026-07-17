@@ -1,8 +1,8 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+  import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ApiConstants {
   // Base URL
-  static const String baseUrl = 'https://attendance.mano.co.in/api';
+  static String get baseUrl => dotenv.env['API_BASE_URL'] ?? 'https://attendance.mano.co.in/api';
   
   // Auth Endpoints
   static const String login = '/auth/login';
@@ -64,7 +64,7 @@ class ApiConstants {
   static const String policyConfig = '/policies/config';
   static const String policyShifts = '/policies/shifts'; // GET, POST, PUT /:id, DELETE /:id
   static const String policyAutomation = '/policies/automation'; // GET, POST
-  static const String myShift = '/employee/my-shift'; // GET - employee's assigned shift policy
+  static const String myShift = '/attendance/my-shift'; // GET - employee's assigned shift policy
 
   // Leave Management
   static const String leavesMyHistory = '/leaves/my-history';

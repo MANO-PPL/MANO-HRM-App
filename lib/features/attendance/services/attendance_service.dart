@@ -24,7 +24,7 @@ class AttendanceService {
   }
 
   // 0. Get the employee's assigned shift policy (correction deadline, timing, etc.)
-  // Tries GET /employee/my-shift first; falls back to GET /policies/shifts[0]
+  // Tries GET /attendance/my-shift first; falls back to GET /policies/shifts[0]
   Future<Shift?> getMyShiftPolicy() async {
     try {
       final response = await _dio.get(ApiConstants.myShift);
