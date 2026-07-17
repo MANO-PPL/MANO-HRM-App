@@ -38,14 +38,16 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await LocalNotificationService.initialize();
 
   // Only display a local notification if the message does not contain a notification payload
-  // (to prevent duplicate notifications on Android/iOS when the system automatically displays the notification).
+  // AND the data payload explicitly provides a non-empty title (indicating a custom data-only notification).
+  // This prevents displaying duplicate or empty/meaningless notifications (e.g., "MANO" with no body)
+  // when Android background isolates receive notification messages where message.notification is parsed as null.
   if (message.notification == null) {
-    final title = message.data['title'] ?? 'MANO';
-    final body = message.data['body'] ?? '';
-    if (title.isNotEmpty || body.isNotEmpty) {
+    final dataTitle = message.data['title'];
+    final dataBody = message.data['body'];
+    if (dataTitle != null && dataTitle.toString().trim().isNotEmpty) {
       await LocalNotificationService.showNotification(
-        title: title,
-        body: body,
+        title: dataTitle.toString(),
+        body: dataBody?.toString() ?? '',
         data: message.data,
       );
     }

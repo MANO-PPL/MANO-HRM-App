@@ -223,6 +223,11 @@ class AttendanceService {
         final originalSize = await imageFile.length();
         debugPrint('_fixOrientationAndCompress: input=$originalSize bytes path=${imageFile.path}');
 
+        if (originalSize < 300 * 1024) {
+          debugPrint('_fixOrientationAndCompress: size is under 300KB, skipping extra compression.');
+          return imageFile;
+        }
+
         final tmpDir = await getTemporaryDirectory();
         final outPath = '${tmpDir.path}${Platform.pathSeparator}${_basenameWithoutExtension(imageFile.path)}_fixed.jpg';
 
@@ -261,6 +266,7 @@ class AttendanceService {
     required String correctionMethod, // add_session, reset, fix
     required String reason,
     required Map<String, dynamic> correctionData,
+    List<Map<String, String>>? originalData, // Added
     double? latitude,
     double? longitude,
     List<dynamic>? attachments, // PlatformFile or File
@@ -291,7 +297,7 @@ class AttendanceService {
         "request_date": requestDate,
         "correction_type": correctionType,
         "reason": reason,
-        "original_data": [],
+        "original_data": originalData ?? [],
         "proposed_data": proposedData,
         if (latitude != null) "latitude": latitude,
         if (longitude != null) "longitude": longitude,
@@ -312,6 +318,12 @@ class AttendanceService {
         for (var i = 0; i < proposedData.length; i++) {
           formData.fields.add(MapEntry('proposed_data[$i][time_in]', proposedData[i]['time_in'] ?? ''));
           formData.fields.add(MapEntry('proposed_data[$i][time_out]', proposedData[i]['time_out'] ?? ''));
+        }
+        // Add original sessions as indexed fields
+        final origData = originalData ?? [];
+        for (var i = 0; i < origData.length; i++) {
+          formData.fields.add(MapEntry('original_data[$i][time_in]', origData[i]['time_in'] ?? ''));
+          formData.fields.add(MapEntry('original_data[$i][time_out]', origData[i]['time_out'] ?? ''));
         }
         // Add files
         for (var attachment in attachments) {

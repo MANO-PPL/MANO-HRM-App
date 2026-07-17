@@ -11,6 +11,7 @@ import io.flutter.plugins.GeneratedPluginRegistrant
 
 class MainActivity : FlutterFragmentActivity() {
     private val CHANNEL = "co.mano.attendance/settings"
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -42,10 +43,35 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "co.mano.attendance/background").setMethodCallHandler { call, result ->
-            if (call.method == "startBackgroundTask" || call.method == "endBackgroundTask") {
-                result.success(true)
-            } else {
-                result.notImplemented()
+            when (call.method) {
+                "startBackgroundTask" -> {
+                    try {
+                        val powerManager = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+                        if (wakeLock == null) {
+                            wakeLock = powerManager.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "AttendanceApp::BackgroundUpload")
+                        }
+                        if (wakeLock?.isHeld == false) {
+                            wakeLock?.acquire(30000) // 30 seconds max timeout
+                        }
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("WAKELOCK_ERROR", e.message, null)
+                    }
+                }
+                "endBackgroundTask" -> {
+                    try {
+                        if (wakeLock?.isHeld == true) {
+                            wakeLock?.release()
+                        }
+                        wakeLock = null
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("WAKELOCK_ERROR", e.message, null)
+                    }
+                }
+                else -> {
+                    result.notImplemented()
+                }
             }
         }
     }

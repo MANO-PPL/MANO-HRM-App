@@ -266,8 +266,31 @@ class AttendanceProvider with ChangeNotifier {
     // Also clear range cache to be safe as it might include this date
     _rangeCache.clear();
     
+    // Clear SharedPreferences persistent cache too!
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.remove('cached_attendance_${userId}_$dateStr');
+    }).catchError((e) {
+      debugPrint("Error clearing persistent cache: $e");
+    });
+    
     // Re-check missed punch after an action (e.g. user just timed out)
     checkMissedPunch();
+  }
+
+  // Polls the server after a punch to fetch geocoded address and image URL in real time
+  void startRealtimeSync(DateTime date) {
+    invalidateCache(date);
+    fetchRecords(date, forceRefresh: true);
+
+    Timer(const Duration(seconds: 2), () {
+      invalidateCache(date);
+      fetchRecords(date, forceRefresh: true);
+    });
+
+    Timer(const Duration(seconds: 5), () {
+      invalidateCache(date);
+      fetchRecords(date, forceRefresh: true);
+    });
   }
 
   // Pending correction requests count
