@@ -78,6 +78,7 @@ class ApiConstants {
   static const String notificationMarkRead = '/notifications/:id/read'; // PUT
   static const String notificationsReadAll = '/notifications/read-all'; // PUT
   static const String notificationRegisterFCM = '/notifications/register-token';
+  static const String notificationUnregisterFCM = '/notifications/unregister-token';
 
   // Feedback & Bug Reports
   static const String feedback = '/feedback'; // POST, GET (Admin)

@@ -24,14 +24,18 @@ String friendlyError(Object error, {String fallback = 'Something went wrong. Ple
         if (data is Map) {
           final msg = data['message'] ?? data['error'] ?? data['msg'];
           if (msg != null && msg is String && msg.isNotEmpty) {
+            final lower = msg.toLowerCase();
+            if (lower.contains('token') || lower.contains('expired') || lower.contains('unauthorized') || lower.contains('forbidden')) {
+              return '$msg. Please log out and log in again to resolve this.';
+            }
             return msg;
           }
         }
         // Map common HTTP status codes to user messages
         return switch (statusCode) {
           400 => 'Invalid request. Please check your input and try again.',
-          401 => 'Your session has expired. Please log in again.',
-          403 => 'You do not have permission to perform this action.',
+          401 => 'Your session has expired. Please log out and log in again to resolve this.',
+          403 => 'Access forbidden. Please log out and log in again to resolve this.',
           404 => 'The requested resource was not found.',
           408 => 'Request timed out. Please try again.',
           409 => 'A conflict occurred. Please refresh and try again.',
@@ -87,7 +91,12 @@ String friendlyError(Object error, {String fallback = 'Something went wrong. Ple
 
   // If it's reasonably short and human-readable, use it
   if (raw.length < 200 && !raw.contains('\n') && raw.trim().isNotEmpty) {
-    return raw.trim();
+    final clean = raw.trim();
+    final lower = clean.toLowerCase();
+    if (lower.contains('token') || lower.contains('expired') || lower.contains('unauthorized') || lower.contains('forbidden')) {
+      return '$clean. Please log out and log in again to resolve this.';
+    }
+    return clean;
   }
 
   return fallback;

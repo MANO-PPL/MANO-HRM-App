@@ -11,6 +11,7 @@ import '../constants/api_constants.dart';
 import '../widgets/toast_helper.dart';
 import '../utils/error_helper.dart';
 import '../utils/error_logger.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'network_monitor.dart';
 
 import '../models/user_model.dart';
@@ -85,6 +86,9 @@ class AuthService extends ChangeNotifier {
     );
 
     _dio.options.baseUrl = ApiConstants.baseUrl;
+    _dio.options.connectTimeout = const Duration(seconds: 15);
+    _dio.options.sendTimeout = const Duration(seconds: 15);
+    _dio.options.receiveTimeout = const Duration(seconds: 15);
     _dio.interceptors.add(CookieManager(_cookieJar));
 
     _isInitialized = true;
@@ -349,6 +353,20 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    try {
+      // Unregister FCM token from the backend
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null) {
+        await _dio.post(
+          ApiConstants.notificationUnregisterFCM,
+          data: {'token': token},
+        );
+        debugPrint('FCM: Token unregistered on logout successfully.');
+      }
+    } catch (e) {
+      debugPrint('FCM: Failed to unregister token on logout: $e');
+    }
+
     try {
       await _dio.post(ApiConstants.logout);
     } catch (e) {
