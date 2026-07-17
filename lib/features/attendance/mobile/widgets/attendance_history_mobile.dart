@@ -258,7 +258,6 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
                           fontSize: 10, 
                           color: Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Container(

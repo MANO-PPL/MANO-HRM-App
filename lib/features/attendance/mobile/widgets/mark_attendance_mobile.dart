@@ -12,10 +12,12 @@ import '../../../../shared/widgets/glass_container.dart';
 import '../../../../shared/widgets/glass_date_picker.dart';
 import '../../../../shared/services/auth_service.dart';
 import '../../../../shared/services/network_monitor.dart';
+import '../../../../shared/services/local_notification_service.dart';
 import '../../models/attendance_record.dart';
 import '../../services/attendance_service.dart';
 import 'late_arrival_dialog_mobile.dart';
 import 'correction_request_dialog_mobile.dart';
+import '../../models/correction_request.dart'; // Added
 import '../../providers/attendance_provider.dart';
 import '../../../../shared/widgets/toast_helper.dart';
 import '../../../../shared/widgets/interactive_image_viewer.dart';
@@ -27,20 +29,76 @@ class MarkAttendanceMobile extends StatefulWidget {
   State<MarkAttendanceMobile> createState() => _MarkAttendanceMobileState();
 }
 
-class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
+class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with WidgetsBindingObserver {
   late AttendanceService _attendanceService;
   final ImagePicker _picker = ImagePicker();
   DateTime _selectedDate = DateTime.now();
   bool _isProcessing = false;
+  StreamSubscription<Position>? _positionStreamSub;
+  Position? _realtimePosition;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final auth = Provider.of<AuthService>(context, listen: false);
     _attendanceService = AttendanceService(auth.dio);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<AttendanceProvider>(context, listen: false).fetchRecords(_selectedDate);
+      _prewarmLocation();
+      _startLocationListening();
     });
+  }
+
+  @override
+  void dispose() {
+    _positionStreamSub?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _fetchRecords();
+    }
+  }
+
+  void _startLocationListening() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+        _positionStreamSub = Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 10,
+          ),
+        ).listen((position) {
+          _realtimePosition = position;
+        }, onError: (e) {
+          debugPrint("Error in position stream: $e");
+        });
+      }
+    } catch (e) {
+      debugPrint("Failed to start location listening: $e");
+    }
+  }
+
+  void _prewarmLocation() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+        Geolocator.getLastKnownPosition().then((_) => null, onError: (_) => null);
+        Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 3),
+          ),
+        ).then((_) => null, onError: (_) => null);
+      }
+    } catch (e) {
+      debugPrint("Pre-warm location error: $e");
+    }
   }
 
   Future<void> _fetchRecords() async {
@@ -89,9 +147,57 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
       return null;
     }
 
-    return await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-    );
+    // 0. Try the real-time position stream first if it is fresh and accurate
+    if (_realtimePosition != null) {
+      final age = DateTime.now().difference(_realtimePosition!.timestamp);
+      if (age.inSeconds < 15 && _realtimePosition!.accuracy <= 50) {
+        debugPrint("Using fresh stream position: age=${age.inSeconds}s, accuracy=${_realtimePosition!.accuracy}m");
+        return _realtimePosition;
+      }
+    }
+
+    // 1. Try last known position FIRST. If it is fresh (under 60s) and accurate, use it immediately for instant retrieval.
+    try {
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        final age = DateTime.now().difference(lastKnown.timestamp);
+        if (age.inSeconds < 60 && lastKnown.accuracy <= 50) {
+          debugPrint("Using fresh last known position: age=${age.inSeconds}s, accuracy=${lastKnown.accuracy}m");
+          return lastKnown;
+        }
+      }
+    } catch (e) {
+      debugPrint("Error checking last known location: $e");
+    }
+
+    // 2. Otherwise, fetch high accuracy with a strict timeout
+    try {
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      debugPrint("High accuracy location fetch failed or timed out: $e. Trying last known/balanced fallback...");
+      try {
+        final lastKnown = await Geolocator.getLastKnownPosition();
+        if (lastKnown != null) return lastKnown;
+      } catch (e) {
+        debugPrint("Failed to get last known position: $e");
+      }
+      try {
+        return await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 3),
+          ),
+        );
+      } catch (e) {
+        debugPrint("Medium accuracy location fetch failed: $e");
+        return null;
+      }
+    }
   }
 
   Future<void> _handleAttendanceAction(bool isTimeIn) async {
@@ -126,6 +232,9 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera, 
         preferredCameraDevice: CameraDevice.front,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 70,
       );
       
       if (photo == null) {
@@ -154,6 +263,8 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
         );
       }
 
+      final punchTimestamp = DateTime.now().toIso8601String();
+
       Future<void> performApiCall(String? lateReason) async {
         if (isTimeIn) {
           await _attendanceService.timeIn(
@@ -162,6 +273,7 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
             accuracy: position.accuracy,
             imageFile: File(photo.path),
             lateReason: lateReason,
+            timestamp: punchTimestamp,
           );
         } else {
           await _attendanceService.timeOut(
@@ -169,6 +281,7 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
             longitude: position.longitude,
             accuracy: position.accuracy,
             imageFile: File(photo.path),
+            timestamp: punchTimestamp,
           );
         }
       }
@@ -200,6 +313,13 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
                    : 'Failed to clock out. Please try again.',
              );
            }
+           final isBg = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
+           if (isBg) {
+             LocalNotificationService.showNotification(
+               title: isTimeIn ? 'Clock In Failed' : 'Clock Out Failed',
+               body: 'Failed to complete: ${e.toString().replaceAll("Exception: ", "")}',
+             );
+           }
            setState(() {
              _isProcessing = false;
            });
@@ -212,6 +332,13 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
           Navigator.pop(context); // Pop Loading
           await _showSuccessDialog(isTimeIn);
         }
+        final isBg = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
+        if (isBg) {
+          LocalNotificationService.showNotification(
+            title: isTimeIn ? 'Clock In Successful' : 'Clock Out Successful',
+            body: isTimeIn ? 'You have successfully clocked in.' : 'You have successfully clocked out.',
+          );
+        }
         setState(() {
           _isProcessing = false;
         });
@@ -220,6 +347,20 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
 
       if (caughtReasonError != null) {
         if (!mounted) return;
+        Navigator.pop(context); // Pop Loading before showing LateArrivalDialog
+
+        final isBg = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
+        if (isBg) {
+          LocalNotificationService.showNotification(
+            title: 'Late Arrival Reason Required',
+            body: 'Please open the app to submit your late arrival reason and complete Clock In.',
+          );
+          setState(() {
+            _isProcessing = false;
+          });
+          return;
+        }
+
         final reason = await LateArrivalDialogMobile.show(context);
         
         if (reason == null || reason.isEmpty) {
@@ -240,10 +381,24 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
              context.showToast("Late arrival reason submitted successfully.", isSuccess: true);
              await _showSuccessDialog(isTimeIn);
           }
+          final isBgNow = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
+          if (isBgNow) {
+            LocalNotificationService.showNotification(
+              title: 'Clock In Successful',
+              body: 'Clocked in successfully with late arrival reason.',
+            );
+          }
         } catch (e) {
           if (mounted) {
             Navigator.pop(context); // Pop Loading
             context.showExceptionToast(e, fallback: 'Failed to submit late arrival reason.');
+          }
+          final isBgNow = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
+          if (isBgNow) {
+            LocalNotificationService.showNotification(
+              title: 'Clock In Failed',
+              body: 'Failed to submit late arrival reason: ${e.toString().replaceAll("Exception: ", "")}',
+            );
           }
         }
       }
@@ -270,8 +425,7 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
     }
     
     if (mounted) {
-      Provider.of<AttendanceProvider>(context, listen: false).invalidateCache(DateTime.now());
-      _fetchRecords(); 
+      Provider.of<AttendanceProvider>(context, listen: false).startRealtimeSync(DateTime.now());
     }
   }
 
@@ -347,10 +501,13 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
   Widget _buildMissedPunchBanner(BuildContext context, DateTime missedDate, AttendanceProvider provider) {
     final dateLabel = DateFormat('EEE, MMM d').format(missedDate);
     final deadlineDays = provider.correctionDeadlineDays;
-    final expiry = missedDate.add(Duration(days: deadlineDays));
+    // Expiry = end-of-day on (missedDate + deadlineDays days)
+    final expiry = DateTime(missedDate.year, missedDate.month, missedDate.day)
+        .add(Duration(days: deadlineDays + 1)); // +1 so the full last day counts
+    final hoursLeft = expiry.difference(DateTime.now()).inHours;
     final daysLeft = expiry.difference(DateTime.now()).inDays;
-    final daysLeftLabel = daysLeft <= 0 ? 'Expired' : '$daysLeft day${daysLeft == 1 ? '' : 's'} left';
-    final isExpired = daysLeft <= 0;
+    final daysLeftLabel = hoursLeft <= 0 ? 'Expired' : daysLeft == 0 ? 'Last chance today' : '$daysLeft day${daysLeft == 1 ? '' : 's'} left';
+    final isExpired = hoursLeft <= 0;
 
     return InkWell(
       onTap: isExpired
@@ -360,6 +517,7 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
                 context,
                 date: missedDate,
                 attendanceId: null,
+                type: CorrectionType.missedPunch,
               ).then((_) => provider.clearMissedPunch());
             },
       borderRadius: BorderRadius.circular(16),
@@ -431,6 +589,7 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
                     context,
                     date: missedDate,
                     attendanceId: null,
+                    type: CorrectionType.missedPunch,
                   ).then((_) => provider.clearMissedPunch());
                 },
                 style: ElevatedButton.styleFrom(
@@ -774,7 +933,12 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> {
         InkWell(
           onTap: () {
             final attendanceId = records.isNotEmpty ? records.first.attendanceId : null;
-            CorrectionRequestDialogMobile.show(context, date: _selectedDate, attendanceId: attendanceId);
+            CorrectionRequestDialogMobile.show(
+              context,
+              date: _selectedDate,
+              attendanceId: attendanceId,
+              type: CorrectionType.correction,
+            );
           },
           borderRadius: BorderRadius.circular(10),
           child: Container(

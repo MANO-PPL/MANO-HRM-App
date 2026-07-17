@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -12,9 +13,11 @@ import '../../../../shared/widgets/glass_date_picker.dart';
 import '../../../../shared/widgets/custom_dialog.dart';
 import '../../../../shared/services/auth_service.dart';
 import '../../../../shared/services/network_monitor.dart';
+import '../../../../shared/services/local_notification_service.dart';
 import '../../models/attendance_record.dart';
 import '../../services/attendance_service.dart';
 import '../widgets/correction_request_dialog.dart';
+import '../../models/correction_request.dart'; // Added
 import '../../widgets/late_arrival_dialog.dart';
 import '../../../../shared/widgets/toast_helper.dart';
 import '../../widgets/attendance_history_tab.dart';
@@ -32,22 +35,78 @@ class MyAttendanceView extends StatefulWidget {
   State<MyAttendanceView> createState() => _MyAttendanceViewState();
 }
 
-class _MyAttendanceViewState extends State<MyAttendanceView> {
+class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBindingObserver {
   late AttendanceService _attendanceService;
   final ImagePicker _picker = ImagePicker();
   DateTime _selectedDate = DateTime.now();
   bool _isProcessing = false;
+  StreamSubscription<Position>? _positionStreamSub;
+  Position? _realtimePosition;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final auth = Provider.of<AuthService>(context, listen: false);
     _attendanceService = AttendanceService(auth.dio);
     
     // Initial Fetch via Provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<AttendanceProvider>(context, listen: false).fetchRecords(_selectedDate);
+      _prewarmLocation();
+      _startLocationListening();
     });
+  }
+
+  @override
+  void dispose() {
+    _positionStreamSub?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _fetchRecords();
+    }
+  }
+
+  void _startLocationListening() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+        _positionStreamSub = Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 10,
+          ),
+        ).listen((position) {
+          _realtimePosition = position;
+        }, onError: (e) {
+          debugPrint("Error in position stream: $e");
+        });
+      }
+    } catch (e) {
+      debugPrint("Failed to start location listening: $e");
+    }
+  }
+
+  void _prewarmLocation() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+        Geolocator.getLastKnownPosition().then((_) => null, onError: (_) => null);
+        Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 3),
+          ),
+        ).then((_) => null, onError: (_) => null);
+      }
+    } catch (e) {
+      debugPrint("Pre-warm location error: $e");
+    }
   }
 
   Future<void> _fetchRecords() async {
@@ -82,9 +141,57 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
       return null;
     }
 
-    return await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-    );
+    // 0. Try the real-time position stream first if it is fresh and accurate
+    if (_realtimePosition != null) {
+      final age = DateTime.now().difference(_realtimePosition!.timestamp);
+      if (age.inSeconds < 15 && _realtimePosition!.accuracy <= 50) {
+        debugPrint("Using fresh stream position: age=${age.inSeconds}s, accuracy=${_realtimePosition!.accuracy}m");
+        return _realtimePosition;
+      }
+    }
+
+    // 1. Try last known position FIRST. If it is fresh (under 60s) and accurate, use it immediately for instant retrieval.
+    try {
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        final age = DateTime.now().difference(lastKnown.timestamp);
+        if (age.inSeconds < 60 && lastKnown.accuracy <= 50) {
+          debugPrint("Using fresh last known position: age=${age.inSeconds}s, accuracy=${lastKnown.accuracy}m");
+          return lastKnown;
+        }
+      }
+    } catch (e) {
+      debugPrint("Error checking last known location: $e");
+    }
+
+    // 2. Otherwise, fetch high accuracy with a strict timeout
+    try {
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      debugPrint("High accuracy location fetch failed or timed out: $e. Trying last known/balanced fallback...");
+      try {
+        final lastKnown = await Geolocator.getLastKnownPosition();
+        if (lastKnown != null) return lastKnown;
+      } catch (e) {
+        debugPrint("Failed to get last known position: $e");
+      }
+      try {
+        return await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 3),
+          ),
+        );
+      } catch (e) {
+        debugPrint("Medium accuracy location fetch failed: $e");
+        return null;
+      }
+    }
   }
   Future<void> _handleAttendanceAction(bool isTimeIn) async {
     if (_isProcessing) return;
@@ -138,6 +245,9 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera, 
         preferredCameraDevice: CameraDevice.front,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 70,
       );
       
       if (photo == null) {
@@ -167,6 +277,8 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
         builder: (_) => const Center(child: CircularProgressIndicator()),
       );
 
+      final punchTimestamp = DateTime.now().toIso8601String();
+
       Future<void> performTimeIn({String? reason}) async {
          await _attendanceService.timeIn(
               latitude: position.latitude,
@@ -174,6 +286,7 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
               accuracy: position.accuracy,
               imageFile: File(photo.path),
               lateReason: reason,
+              timestamp: punchTimestamp,
            );
       }
 
@@ -191,6 +304,18 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
                 if (!mounted) return;
                 Navigator.pop(context); // Hide loading
                 
+                final isBg = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
+                if (isBg) {
+                  LocalNotificationService.showNotification(
+                    title: 'Late Arrival Reason Required',
+                    body: 'Please open the app to submit your late arrival reason and complete Clock In.',
+                  );
+                  setState(() {
+                    _isProcessing = false;
+                  });
+                  return;
+                }
+
                 final reason = await LateArrivalDialog.show(context);
                 
                 if (reason != null && reason.isNotEmpty) {
@@ -204,10 +329,24 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
                      await performTimeIn(reason: reason); // Retry
                    } catch (retryErr) {
                      if (mounted) Navigator.pop(context); // Close loading
+                     final isBgNow = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
+                     if (isBgNow) {
+                       LocalNotificationService.showNotification(
+                         title: 'Clock In Failed',
+                         body: 'Failed to submit late arrival reason: ${retryErr.toString().replaceAll("Exception: ", "")}',
+                       );
+                     }
                      rethrow;
                    }
                    if (mounted) {
                      context.showToast("Late arrival reason submitted successfully.", isSuccess: true);
+                   }
+                   final isBgNow = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
+                   if (isBgNow) {
+                     LocalNotificationService.showNotification(
+                       title: 'Clock In Successful',
+                       body: 'Clocked in successfully with late arrival reason.',
+                     );
                    }
                 } else {
                    setState(() {
@@ -225,6 +364,7 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
             longitude: position.longitude,
             accuracy: position.accuracy,
             imageFile: File(photo.path),
+            timestamp: punchTimestamp,
           );
         }
         
@@ -236,8 +376,14 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
             isSuccess: true,
           );
 
-          Provider.of<AttendanceProvider>(context, listen: false).invalidateCache(DateTime.now());
-          _fetchRecords(); // Refresh list
+          Provider.of<AttendanceProvider>(context, listen: false).startRealtimeSync(DateTime.now());
+        }
+        final isBg = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
+        if (isBg) {
+          LocalNotificationService.showNotification(
+            title: isTimeIn ? 'Clock In Successful' : 'Clock Out Successful',
+            body: isTimeIn ? 'You have successfully clocked in.' : 'You have successfully clocked out.',
+          );
         }
       } catch (e) {
         if (mounted) {
@@ -247,6 +393,13 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
             fallback: isTimeIn
                 ? 'Failed to clock in. Please try again.'
                 : 'Failed to clock out. Please try again.',
+          );
+        }
+        final isBg = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
+        if (isBg) {
+          LocalNotificationService.showNotification(
+            title: isTimeIn ? 'Clock In Failed' : 'Clock Out Failed',
+            body: 'Failed to complete: ${e.toString().replaceAll("Exception: ", "")}',
           );
         }
       }
@@ -268,7 +421,7 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
     return Consumer<AttendanceProvider>(
       builder: (context, provider, child) {
         return LoadingScreen(
-          isLoading: provider.isLoading,
+          isLoading: provider.isLoading && provider.records.isEmpty,
           message: "Loading attendance records...",
           child: DefaultTabController(
             length: 2,
@@ -298,11 +451,16 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
                           }
 
                           if (index == 0) {
+                            final missedDate = provider.missedPunchDate;
                             return Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  if (missedDate != null) ...[
+                                    _buildMissedPunchBanner(context, missedDate, provider),
+                                    const SizedBox(height: 16),
+                                  ],
                                   _buildActionButtons(context, isCheckedIn),
                                   const SizedBox(height: 32),
                                   _buildDateSelector(context),
@@ -462,7 +620,12 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
                   final provider = Provider.of<AttendanceProvider>(context, listen: false);
                   final records = provider.records;
                   final attendanceId = records.isNotEmpty ? records.first.attendanceId : null;
-                  CorrectionRequestDialog.show(context, date: _selectedDate, attendanceId: attendanceId);
+                  CorrectionRequestDialog.show(
+                    context,
+                    date: _selectedDate,
+                    attendanceId: attendanceId,
+                    type: CorrectionType.correction,
+                  );
                 },
                 child: GlassContainer(
                   height: 40,
@@ -527,7 +690,12 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
 
   Widget _buildHistoryList(BuildContext context, List<AttendanceRecord> records, bool isLoading) {
     if (isLoading && records.isEmpty) {
-      return const SizedBox.shrink();
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 40),
+          child: CircularProgressIndicator(),
+        ),
+      );
     }
     
     if (records.isEmpty) {
@@ -741,18 +909,9 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
                         time,
                         style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: Theme.of(context).textTheme.bodyLarge?.color),
                       ),
-                      Row(
-                        children: [
-                          Icon(Icons.place, size: 10, color: Colors.grey),
-                          const SizedBox(width: 2),
-                          Expanded(
-                            child: Text(
-                              location,
-                              style: GoogleFonts.poppins(fontSize: 10, color: Theme.of(context).textTheme.bodySmall?.color),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        location,
+                        style: GoogleFonts.poppins(fontSize: 10, color: Theme.of(context).textTheme.bodySmall?.color),
                       ),
                     ],
                   ),
@@ -897,6 +1056,124 @@ class _MyAttendanceViewState extends State<MyAttendanceView> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildMissedPunchBanner(BuildContext context, DateTime missedDate, AttendanceProvider provider) {
+    final dateLabel = DateFormat('EEE, MMM d').format(missedDate);
+    final deadlineDays = provider.correctionDeadlineDays;
+    // Expiry = end-of-day on (missedDate + deadlineDays days)
+    final expiry = DateTime(missedDate.year, missedDate.month, missedDate.day)
+        .add(Duration(days: deadlineDays + 1)); // +1 so the full last day counts
+    final hoursLeft = expiry.difference(DateTime.now()).inHours;
+    final daysLeft = expiry.difference(DateTime.now()).inDays;
+    final daysLeftLabel = hoursLeft <= 0 ? 'Expired' : daysLeft == 0 ? 'Last chance today' : '$daysLeft day${daysLeft == 1 ? '' : 's'} left';
+    final isExpired = hoursLeft <= 0;
+
+    return InkWell(
+      onTap: isExpired
+          ? null
+          : () {
+              CorrectionRequestDialog.show(
+                context,
+                date: missedDate,
+                attendanceId: null,
+                type: CorrectionType.missedPunch,
+              ).then((_) => provider.clearMissedPunch());
+            },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isExpired
+                ? [Colors.red.shade900, Colors.red.shade700]
+                : [const Color(0xFFEA580C), const Color(0xFFF97316)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: (isExpired ? Colors.red : Colors.orange).withValues(alpha: 0.35),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isExpired ? Icons.block_rounded : Icons.warning_amber_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isExpired ? 'Missed Punch — Deadline Passed' : '⚠️  Missed Time-Out Detected',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    isExpired
+                        ? 'No time-out recorded for $dateLabel. The correction window has expired.'
+                        : 'No time-out recorded for $dateLabel ($daysLeftLabel).',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: Colors.white.withValues(alpha: 0.9),
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (!isExpired) ...[
+              const SizedBox(width: 12),
+              ElevatedButton(
+                onPressed: () {
+                  CorrectionRequestDialog.show(
+                    context,
+                    date: missedDate,
+                    attendanceId: null,
+                    type: CorrectionType.missedPunch,
+                  ).then((_) => provider.clearMissedPunch());
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFFEA580C),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'Fix Now',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

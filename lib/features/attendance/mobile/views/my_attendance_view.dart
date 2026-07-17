@@ -22,7 +22,7 @@ class _MobileMyAttendanceContentState extends State<MobileMyAttendanceContent> {
     return Consumer<AttendanceProvider>(
       builder: (context, provider, child) {
         return LoadingScreen(
-          isLoading: provider.isLoading,
+          isLoading: provider.isLoading && provider.records.isEmpty,
           message: "Loading attendance records...",
           child: Container(
             color: Theme.of(context).brightness == Brightness.dark
