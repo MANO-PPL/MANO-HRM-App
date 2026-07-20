@@ -239,62 +239,70 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
     final Future<Position?> locationFuture = _getCurrentLocation();
 
     try {
-      final cameraPermissionStopwatch = Stopwatch()..start();
-      var status = await Permission.camera.status;
-      if (!status.isGranted) {
-        status = await Permission.camera.request();
-        if (status.isPermanentlyDenied) {
-          if (mounted) {
-             CustomDialog.show(
-               context: context,
-               title: "Permission Required",
-               message: "Camera access is needed to mark attendance. Please enable it in settings.",
-               positiveButtonText: "Open Settings",
-               onPositivePressed: () {
-                 openAppSettings();
-               },
-               negativeButtonText: "Cancel",
-               onNegativePressed: () {},
-               icon: Icons.camera_alt_outlined,
-             );
-          }
-          logStage('camera permission', cameraPermissionStopwatch);
-          setState(() {
-            _isProcessing = false;
-            _isTimeInProcessing = false;
-            _isTimeOutProcessing = false;
-          });
-          return;
-        }
-        if (!status.isGranted) {
-          logStage('camera permission', cameraPermissionStopwatch);
-          setState(() {
-            _isProcessing = false;
-            _isTimeInProcessing = false;
-            _isTimeOutProcessing = false;
-          });
-          return;
-        }
-      }
-      logStage('camera permission', cameraPermissionStopwatch);
+      final shiftPolicy = context.read<AttendanceProvider>().shiftPolicy;
+      final isSelfieRequired = isTimeIn
+          ? (shiftPolicy?.entrySelfie ?? false)
+          : (shiftPolicy?.exitSelfie ?? false);
 
-      final cameraCaptureStopwatch = Stopwatch()..start();
-      final XFile? photo = await _picker.pickImage(
-        source: ImageSource.camera, 
-        preferredCameraDevice: CameraDevice.front,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 70,
-      );
-      logStage('camera capture', cameraCaptureStopwatch);
-      
-      if (photo == null) {
-        setState(() {
-          _isProcessing = false;
-          _isTimeInProcessing = false;
-          _isTimeOutProcessing = false;
-        });
-        return; // User canceled
+      XFile? photo;
+      if (isSelfieRequired) {
+        final cameraPermissionStopwatch = Stopwatch()..start();
+        var status = await Permission.camera.status;
+        if (!status.isGranted) {
+          status = await Permission.camera.request();
+          if (status.isPermanentlyDenied) {
+            if (mounted) {
+               CustomDialog.show(
+                 context: context,
+                 title: "Permission Required",
+                 message: "Camera access is needed to mark attendance. Please enable it in settings.",
+                 positiveButtonText: "Open Settings",
+                 onPositivePressed: () {
+                   openAppSettings();
+                 },
+                 negativeButtonText: "Cancel",
+                 onNegativePressed: () {},
+                 icon: Icons.camera_alt_outlined,
+               );
+            }
+            logStage('camera permission', cameraPermissionStopwatch);
+            setState(() {
+              _isProcessing = false;
+              _isTimeInProcessing = false;
+              _isTimeOutProcessing = false;
+            });
+            return;
+          }
+          if (!status.isGranted) {
+            logStage('camera permission', cameraPermissionStopwatch);
+            setState(() {
+              _isProcessing = false;
+              _isTimeInProcessing = false;
+              _isTimeOutProcessing = false;
+            });
+            return;
+          }
+        }
+        logStage('camera permission', cameraPermissionStopwatch);
+
+        final cameraCaptureStopwatch = Stopwatch()..start();
+        photo = await _picker.pickImage(
+          source: ImageSource.camera, 
+          preferredCameraDevice: CameraDevice.front,
+          maxWidth: 1024,
+          maxHeight: 1024,
+          imageQuality: 70,
+        );
+        logStage('camera capture', cameraCaptureStopwatch);
+        
+        if (photo == null) {
+          setState(() {
+            _isProcessing = false;
+            _isTimeInProcessing = false;
+            _isTimeOutProcessing = false;
+          });
+          return; // User canceled
+        }
       }
 
       if (!mounted) return;
@@ -322,7 +330,7 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
               latitude: position.latitude,
               longitude: position.longitude,
               accuracy: position.accuracy,
-              imageFile: File(photo.path),
+              imageFile: photo != null ? File(photo.path) : null,
               lateReason: reason,
               timestamp: punchTimestamp,
            );
@@ -401,7 +409,7 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
             latitude: position.latitude,
             longitude: position.longitude,
             accuracy: position.accuracy,
-            imageFile: File(photo.path),
+            imageFile: photo != null ? File(photo.path) : null,
             timestamp: punchTimestamp,
           );
           logStage('Time Out API call', apiStopwatch);

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../../../../shared/services/dashboard_provider.dart';
 import '../../../../shared/models/dashboard_model.dart';
 import '../../../../shared/navigation/navigation_controller.dart'; 
@@ -12,6 +14,8 @@ import '../../../../shared/services/auth_service.dart';
 import '../../widgets/employee_dashboard_widgets.dart';
 import '../../../../features/attendance/providers/attendance_provider.dart';
 import '../../../../shared/widgets/toast_helper.dart';
+import 'package:flutter_application/features/attendance/tablet/widgets/correction_request_dialog.dart';
+import 'package:flutter_application/features/attendance/models/correction_request.dart';
 
 class AdminDashboardView extends StatefulWidget {
   const AdminDashboardView({super.key});
@@ -71,6 +75,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthService>().user;
+    final attendanceProvider = context.watch<AttendanceProvider>();
+    final missedPunchDate = attendanceProvider.missedPunchDate;
+
     return Consumer<DashboardProvider>(
       builder: (context, provider, child) {
         return LoadingScreen(
@@ -97,6 +104,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (missedPunchDate != null) ...[
+                          _buildMissedPunchBanner(context, missedPunchDate, attendanceProvider),
+                          const SizedBox(height: 24),
+                        ],
                         // Row 1: KPI Cards
                         _buildKPISection(provider.stats, provider.trends, isLandscape),
                         const SizedBox(height: 32),
@@ -325,5 +336,122 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         ],
       );
     }
+  }
+
+  Widget _buildMissedPunchBanner(BuildContext context, DateTime missedDate, AttendanceProvider provider) {
+    final dateLabel = DateFormat('EEE, MMM d').format(missedDate);
+    final deadlineDays = provider.correctionDeadlineDays;
+    final expiry = DateTime(missedDate.year, missedDate.month, missedDate.day)
+        .add(Duration(days: deadlineDays + 1));
+    final hoursLeft = expiry.difference(DateTime.now()).inHours;
+    final daysLeft = expiry.difference(DateTime.now()).inDays;
+    final daysLeftLabel = hoursLeft <= 0 ? 'Expired' : daysLeft == 0 ? 'Last chance today' : '$daysLeft day${daysLeft == 1 ? '' : 's'} left';
+    final isExpired = hoursLeft <= 0;
+
+    return InkWell(
+      onTap: isExpired
+          ? null
+          : () {
+              CorrectionRequestDialog.show(
+                context,
+                date: missedDate,
+                attendanceId: null,
+                type: CorrectionType.missedPunch,
+              ).then((_) => provider.clearMissedPunch());
+            },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isExpired
+                ? [Colors.red.shade900, Colors.red.shade700]
+                : [const Color(0xFFEA580C), const Color(0xFFF97316)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: (isExpired ? Colors.red : Colors.orange).withValues(alpha: 0.35),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isExpired ? Icons.block_rounded : Icons.warning_amber_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isExpired ? 'Missed Punch — Deadline Passed' : '⚠️  Missed Time-Out Detected',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    isExpired
+                        ? 'No time-out recorded for $dateLabel. The correction window has expired.'
+                        : 'No time-out recorded for $dateLabel ($daysLeftLabel).',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: Colors.white.withValues(alpha: 0.9),
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (!isExpired) ...[
+              const SizedBox(width: 12),
+              ElevatedButton(
+                onPressed: () {
+                  CorrectionRequestDialog.show(
+                    context,
+                    date: missedDate,
+                    attendanceId: null,
+                    type: CorrectionType.missedPunch,
+                  ).then((_) => provider.clearMissedPunch());
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFFEA580C),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'Fix Now',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }

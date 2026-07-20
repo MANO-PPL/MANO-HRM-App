@@ -93,7 +93,7 @@ class AttendanceService {
     required double latitude,
     required double longitude,
     required double accuracy,
-    required File imageFile,
+    File? imageFile,
     String? lateReason,
     String? timestamp,
   }) async {
@@ -104,8 +104,12 @@ class AttendanceService {
         debugPrint("Failed to start background task: $e");
       }
 
-      final fixedFile = await _fixOrientationAndCompress(imageFile);
-      final fileName = '${_basenameWithoutExtension(imageFile.path)}.jpg';
+      File? fixedFile;
+      String? fileName;
+      if (imageFile != null) {
+        fixedFile = await _fixOrientationAndCompress(imageFile);
+        fileName = '${_basenameWithoutExtension(imageFile.path)}.jpg';
+      }
 
       String? utcTimestamp;
       if (timestamp != null) {
@@ -128,14 +132,17 @@ class AttendanceService {
           "date": utcTimestamp,
           "time_in": utcTimestamp,
         },
-        "image": await MultipartFile.fromFile(
-          fixedFile.path,
-          filename: fileName,
-          contentType: MediaType('image', 'jpeg'),
-        ),
+        if (fixedFile != null && fileName != null)
+          "image": await MultipartFile.fromFile(
+            fixedFile.path,
+            filename: fileName,
+            contentType: MediaType('image', 'jpeg'),
+          ),
       });
 
-      debugPrint("AttService: TimeIn upload size=${await fixedFile.length()} bytes (orientation-fixed JPEG)");
+      if (fixedFile != null) {
+        debugPrint("AttService: TimeIn upload size=${await fixedFile.length()} bytes (orientation-fixed JPEG)");
+      }
       debugPrint("AttService: TimeIn fields: ${formData.fields.map((e) => '${e.key}: ${e.value}')}");
 
       final response = await _dio.post(ApiConstants.attendanceTimeIn, data: formData);
@@ -157,7 +164,7 @@ class AttendanceService {
     required double latitude,
     required double longitude,
     required double accuracy,
-    required File imageFile,
+    File? imageFile,
     String? timestamp,
   }) async {
     try {
@@ -167,8 +174,12 @@ class AttendanceService {
         debugPrint("Failed to start background task: $e");
       }
 
-      final fixedFile = await _fixOrientationAndCompress(imageFile);
-      final fileName = '${_basenameWithoutExtension(imageFile.path)}.jpg';
+      File? fixedFile;
+      String? fileName;
+      if (imageFile != null) {
+        fixedFile = await _fixOrientationAndCompress(imageFile);
+        fileName = '${_basenameWithoutExtension(imageFile.path)}.jpg';
+      }
 
       String? utcTimestamp;
       if (timestamp != null) {
@@ -190,14 +201,17 @@ class AttendanceService {
           "date": utcTimestamp,
           "time_out": utcTimestamp,
         },
-        "image": await MultipartFile.fromFile(
-          fixedFile.path,
-          filename: fileName,
-          contentType: MediaType('image', 'jpeg'),
-        ),
+        if (fixedFile != null && fileName != null)
+          "image": await MultipartFile.fromFile(
+            fixedFile.path,
+            filename: fileName,
+            contentType: MediaType('image', 'jpeg'),
+          ),
       });
 
-      debugPrint("AttService: TimeOut upload size=${await fixedFile.length()} bytes (orientation-fixed JPEG)");
+      if (fixedFile != null) {
+        debugPrint("AttService: TimeOut upload size=${await fixedFile.length()} bytes (orientation-fixed JPEG)");
+      }
 
       final response = await _dio.post(ApiConstants.attendanceTimeOut, data: formData);
       return response.data;

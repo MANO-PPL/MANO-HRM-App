@@ -245,12 +245,40 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
     final Future<Position?> locationFuture = _getCurrentLocation();
 
     try {
-      final cameraPermissionStopwatch = Stopwatch()..start();
-      var status = await Permission.camera.status;
-      if (!status.isGranted) {
-        status = await Permission.camera.request();
+      final shiftPolicy = context.read<AttendanceProvider>().shiftPolicy;
+      final isSelfieRequired = isTimeIn
+          ? (shiftPolicy?.entrySelfie ?? false)
+          : (shiftPolicy?.exitSelfie ?? false);
+
+      XFile? photo;
+      if (isSelfieRequired) {
+        final cameraPermissionStopwatch = Stopwatch()..start();
+        var status = await Permission.camera.status;
         if (!status.isGranted) {
-          logStage('camera permission', cameraPermissionStopwatch);
+          status = await Permission.camera.request();
+          if (!status.isGranted) {
+            logStage('camera permission', cameraPermissionStopwatch);
+            setState(() {
+              _isProcessing = false;
+              _isTimeInProcessing = false;
+              _isTimeOutProcessing = false;
+            });
+            return;
+          }
+        }
+        logStage('camera permission', cameraPermissionStopwatch);
+
+        final cameraCaptureStopwatch = Stopwatch()..start();
+        photo = await _picker.pickImage(
+          source: ImageSource.camera, 
+          preferredCameraDevice: CameraDevice.front,
+          maxWidth: 1024,
+          maxHeight: 1024,
+          imageQuality: 70,
+        );
+        logStage('camera capture', cameraCaptureStopwatch);
+        
+        if (photo == null) {
           setState(() {
             _isProcessing = false;
             _isTimeInProcessing = false;
@@ -258,26 +286,6 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
           });
           return;
         }
-      }
-      logStage('camera permission', cameraPermissionStopwatch);
-
-      final cameraCaptureStopwatch = Stopwatch()..start();
-      final XFile? photo = await _picker.pickImage(
-        source: ImageSource.camera, 
-        preferredCameraDevice: CameraDevice.front,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 70,
-      );
-      logStage('camera capture', cameraCaptureStopwatch);
-      
-      if (photo == null) {
-        setState(() {
-          _isProcessing = false;
-          _isTimeInProcessing = false;
-          _isTimeOutProcessing = false;
-        });
-        return;
       }
 
       if (!mounted) return;
@@ -304,7 +312,7 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
             latitude: position.latitude,
             longitude: position.longitude,
             accuracy: position.accuracy,
-            imageFile: File(photo.path),
+            imageFile: photo != null ? File(photo.path) : null,
             lateReason: lateReason,
             timestamp: punchTimestamp,
           );
@@ -313,7 +321,7 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
             latitude: position.latitude,
             longitude: position.longitude,
             accuracy: position.accuracy,
-            imageFile: File(photo.path),
+            imageFile: photo != null ? File(photo.path) : null,
             timestamp: punchTimestamp,
           );
         }
