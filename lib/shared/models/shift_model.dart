@@ -24,6 +24,10 @@ class Shift {
   });
 
   int get correctionDeadline => policyRules.correctionDeadline;
+  bool get entrySelfie => policyRules.entryRequirements.selfie;
+  bool get entryGeofence => policyRules.entryRequirements.geofence;
+  bool get exitSelfie => policyRules.exitRequirements.selfie;
+  bool get exitGeofence => policyRules.exitRequirements.geofence;
 
   factory Shift.defaultShift() {
     return Shift(

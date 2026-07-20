@@ -24,9 +24,7 @@ class _AddShiftDialogState extends State<AddShiftDialog> {
   bool _isOvertimeEnabled = false;
   
   // Validation Rules
-  bool _checkInGps = false;
   bool _checkInSelfie = false;
-  bool _checkOutGps = false;
   bool _checkOutSelfie = false;
 
   // Policy rules variables
@@ -48,9 +46,7 @@ class _AddShiftDialogState extends State<AddShiftDialog> {
       _endTime = _parseTime(s.endTime);
       
       // Load Rules
-      _checkInGps = s.entryGeofence;
       _checkInSelfie = s.entrySelfie;
-      _checkOutGps = s.exitGeofence;
       _checkOutSelfie = s.exitSelfie;
       _correctionDeadlineCtrl.text = s.correctionDeadline.toString();
 
@@ -62,9 +58,7 @@ class _AddShiftDialogState extends State<AddShiftDialog> {
       _halfDayRules = List<HalfDayRule>.from(parsed.halfDayRules);
     } else {
       // Defaults
-       _checkInGps = true;
        _checkInSelfie = true;
-       _checkOutGps = false; 
        _checkOutSelfie = false;
        _correctionDeadlineCtrl.text = "2";
        _workingDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -131,11 +125,11 @@ class _AddShiftDialogState extends State<AddShiftDialog> {
         'buffer': widget.existingShift?.policyRules['overtime']?['buffer'] ?? 0.5,
       },
       'entry_requirements': {
-        'geofence': _checkInGps,
+        'geofence': true,
         'selfie': _checkInSelfie,
       },
       'exit_requirements': {
-        'geofence': _checkOutGps,
+        'geofence': true,
         'selfie': _checkOutSelfie,
       },
       'correction_deadline': int.tryParse(_correctionDeadlineCtrl.text) ?? 2,
@@ -883,8 +877,6 @@ class _AddShiftDialogState extends State<AddShiftDialog> {
                   children: [
                     Text('CHECK-IN', style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[500])),
                     const SizedBox(height: 8),
-                    _buildCheckbox('GPS Required', _checkInGps, (v) => setState(() => _checkInGps = v!), textColor, isDark),
-                    const SizedBox(height: 8),
                     _buildCheckbox('Selfie Required', _checkInSelfie, (v) => setState(() => _checkInSelfie = v!), textColor, isDark),
                   ],
                 ),
@@ -895,8 +887,6 @@ class _AddShiftDialogState extends State<AddShiftDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('CHECK-OUT', style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[500])),
-                    const SizedBox(height: 8),
-                    _buildCheckbox('GPS Required', _checkOutGps, (v) => setState(() => _checkOutGps = v!), textColor, isDark),
                     const SizedBox(height: 8),
                     _buildCheckbox('Selfie Required', _checkOutSelfie, (v) => setState(() => _checkOutSelfie = v!), textColor, isDark),
                   ],

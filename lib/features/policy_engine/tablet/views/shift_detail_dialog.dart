@@ -122,7 +122,7 @@ class ShiftDetailDialog extends StatelessWidget {
                         children: [
                           Text("CHECK-IN", style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
                           const SizedBox(height: 8),
-                          _buildRequirementRow("GPS", shift.entryGeofence, textColor),
+                          _buildRequirementRow("GPS (Mandatory)", true, textColor),
                           const SizedBox(height: 4),
                           _buildRequirementRow("Selfie", shift.entrySelfie, textColor),
                         ],
@@ -134,7 +134,7 @@ class ShiftDetailDialog extends StatelessWidget {
                         children: [
                           Text("CHECK-OUT", style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
                           const SizedBox(height: 8),
-                          _buildRequirementRow("GPS", shift.exitGeofence, textColor),
+                          _buildRequirementRow("GPS (Mandatory)", true, textColor),
                           const SizedBox(height: 4),
                           _buildRequirementRow("Selfie", shift.exitSelfie, textColor),
                         ],

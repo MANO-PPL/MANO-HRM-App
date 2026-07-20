@@ -431,7 +431,7 @@ class _ShiftDetailBottomSheetState extends State<ShiftDetailBottomSheet> {
                             color: Colors.grey)),
                     const SizedBox(height: 8),
                     _buildRequirementRow(
-                        "GPS", widget.shift.entryGeofence, textColor),
+                        "GPS (Mandatory)", true, textColor),
                     const SizedBox(height: 4),
                     _buildRequirementRow(
                         "Selfie", widget.shift.entrySelfie, textColor),
@@ -449,7 +449,7 @@ class _ShiftDetailBottomSheetState extends State<ShiftDetailBottomSheet> {
                             color: Colors.grey)),
                     const SizedBox(height: 8),
                     _buildRequirementRow(
-                        "GPS", widget.shift.exitGeofence, textColor),
+                        "GPS (Mandatory)", true, textColor),
                     const SizedBox(height: 4),
                     _buildRequirementRow(
                         "Selfie", widget.shift.exitSelfie, textColor),
