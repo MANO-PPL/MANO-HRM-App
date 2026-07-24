@@ -21,6 +21,8 @@ import '../../models/correction_request.dart'; // Added
 import '../../providers/attendance_provider.dart';
 import '../../../../shared/widgets/toast_helper.dart';
 import '../../../../shared/widgets/interactive_image_viewer.dart';
+import '../../../../shared/widgets/selfie_camera_screen.dart';
+import '../../../../shared/services/attendance_image_cache_manager.dart';
 
 class MarkAttendanceMobile extends StatefulWidget {
   const MarkAttendanceMobile({super.key});
@@ -109,8 +111,6 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
   }
 
   Future<Position?> _getCurrentLocation() async {
-    final locationStopwatch = Stopwatch()..start();
-
     void logLocationStage(String stage, Stopwatch stopwatch) {
       debugPrint('Attendance location flow (mobile): $stage took ${stopwatch.elapsedMilliseconds} ms');
     }
@@ -118,12 +118,13 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
     final serviceCheckStopwatch = Stopwatch()..start();
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     logLocationStage('location service check', serviceCheckStopwatch);
+
     if (!serviceEnabled) {
       if (mounted) {
         context.showToast(
-          "Location services are disabled.",
-          isWarning: true,
-          actionLabel: "ENABLE",
+          "Location services disabled. Please enable GPS.",
+          isError: true,
+          actionLabel: "SETTINGS",
           onActionPressed: () async {
             await Geolocator.openLocationSettings();
           },
@@ -132,18 +133,13 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
       return null;
     }
 
-    final permissionCheckStopwatch = Stopwatch()..start();
     LocationPermission permission = await Geolocator.checkPermission();
-    logLocationStage('permission check', permissionCheckStopwatch);
     if (permission == LocationPermission.denied) {
-      final permissionRequestStopwatch = Stopwatch()..start();
       permission = await Geolocator.requestPermission();
-      logLocationStage('permission request', permissionRequestStopwatch);
       if (permission == LocationPermission.denied) {
         if (mounted) {
-          context.showToast("Location permission denied.", isWarning: true);
+          context.showToast("Location permission is required to mark attendance.", isWarning: true);
         }
-        debugPrint('Attendance location flow (mobile): total took ${locationStopwatch.elapsedMilliseconds} ms');
         return null;
       }
     }
@@ -159,7 +155,6 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
           },
         );
       }
-      debugPrint('Attendance location flow (mobile): total took ${locationStopwatch.elapsedMilliseconds} ms');
       return null;
     }
 
@@ -245,7 +240,13 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
     final Future<Position?> locationFuture = _getCurrentLocation();
 
     try {
-      final shiftPolicy = context.read<AttendanceProvider>().shiftPolicy;
+      var provider = context.read<AttendanceProvider>();
+      var shiftPolicy = provider.shiftPolicy;
+      if (shiftPolicy == null) {
+        await provider.fetchShiftPolicy();
+        shiftPolicy = provider.shiftPolicy;
+      }
+
       final isSelfieRequired = isTimeIn
           ? (shiftPolicy?.entrySelfie ?? false)
           : (shiftPolicy?.exitSelfie ?? false);
@@ -269,13 +270,28 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
         logStage('camera permission', cameraPermissionStopwatch);
 
         final cameraCaptureStopwatch = Stopwatch()..start();
-        photo = await _picker.pickImage(
-          source: ImageSource.camera, 
-          preferredCameraDevice: CameraDevice.front,
-          maxWidth: 1024,
-          maxHeight: 1024,
-          imageQuality: 70,
-        );
+        try {
+          photo = await _picker.pickImage(
+            source: ImageSource.camera, 
+            preferredCameraDevice: CameraDevice.front,
+            maxWidth: 1024,
+            maxHeight: 1024,
+            imageQuality: 70,
+          );
+        } catch (e) {
+          debugPrint('ImagePicker failed, fallback to SelfieCameraScreen: $e');
+        }
+
+        if (photo == null && mounted) {
+          try {
+            photo = await Navigator.push<XFile?>(
+              context,
+              MaterialPageRoute(builder: (_) => const SelfieCameraScreen()),
+            );
+          } catch (e) {
+            debugPrint('SelfieCameraScreen failed: $e');
+          }
+        }
         logStage('camera capture', cameraCaptureStopwatch);
         
         if (photo == null) {
@@ -375,13 +391,6 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
       if (success) {
         if (mounted) {
           await _showSuccessDialog(isTimeIn);
-        }
-        final isBg = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
-        if (isBg) {
-          LocalNotificationService.showNotification(
-            title: isTimeIn ? 'Clock In Successful' : 'Clock Out Successful',
-            body: isTimeIn ? 'You have successfully clocked in.' : 'You have successfully clocked out.',
-          );
         }
         setState(() {
           _isProcessing = false;
@@ -1251,8 +1260,9 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
           ),
           child: CachedNetworkImage(
             imageUrl: imageUrl, 
+            cacheManager: AttendanceImageCacheManager.instance,
             fit: BoxFit.cover,
-            errorWidget: (_,_,_) => const Icon(Icons.person, color: Colors.white),
+            errorWidget: (ctx, url, err) => const Icon(Icons.person, color: Colors.white),
             placeholder: (_,_) => const Center(child: SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))),
           ),
         ),

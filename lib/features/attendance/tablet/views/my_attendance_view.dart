@@ -13,7 +13,6 @@ import '../../../../shared/widgets/glass_date_picker.dart';
 import '../../../../shared/widgets/custom_dialog.dart';
 import '../../../../shared/services/auth_service.dart';
 import '../../../../shared/services/network_monitor.dart';
-import '../../../../shared/services/local_notification_service.dart';
 import '../../models/attendance_record.dart';
 import '../../services/attendance_service.dart';
 import '../widgets/correction_request_dialog.dart';
@@ -27,6 +26,8 @@ import '../../admin/views/admin_correction_requests.dart';
 import '../../widgets/attendance_header_widget.dart';
 import '../../../../shared/widgets/interactive_image_viewer.dart';
 import '../../../../shared/widgets/loading_screen.dart';
+import '../../../../shared/widgets/selfie_camera_screen.dart';
+import '../../../../shared/services/attendance_image_cache_manager.dart';
 
 class MyAttendanceView extends StatefulWidget {
   const MyAttendanceView({super.key});
@@ -128,7 +129,14 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
     logLocationStage('location service check', serviceCheckStopwatch);
     if (!serviceEnabled) {
       if (mounted) {
-        context.showToast("Location services are disabled.", isWarning: true);
+        context.showToast(
+          "Location services are disabled.",
+          isWarning: true,
+          actionLabel: "ENABLE",
+          onActionPressed: () async {
+            await Geolocator.openLocationSettings();
+          },
+        );
       }
       debugPrint('Attendance location flow (tablet): total took ${locationStopwatch.elapsedMilliseconds} ms');
       return null;
@@ -152,7 +160,14 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
     
     if (permission == LocationPermission.deniedForever) {
       if (mounted) {
-        context.showToast("Location permission permanently denied.", isWarning: true);
+        context.showToast(
+          "Location permission permanently denied.",
+          isWarning: true,
+          actionLabel: "SETTINGS",
+          onActionPressed: () async {
+            await openAppSettings();
+          },
+        );
       }
       debugPrint('Attendance location flow (tablet): total took ${locationStopwatch.elapsedMilliseconds} ms');
       return null;
@@ -239,7 +254,13 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
     final Future<Position?> locationFuture = _getCurrentLocation();
 
     try {
-      final shiftPolicy = context.read<AttendanceProvider>().shiftPolicy;
+      var provider = context.read<AttendanceProvider>();
+      var shiftPolicy = provider.shiftPolicy;
+      if (shiftPolicy == null) {
+        await provider.fetchShiftPolicy();
+        shiftPolicy = provider.shiftPolicy;
+      }
+
       final isSelfieRequired = isTimeIn
           ? (shiftPolicy?.entrySelfie ?? false)
           : (shiftPolicy?.exitSelfie ?? false);
@@ -286,13 +307,28 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
         logStage('camera permission', cameraPermissionStopwatch);
 
         final cameraCaptureStopwatch = Stopwatch()..start();
-        photo = await _picker.pickImage(
-          source: ImageSource.camera, 
-          preferredCameraDevice: CameraDevice.front,
-          maxWidth: 1024,
-          maxHeight: 1024,
-          imageQuality: 70,
-        );
+        try {
+          photo = await _picker.pickImage(
+            source: ImageSource.camera, 
+            preferredCameraDevice: CameraDevice.front,
+            maxWidth: 1024,
+            maxHeight: 1024,
+            imageQuality: 70,
+          );
+        } catch (e) {
+          debugPrint('ImagePicker failed, fallback to SelfieCameraScreen: $e');
+        }
+
+        if (photo == null && mounted) {
+          try {
+            photo = await Navigator.push<XFile?>(
+              context,
+              MaterialPageRoute(builder: (_) => const SelfieCameraScreen()),
+            );
+          } catch (e) {
+            debugPrint('SelfieCameraScreen failed: $e');
+          }
+        }
         logStage('camera capture', cameraCaptureStopwatch);
         
         if (photo == null) {
@@ -350,20 +386,6 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
                  msg.contains("remark") ||
                  msg.contains("lateness")) {
                 if (!mounted) return;
-                
-                final isBg = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
-                if (isBg) {
-                  LocalNotificationService.showNotification(
-                    title: 'Late Arrival Reason Required',
-                    body: 'Please open the app to submit your late arrival reason and complete Clock In.',
-                  );
-                  setState(() {
-                    _isProcessing = false;
-                    _isTimeInProcessing = false;
-                    _isTimeOutProcessing = false;
-                  });
-                  return;
-                }
 
                 final reason = await LateArrivalDialog.show(context);
                 
@@ -372,24 +394,10 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
                    try {
                      await performTimeIn(reason: reason); // Retry
                    } catch (retryErr) {
-                     final isBgNow = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
-                     if (isBgNow) {
-                       LocalNotificationService.showNotification(
-                         title: 'Clock In Failed',
-                         body: 'Failed to submit late arrival reason: ${retryErr.toString().replaceAll("Exception: ", "")}',
-                       );
-                     }
                      rethrow;
                    }
                    if (mounted) {
                      context.showToast("Late arrival reason submitted successfully.", isSuccess: true);
-                   }
-                   final isBgNow = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
-                   if (isBgNow) {
-                     LocalNotificationService.showNotification(
-                       title: 'Clock In Successful',
-                       body: 'Clocked in successfully with late arrival reason.',
-                     );
                    }
                 } else {
                    setState(() {
@@ -429,13 +437,6 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
             Provider.of<AttendanceProvider>(context, listen: false).startRealtimeSync(DateTime.now());
           }
         }
-        final isBg = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
-        if (isBg) {
-          LocalNotificationService.showNotification(
-            title: isTimeIn ? 'Clock In Successful' : 'Clock Out Successful',
-            body: isTimeIn ? 'You have successfully clocked in.' : 'You have successfully clocked out.',
-          );
-        }
       } catch (e) {
         if (mounted) {
           context.showExceptionToast(
@@ -443,13 +444,6 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
             fallback: isTimeIn
                 ? 'Failed to clock in. Please try again.'
                 : 'Failed to clock out. Please try again.',
-          );
-        }
-        final isBg = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
-        if (isBg) {
-          LocalNotificationService.showNotification(
-            title: isTimeIn ? 'Clock In Failed' : 'Clock Out Failed',
-            body: 'Failed to complete: ${e.toString().replaceAll("Exception: ", "")}',
           );
         }
       }
@@ -961,6 +955,7 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
                     child: imageUrl != null && imageUrl.isNotEmpty
                         ? CachedNetworkImage(
                             imageUrl: imageUrl,
+                            cacheManager: AttendanceImageCacheManager.instance,
                             fit: BoxFit.contain, // best for no cropping
                             placeholder: (context, url) => const Icon(Icons.person, size: 20, color: Colors.grey),
                             errorWidget: (context, url, error) => const Icon(Icons.person_off, size: 20, color: Colors.grey),
@@ -1070,6 +1065,7 @@ class _MyAttendanceViewState extends State<MyAttendanceView> with WidgetsBinding
                       borderRadius: BorderRadius.circular(16),
                       child: CachedNetworkImage(
                         imageUrl: imageUrl,
+                        cacheManager: AttendanceImageCacheManager.instance,
                         fit: BoxFit.contain,
                         placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
                         errorWidget: (context, url, error) => const Icon(Icons.broken_image, size: 48, color: Colors.grey),

@@ -28,6 +28,10 @@ class AttendanceProvider with ChangeNotifier {
   Shift? _shiftPolicy;
   Shift? get shiftPolicy => _shiftPolicy;
 
+  // Guard: when true, _scheduleShift*Notification calls are no-ops.
+  // Set during startRealtimeSync to prevent 3× redundant scheduling.
+  bool _suppressShiftNotifications = false;
+
   // Missed Punch State
   // Non-null when the last check found a session with no time-out on a past day
   DateTime? _missedPunchDate;
@@ -78,11 +82,11 @@ class AttendanceProvider with ChangeNotifier {
   // ── Shift Policy ──────────────────────────────────────────────────────────
 
   Future<void> _initShiftPolicyAndMissedPunch() async {
-    await _fetchShiftPolicy();
+    await fetchShiftPolicy();
     await checkMissedPunch();
   }
 
-  Future<void> _fetchShiftPolicy() async {
+  Future<void> fetchShiftPolicy() async {
     try {
       _shiftPolicy = await _attendanceService.getMyShiftPolicy();
       notifyListeners();
@@ -90,6 +94,7 @@ class AttendanceProvider with ChangeNotifier {
       debugPrint('AttendanceProvider: Could not fetch shift policy: $e');
     }
   }
+
 
   // ── Missed Punch Detection ────────────────────────────────────────────────
 
@@ -174,10 +179,8 @@ class AttendanceProvider with ChangeNotifier {
     // 1. Return from memory cache if available and not forcing refresh
     if (!forceRefresh && _recordsCache.containsKey(cacheKey)) {
       _currentRecords = _recordsCache[cacheKey]!;
-      if (dateStr == DateFormat('yyyy-MM-dd').format(DateTime.now())) {
-        _scheduleShiftEndNotification();
-        _scheduleShiftStartNotification();
-      }
+      // Shift notifications are NOT scheduled from cache-hit path to avoid
+      // redundant calls (they are scheduled after a fresh API fetch).
       notifyListeners();
       return;
     }
@@ -297,8 +300,11 @@ class AttendanceProvider with ChangeNotifier {
     });
   }
 
-  // Polls the server after a punch to fetch geocoded address and image URL in real time
+  // Polls the server after a punch to fetch geocoded address and image URL in real time.
+  // Suppresses shift-notification scheduling during the poll window to prevent
+  // 3× redundant schedule/cancel cycles from firing in rapid succession.
   void startRealtimeSync(DateTime date) {
+    _suppressShiftNotifications = true;
     invalidateCache(date);
     fetchRecords(date, forceRefresh: true);
 
@@ -310,6 +316,10 @@ class AttendanceProvider with ChangeNotifier {
     Timer(const Duration(seconds: 5), () {
       invalidateCache(date);
       fetchRecords(date, forceRefresh: true);
+      // Re-enable scheduling after the last poll; fire once cleanly
+      _suppressShiftNotifications = false;
+      _scheduleShiftEndNotification();
+      _scheduleShiftStartNotification();
     });
   }
 
@@ -349,6 +359,7 @@ class AttendanceProvider with ChangeNotifier {
   }
 
   void _scheduleShiftEndNotification() {
+    if (_suppressShiftNotifications) return; // Guard: don't fire during realtime sync
     final todayRecords = _currentRecords;
     final latestRecord = todayRecords.isNotEmpty ? todayRecords.last : null;
     
@@ -393,6 +404,7 @@ class AttendanceProvider with ChangeNotifier {
   }
 
   void _scheduleShiftStartNotification() {
+    if (_suppressShiftNotifications) return; // Guard: don't fire during realtime sync
     final todayRecords = _currentRecords;
     final latestRecord = todayRecords.isNotEmpty ? todayRecords.last : null;
     

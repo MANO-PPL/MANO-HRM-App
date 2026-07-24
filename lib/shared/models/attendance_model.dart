@@ -1,3 +1,5 @@
+import '../constants/api_constants.dart';
+
 class AttendanceRecord {
   final int attendanceId;
   final int? userId; // Link to user
@@ -43,11 +45,38 @@ class AttendanceRecord {
       timeOutLng: _toDouble(json['time_out_lng']),
       timeInAddress: json['time_in_address'],
       timeOutAddress: json['time_out_address'],
-      timeInImage: json['time_in_image'], 
-      timeOutImage: json['time_out_image'],
+      timeInImage: _parseImageUrl(
+        json['time_in_image'] ?? 
+        json['time_in_image_url'] ?? 
+        json['timeInImage'] ?? 
+        json['time_in_photo'] ?? 
+        json['time_in_image_key']
+      ), 
+      timeOutImage: _parseImageUrl(
+        json['time_out_image'] ?? 
+        json['time_out_image_url'] ?? 
+        json['timeOutImage'] ?? 
+        json['time_out_photo'] ?? 
+        json['time_out_image_key']
+      ),
       lateMinutes: json['late_minutes'] ?? 0,
       status: json['status'] ?? 'Draft',
     );
+  }
+
+  static String? _parseImageUrl(dynamic rawUrl) {
+    if (rawUrl == null) return null;
+    final str = rawUrl.toString().trim();
+    if (str.isEmpty || str == 'null' || str == 'undefined') return null;
+    if (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('data:')) {
+      return str;
+    }
+    final cleanPath = str.startsWith('/') ? str : '/$str';
+    String base = ApiConstants.baseUrl;
+    if (base.endsWith('/api')) {
+      base = base.substring(0, base.length - 4);
+    }
+    return '$base$cleanPath';
   }
   
   static double? _toDouble(dynamic val) {

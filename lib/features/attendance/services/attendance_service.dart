@@ -29,18 +29,24 @@ class AttendanceService {
     try {
       final response = await _dio.get(ApiConstants.myShift);
       if (response.statusCode == 200 && response.data != null) {
-        final raw = response.data['data'] ?? response.data;
-        if (raw is Map<String, dynamic>) return Shift.fromJson(raw);
+        final raw = response.data;
+        if (raw is Map<String, dynamic>) {
+          final shiftObj = Shift.fromJson(raw);
+          return shiftObj;
+        }
       }
-    } catch (_) {
-      // Endpoint may not exist yet; fall back to policyShifts
+    } catch (e) {
+      debugPrint('getMyShiftPolicy myShift error: $e');
     }
     try {
       final response = await _dio.get(ApiConstants.policyShifts);
       if (response.statusCode == 200 && response.data != null) {
         final list = response.data['data'];
         if (list is List && list.isNotEmpty) {
-          return Shift.fromJson(list.first as Map<String, dynamic>);
+          final item = list.first;
+          if (item is Map<String, dynamic>) {
+            return Shift.fromJson(item);
+          }
         }
       }
     } catch (e) {
@@ -48,6 +54,7 @@ class AttendanceService {
     }
     return null;
   }
+
 
   // 1. Get My Records
   Future<List<AttendanceRecord>> getMyRecords({String? fromDate, String? toDate, String? userId, int? limit}) async {
