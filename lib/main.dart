@@ -1,5 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -24,6 +25,7 @@ import 'package:flutter_application/features/leave/core/leave_provider.dart';
 import 'package:flutter_application/features/leave/core/leave_service.dart'; // Import LeaveService
 import 'package:flutter_application/shared/services/permission_service.dart'; // Import PermissionService
 import 'package:flutter_application/shared/services/chatbot_service.dart'; // Import ChatbotService
+import 'package:flutter_application/shared/widgets/chatbot_fab.dart'; // Import ChatbotOverlayManager
 import 'package:flutter_application/shared/services/socket_service.dart';
 import 'package:flutter_application/features/collaboration/core/chat_service.dart';
 
@@ -81,8 +83,8 @@ void main() async {
   // Load environment variables
   await dotenv.load(fileName: ".env");
 
-  // Configure Edge-to-Edge
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  // Forcefully close/hide the navigation button section so app occupies the screen space properly
+  forceCloseSystemNavigationBar();
 
   // Request Permissions on Launch
   final permissionService = PermissionService();
@@ -152,8 +154,66 @@ void main() async {
   );
 }
 
-class AttendanceApp extends StatelessWidget {
+const MethodChannel _settingsChannel = MethodChannel('co.mano.attendance/settings');
+
+void forceCloseSystemNavigationBar() {
+  SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.manual,
+    overlays: [SystemUiOverlay.top],
+  );
+  try {
+    _settingsChannel.invokeMethod('hideNavigationBar');
+  } catch (_) {}
+}
+
+class AttendanceApp extends StatefulWidget {
   const AttendanceApp({super.key});
+
+  @override
+  State<AttendanceApp> createState() => _AttendanceAppState();
+}
+
+class _AttendanceAppState extends State<AttendanceApp> with WidgetsBindingObserver {
+  Timer? _navBarAutoCloseTimer;
+  bool _isNavBarOverlayVisible = false;
+
+  void _scheduleNavBarAutoClose() {
+    _navBarAutoCloseTimer?.cancel();
+    _navBarAutoCloseTimer = Timer(const Duration(seconds: 5), () {
+      forceCloseSystemNavigationBar();
+      _isNavBarOverlayVisible = false;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    forceCloseSystemNavigationBar();
+
+    SystemChrome.setSystemUIChangeCallback((systemOverlaysAreVisible) async {
+      _isNavBarOverlayVisible = systemOverlaysAreVisible;
+      if (systemOverlaysAreVisible) {
+        _scheduleNavBarAutoClose();
+      } else {
+        _navBarAutoCloseTimer?.cancel();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _navBarAutoCloseTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      forceCloseSystemNavigationBar();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -170,19 +230,31 @@ class AttendanceApp extends StatelessWidget {
             statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
             statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
             systemNavigationBarColor: Colors.transparent,
+            systemNavigationBarDividerColor: Colors.transparent,
             systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
           ),
         );
 
-        return MaterialApp(
-          navigatorKey: navigatorKey,
-          title: 'Admin Dashboard',
-          debugShowCheckedModeBanner: false,
-          theme: _buildTheme(Brightness.light),
-          darkTheme: _buildTheme(Brightness.dark),
-          themeMode: currentMode,
-          // Check for existing session or show login
-          home: const AuthWrapper(),
+        return Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (_) {
+            // Close the nav section immediately when the user starts using the screen
+            if (_isNavBarOverlayVisible || (_navBarAutoCloseTimer != null && _navBarAutoCloseTimer!.isActive)) {
+              _navBarAutoCloseTimer?.cancel();
+              _isNavBarOverlayVisible = false;
+              forceCloseSystemNavigationBar();
+            }
+          },
+          child: MaterialApp(
+            navigatorKey: navigatorKey,
+            title: 'Admin Dashboard',
+            debugShowCheckedModeBanner: false,
+            theme: _buildTheme(Brightness.light),
+            darkTheme: _buildTheme(Brightness.dark),
+            themeMode: currentMode,
+            // Check for existing session or show login
+            home: const AuthWrapper(),
+          ),
         );
       },
     );
@@ -296,27 +368,37 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 
   Future<void> _checkAuth() async {
-    final authService = Provider.of<AuthService>(context, listen: false);
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
 
-    // Check auth status (Refresh -> Get User)
-    await authService.checkAuthStatus();
+      // Check auth status (Refresh -> Get User) with safety timeout
+      await authService.checkAuthStatus().timeout(
+        const Duration(seconds: 8),
+        onTimeout: () {
+          debugPrint("Auth check timed out after 8s");
+          return null;
+        },
+      );
 
-    // If authenticated, fetch notifications and chats
-    if (authService.isAuthenticated && mounted) {
-      Provider.of<NotificationService>(
-        context,
-        listen: false,
-      ).fetchNotifications();
-      Provider.of<ChatService>(
-        context,
-        listen: false,
-      ).getRooms();
-    }
-
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+      // If authenticated, fetch notifications and chats
+      if (authService.isAuthenticated && mounted) {
+        Provider.of<NotificationService>(
+          context,
+          listen: false,
+        ).fetchNotifications();
+        Provider.of<ChatService>(
+          context,
+          listen: false,
+        ).getRooms();
+      }
+    } catch (e) {
+      debugPrint("Error checking auth status: $e");
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -329,10 +411,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
     // Watch for auth changes
     final authService = context.watch<AuthService>();
     final isAuthenticated = authService.isAuthenticated;
+    final user = authService.user;
 
-    if (isAuthenticated) {
-      final user = authService.user;
-      if (user != null && user.forcePasswordChange) {
+    if (isAuthenticated && user != null) {
+      if (user.forcePasswordChange) {
         return const OrientationGuard(
           key: ValueKey('force_password_change'),
           child: ForcePasswordChangeScreen(),
@@ -343,6 +425,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
         child: DashboardScreen(),
       );
     }
+
+    // Ensure no residual chatbot overlay lingers on login screen
+    ChatbotOverlayManager.destroyAll();
 
     // Use the new LoginScreen wrapped in OrientationGuard
     return const OrientationGuard(

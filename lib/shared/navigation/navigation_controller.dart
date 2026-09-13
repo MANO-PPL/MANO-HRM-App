@@ -56,6 +56,13 @@ extension PageTypeExtension on PageType {
     }
   }
 
+  String getTitle(bool isEmployee) {
+    if (this == PageType.reports && isEmployee) {
+      return 'My Reports';
+    }
+    return title;
+  }
+
   IconData get icon {
     switch (this) {
       case PageType.dashboard:
@@ -95,7 +102,7 @@ extension PageTypeExtension on PageType {
 // Global Singleton for Navigation State
 final navigationNotifier = ValueNotifier<PageType>(PageType.dashboard);
 
-// Global Singleton for Policies Tab State ('shifts', 'geofencing', 'salary_packages')
+// Global Singleton for Policies Tab State ('shifts', 'geofencing', 'salary_packages', 'leave_policies')
 final policiesTabNotifier = ValueNotifier<String>('shifts');
 
 void navigateTo(PageType page) {
@@ -113,8 +120,20 @@ void navigateTo(PageType page) {
 }
 
 void navigateToPolicies({String tab = 'shifts'}) {
-  policiesTabNotifier.value = tab;
+  if (tab == 'leave_policies' || tab == 'leaves' || tab == 'leave' || tab == 'policies') {
+    policiesTabNotifier.value = 'leave_policies';
+  } else {
+    policiesTabNotifier.value = tab;
+  }
   navigationNotifier.value = PageType.policies;
+}
+
+// Global Singleton for Holidays & Leave Tab State ('holidays', 'leaves', 'policies')
+final holidaysAndLeaveTabNotifier = ValueNotifier<String>('holidays');
+
+void navigateToHolidaysAndLeave({String tab = 'holidays'}) {
+  holidaysAndLeaveTabNotifier.value = tab;
+  navigationNotifier.value = PageType.leavesAndHolidays;
 }
 
 // commit-marker: 2026-02-27T18:00:00+05:30

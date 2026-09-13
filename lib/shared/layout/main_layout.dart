@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application/features/dashboard/widgets/dashboard_tablet_view.dart';
 import 'package:flutter_application/features/employees/views/employees_tablet_portrait_view.dart';
-import 'package:flutter_application/features/attendance/views/attendance_tablet_portrait_view.dart';
+import 'package:flutter_application/features/attendance/attendance_page.dart';
 import 'package:flutter_application/features/live_attendance/views/live_attendance_tablet_portrait_view.dart';
 import 'package:flutter_application/features/leave/leave_page.dart';
 import 'package:flutter_application/features/reports/reports_page.dart';
@@ -48,7 +48,11 @@ class MainLayout extends StatelessWidget {
                         title: currentPage.title,
                       ),
                     ),
-                    body: _buildPage(currentPage),
+                    body: SafeArea(
+                      top: false,
+                      bottom: true,
+                      child: _buildPage(currentPage),
+                    ),
                     floatingActionButton: ChatbotFab(currentPageType: currentPage),
                     floatingActionButtonLocation: ChatbotFabLocation(currentPage),
                   );
@@ -68,7 +72,7 @@ class MainLayout extends StatelessWidget {
       case PageType.employees:
         return const EmployeesView();
       case PageType.myAttendance:
-        return const MyAttendanceView();
+        return const AttendancePage();
       case PageType.liveAttendance:
         return const LiveAttendanceView();
       case PageType.leavesAndHolidays:

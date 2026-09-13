@@ -44,6 +44,7 @@ class ApiConstants {
   static const String attendanceCorrectionRequest = '/attendance/correction-request'; // GET /:id, POST
   static const String attendanceCorrectionRequests = '/attendance/correction-requests'; // GET All
   static const String attendanceRecordExport = '/attendance/records/export';
+  static const String attendancePing = '/attendance/ping'; // POST - checkpoint/ping
   static const String attendanceCorrectRequestUpdate = '/attendance/correct-request'; // PATCH /:id
   
   // Attendance Simulation (Dev Only)
@@ -73,6 +74,11 @@ class ApiConstants {
   static const String leavesAdminHistory = '/leaves/admin/history';
   static const String leavesAdminStatus = '/leaves/admin/status'; // PUT /:id
 
+  static const String leavesMyBalances = '/leaves/balances';          // GET
+  static const String leavesBalancesAll = '/leaves/balances/all';     // GET
+  static const String leavesEmployeeBalance = '/leaves/balances';     // GET /:user_id
+  static const String leavesPolicies = '/leaves/policies';            // GET
+
   // Notifications
   static const String notifications = '/notifications';
   static const String notificationMarkRead = '/notifications/:id/read'; // PUT
@@ -93,6 +99,7 @@ class ApiConstants {
   static const String darEventsList = '/dar/events/list';
   static const String darActivitiesList = '/dar/activities/list';
   static const String darActivitiesCreate = '/dar/activities/create';
+  static const String darActivitiesBatchSave = '/dar/activities/batch-save';
   static const String darActivitiesUpdate = '/dar/activities/update'; // append /:id
   static const String darActivitiesDelete = '/dar/activities/delete'; // append /:id
   static const String darEventsCreate = '/dar/events/create';
@@ -109,7 +116,12 @@ class ApiConstants {
   static const String labourSchedule = '/labour/schedule';
   static const String labourFinancesSummary = '/labour/finances/summary';
   static const String labourFinancesAdvance = '/labour/finances/advance';
+  static const String labourFinancesAdvances = '/labour/finances/advances';
   static const String labourFinancesPayout = '/labour/finances/payout';
+  static const String labourFinancesLedger = '/labour/finances/ledger';
+  static const String labourFinancesExport = '/labour/finances/export';
+  static const String labourWageHistory = '/labour/labours/:id/wage-history';
+  static const String labourWageRevision = '/labour/wage-history/:id';
 
   // Payroll
   static const String payrollDashboard = '/payroll/dashboard';
@@ -120,6 +132,9 @@ class ApiConstants {
   static const String payrollEmployee = '/payroll/employees';
   // Per-entry payroll (append /:entryId/...)
   static const String payrollEntries = '/payroll/entries';
+  // Salary Packages
+  static const String payrollPackages = '/payroll/packages';
+  static const String payrollEmployeesPackages = '/payroll/employees/packages';
 
   // Chatbot
   static const String chatbotAskInternal = '/website-chatbot/ask-internal';
