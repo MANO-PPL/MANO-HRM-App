@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_application/shared/widgets/glass_container.dart';
@@ -58,13 +58,13 @@ class _NotificationListState extends State<NotificationList> {
                   _activeTab = tab;
                 });
               },
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(6),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 6),
+                padding: const EdgeInsets.symmetric(vertical: 4.5),
                 decoration: BoxDecoration(
                   color: isSelected ? activeBg : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(6),
                   border: Border.all(
                     color: isSelected
                         ? (isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0))
@@ -86,31 +86,31 @@ class _NotificationListState extends State<NotificationList> {
                   children: [
                     Icon(
                       tab == 'Unread' ? Icons.mail_outline_rounded : Icons.mark_email_read_outlined,
-                      size: 14,
+                      size: 13,
                       color: isSelected ? activeColor : inactiveColor,
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 5),
                     Text(
                       tab,
                       style: GoogleFonts.poppins(
-                        fontSize: 12,
+                        fontSize: 11.5,
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                         color: isSelected ? activeColor : inactiveColor,
                       ),
                     ),
                     if (hasBadge) ...[
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 5),
                       Container(
-                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                         decoration: BoxDecoration(
                           color: Colors.red,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           '${service.unreadCount}',
                           style: GoogleFonts.poppins(
                             color: Colors.white,
-                            fontSize: 9,
+                            fontSize: 8.5,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -171,7 +171,7 @@ class _NotificationListState extends State<NotificationList> {
             ],
             if (widget.isMobilePage) ...[
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -179,15 +179,15 @@ class _NotificationListState extends State<NotificationList> {
                       child: _buildSwitcher(context, service),
                     ),
                     if (showMarkAllRead) ...[
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       TextButton(
                         onPressed: () => service.markAllAsRead(),
                         style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
-                        child: Text('Mark all read', style: GoogleFonts.poppins(fontSize: 12)),
+                        child: Text('Mark all read', style: GoogleFonts.poppins(fontSize: 11)),
                       ),
                     ],
                   ],
@@ -265,19 +265,19 @@ class _NotificationListState extends State<NotificationList> {
       onTap: () => service.markAsRead(note.id),
       child: Container(
         color: bgColor,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(7),
               decoration: BoxDecoration(
                 color: _getTypeColor(note.type).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(_getTypeIcon(note.type), size: 16, color: _getTypeColor(note.type)),
+              child: Icon(_getTypeIcon(note.type), size: 15, color: _getTypeColor(note.type)),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,28 +285,28 @@ class _NotificationListState extends State<NotificationList> {
                   Text(
                     note.title,
                     style: GoogleFonts.poppins(
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: note.isRead ? FontWeight.normal : FontWeight.w600,
                       color: Theme.of(context).textTheme.bodyLarge?.color,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(
                     note.message,
-                    style: GoogleFonts.poppins(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
+                    style: GoogleFonts.poppins(fontSize: 11.5, color: Theme.of(context).textTheme.bodySmall?.color),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                      _formatTime(note.createdAt),
-                     style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey),
+                     style: GoogleFonts.poppins(fontSize: 9.5, color: Colors.grey),
                   ),
                 ],
               ),
             ),
             if (!note.isRead)
               Container(
-                width: 8,
-                height: 8,
+                width: 7,
+                height: 7,
                 decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
               )
           ],

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_application/shared/navigation/navigation_controller.dart';
 import 'package:flutter_application/shared/widgets/glass_container.dart';
@@ -50,7 +50,7 @@ class _SidebarContent extends StatelessWidget {
           if (!isEmployee) PageType.labourManagement,
           PageType.myAttendance,
           if (!isEmployee) PageType.liveAttendance,
-          if (!isEmployee) PageType.reports,
+          PageType.reports,
           if (!isEmployee) PageType.payroll,
           PageType.dailyActivity,
           if (!isEmployee) PageType.policies,
@@ -66,22 +66,22 @@ class _SidebarContent extends StatelessWidget {
                     children: [
                       // Sidebar Header
                       Container(
-                        height: 55,
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        height: 48,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
                         alignment: Alignment.centerLeft,
-                        margin: const EdgeInsets.only(bottom: 8),
+                        margin: const EdgeInsets.only(bottom: 4),
                         child: Row(
                           children: [
                             Image.asset(
                               'assets/mano.png',
-                              height: 40,
-                              errorBuilder: (context, error, stackTrace) => Icon(Icons.change_history, color: Theme.of(context).primaryColor, size: 28),
+                              height: 32,
+                              errorBuilder: (context, error, stackTrace) => Icon(Icons.change_history, color: Theme.of(context).primaryColor, size: 24),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 10),
                             Text(
                               'MANO',
                               style: GoogleFonts.poppins(
-                                fontSize: 22,
+                                fontSize: 19,
                                 fontWeight: FontWeight.bold,
                                 color: Theme.of(context).brightness == Brightness.dark
                                     ? Colors.white
@@ -97,6 +97,7 @@ class _SidebarContent extends StatelessWidget {
                             context,
                             page,
                             currentPage == page,
+                            isEmployee: isEmployee,
                           )),
                     ],
                   ),
@@ -105,7 +106,7 @@ class _SidebarContent extends StatelessWidget {
 
               // Fixed Bottom Item: Bugs & Feedback (Custom Button)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Column(
                   children: [
                     GestureDetector(
@@ -161,7 +162,7 @@ class _SidebarContent extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuItem(BuildContext context, PageType page, bool isActive) {
+  Widget _buildMenuItem(BuildContext context, PageType page, bool isActive, {bool isEmployee = false}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
@@ -185,7 +186,7 @@ class _SidebarContent extends StatelessWidget {
                 : (isDark ? Colors.grey : Colors.black54),
           ),
           title: Text(
-            page.title,
+            page.getTitle(isEmployee),
             style: GoogleFonts.poppins(
               fontSize: 12,
               fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,

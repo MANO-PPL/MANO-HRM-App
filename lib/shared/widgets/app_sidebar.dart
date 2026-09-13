@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../navigation/navigation_controller.dart';
-import 'glass_container.dart';
-import 'package:provider/provider.dart'; // Import Provider
-import '../services/auth_service.dart'; // Import AuthService
+import 'package:flutter_application/shared/navigation/navigation_controller.dart';
+import 'package:flutter_application/shared/widgets/glass_container.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_application/shared/services/auth_service.dart';
 
 class AppSidebar extends StatelessWidget {
   final VoidCallback? onLinkTap;
 
   const AppSidebar({
-    super.key, 
+    super.key,
     this.onLinkTap,
   });
 
@@ -18,141 +18,208 @@ class AppSidebar extends StatelessWidget {
     final isMobile = MediaQuery.of(context).size.width < 600;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Solid Sidebar
     return GlassContainer(
-      width: isMobile ? 240 : 280,
+      width: isMobile ? 240 : 260,
       height: double.infinity,
-      blur: 0, // No blur
-      color: Theme.of(context).brightness == Brightness.dark 
-          ? const Color(0xFF0D1117) // Darker Sidebar (Slate 900)
-          : const Color(0xFFFFFFFF), // Solid White for Light Mode
+      blur: 0,
+      color: isDark
+          ? const Color(0xFF0D1117)
+          : const Color(0xFFFFFFFF),
       borderRadius: 0,
       border: Border(
         right: BorderSide(
-          color: isDark 
-              ? const Color(0xFF30363D) // Slate 800 for subtle contrast
+          color: isDark
+              ? const Color(0xFF30363D)
               : Colors.grey[300]!,
           width: 1,
         ),
-      ), 
+      ),
       child: ValueListenableBuilder<PageType>(
         valueListenable: navigationNotifier,
         builder: (context, currentPage, _) {
-          return SingleChildScrollView(
+          final user = context.read<AuthService>().user;
+          final isEmployee = user != null && user.isEmployee;
+
+          // Clean list of nav items matching Attendance-Web
+          final navPages = [
+            PageType.dashboard,
+            if (!isEmployee) PageType.employees,
+            if (!isEmployee) PageType.labourManagement,
+            PageType.myAttendance,
+            if (!isEmployee) PageType.liveAttendance,
+            PageType.reports,
+            if (!isEmployee) PageType.payroll,
+            PageType.dailyActivity,
+            if (!isEmployee) PageType.policies,
+            PageType.leavesAndHolidays,
+          ];
+
+          return SafeArea(
             child: Column(
               children: [
-              // Sidebar Header (Matches CustomAppBar)
-              Container(
-                height: 70,
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: isDark 
-                          ? const Color(0xFF30363D) // Slate 800 for subtle contrast in black mode
-                          : Colors.grey[300]!,
-                      width: 1,
+                // Sidebar Header
+                Container(
+                  height: 56,
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: isDark
+                            ? const Color(0xFF30363D)
+                            : Colors.grey[300]!,
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    children: [
+                      Image.asset(
+                        'assets/mano.png',
+                        height: 36,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(color: const Color(0xFF5B60F6).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                          child: const Icon(Icons.change_history, color: Color(0xFF5B60F6), size: 22),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'MANO',
+                        style: GoogleFonts.poppins(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF5B60F6),
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Menu Items
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Column(
+                      children: [
+                        ...navPages.map((page) => _buildMenuItem(
+                              context,
+                              page,
+                              currentPage == page,
+                              isDark,
+                              isEmployee: isEmployee,
+                            )),
+                      ],
                     ),
                   ),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                alignment: Alignment.centerLeft,
-                child: Row(
-                  children: [
-                    // Optional Logo Icon
-                    Icon(
-                      Icons.change_history, // Placeholder logo icon
-                      color: Theme.of(context).primaryColor,
-                      size: 28,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'MANO',
-                      style: GoogleFonts.poppins(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).brightness == Brightness.dark 
-                            ? Colors.white 
-                            : Theme.of(context).primaryColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(height: 32), // Matches typical page content padding
-              
-              // Menu Items
-              ...PageType.values.where((p) {
-                if (p == PageType.collaboration) return false;
-                
-                // 1. Role-based Filtering
-                final user = context.read<AuthService>().user;
-                if (user != null && user.isEmployee) {
-                   // Employee Allowed Pages
-                    final allowed = [
-                      PageType.dashboard,
-                      PageType.myAttendance,
-                      PageType.dailyActivity,
-                      PageType.leavesAndHolidays,   // UPDATED
-                      PageType.feedback, // ADDED
-                      PageType.collaboration, // ADDED
-                      PageType.profile,
-                    ];
-                   if (!allowed.contains(p)) return false;
-                }
 
-                // 2. Mobile Logic
-                if (isMobile) return true; // Show all (filtered) on mobile
-                return p != PageType.profile; // Hide profile on tablet/desktop (sidebar)
-              }).map((page) => _buildMenuItem(
-                context, 
-                page,
-                currentPage == page,
-              )),
-            ],
+                // Bugs & Feedback at bottom
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  child: Column(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          navigateTo(PageType.feedback);
+                          if (onLinkTap != null) onLinkTap!();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                          decoration: BoxDecoration(
+                            color: currentPage == PageType.feedback
+                                ? (isDark
+                                    ? Colors.white.withValues(alpha: 0.1)
+                                    : const Color(0xFF4338CA).withValues(alpha: 0.1))
+                                : (isDark
+                                    ? const Color(0xFF161B22)
+                                    : const Color(0xFFF8FAFC)),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isDark
+                                  ? const Color(0xFF30363D)
+                                  : const Color(0xFFE2E8F0),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.bug_report_outlined,
+                                size: 18,
+                                color: currentPage == PageType.feedback
+                                    ? (isDark ? Colors.white : const Color(0xFF4338CA))
+                                    : (isDark ? Colors.grey[400] : Colors.grey[700]),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                "Bugs & Feedback",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: currentPage == PageType.feedback ? FontWeight.w600 : FontWeight.w500,
+                                  color: currentPage == PageType.feedback
+                                      ? (isDark ? Colors.white : const Color(0xFF4338CA))
+                                      : (isDark ? Colors.grey[300] : Colors.grey[800]),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           );
-        }
+        },
       ),
     );
   }
 
-  Widget _buildMenuItem(BuildContext context, PageType page, bool isActive) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+  Widget _buildMenuItem(BuildContext context, PageType page, bool isActive, bool isDark, {bool isEmployee = false}) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 1.5),
       child: Material(
-        color: isActive 
-            ? (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05)) // Neutral grey for light mode active
+        color: isActive
+            ? (isDark ? const Color(0xFF21262D) : const Color(0xFFF6F8FA))
             : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-        child: ListTile(
-          horizontalTitleGap: 8,
-          minLeadingWidth: 20,
-          leading: Icon(
-            page.icon,
-            color: isActive 
-                ? (isDark ? Colors.white : Colors.black) // Black for light mode active
-                : (isDark ? Colors.grey : Colors.black54),
-          ),
-          title: Text(
-            page.title,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-              color: isActive 
-                  ? (isDark ? Colors.white : Colors.black) // Black for light mode active
-                  : (isDark ? Colors.grey[400] : Colors.black87),
-            ),
-          ),
+        borderRadius: BorderRadius.circular(6),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(6),
           onTap: () {
             navigateTo(page);
-            onLinkTap?.call();
+            if (onLinkTap != null) onLinkTap!();
           },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            child: Row(
+              children: [
+                Icon(
+                  page.icon,
+                  size: 17,
+                  color: isActive
+                      ? (isDark ? const Color(0xFF58A6FF) : const Color(0xFF0969DA))
+                      : (isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    page.getTitle(isEmployee),
+                    style: GoogleFonts.poppins(
+                      fontSize: 11.5,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                      color: isActive
+                          ? (isDark ? const Color(0xFF58A6FF) : const Color(0xFF0969DA))
+                          : (isDark ? const Color(0xFFC9D1D9) : const Color(0xFF334155)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 }
-

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_application/shared/providers/theme_simple.dart';
@@ -45,33 +45,41 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         child: SafeArea(
           bottom: false,
           child: Container(
-            height: 56,
+            height: isMobilePortrait ? 50 : 56,
             padding: EdgeInsets.fromLTRB(
-              isMobile ? 4 : (MediaQuery.of(context).size.width < 900 ? 8 : 24),
+              isMobile ? 2 : (MediaQuery.of(context).size.width < 900 ? 8 : 24),
               0,
-              isMobile ? 8 : 24,
+              isMobile ? 4 : 24,
               0,
             ),
             child: Row(
               children: [
                 if (showDrawerButton)
                   IconButton(
-                    padding: isMobile ? const EdgeInsets.all(4) : const EdgeInsets.all(8),
+                    padding: isMobilePortrait ? const EdgeInsets.all(2) : (isMobile ? const EdgeInsets.all(4) : const EdgeInsets.all(8)),
                     constraints: isMobile ? const BoxConstraints(minWidth: 32, minHeight: 32) : null,
-                    icon: Icon(Icons.menu, color: Theme.of(context).iconTheme.color),
+                    icon: Icon(Icons.menu, size: isMobilePortrait ? 22 : 24, color: Theme.of(context).iconTheme.color),
                     onPressed: () => Scaffold.of(context).openDrawer(),
                   ),
                 
                 Expanded(
-                  child: Text(
-                    title,
-                    style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).textTheme.titleLarge?.color,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
+                  child: Builder(
+                    builder: (context) {
+                      final user = context.watch<AuthService>().user;
+                      final isEmployee = user != null && user.isEmployee;
+                      final displayTitle = (isEmployee && title == 'Reports') ? 'My Reports' : title;
+
+                      return Text(
+                        displayTitle,
+                        style: GoogleFonts.poppins(
+                          fontSize: isMobilePortrait ? 16 : 18,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).textTheme.titleLarge?.color,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      );
+                    },
                   ),
                 ),
                 
@@ -213,13 +221,13 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                                border: Border.all(color: const Color(0xFF5B60F6).withValues(alpha: 0.2)),
                             ),
                             child: CircleAvatar(
-                              radius: 16,
+                              radius: 14,
                               backgroundColor: const Color(0xFF5B60F6).withValues(alpha: 0.1),
                               backgroundImage: (user?.profileImage != null && user!.profileImage!.isNotEmpty)
                                   ? NetworkImage(user.profileImage!)
                                   : null,
                               child: (user?.profileImage == null || user!.profileImage!.isEmpty)
-                                  ? Text(initials, style: GoogleFonts.poppins(color: const Color(0xFF5B60F6), fontWeight: FontWeight.bold, fontSize: 12))
+                                  ? Text(initials, style: GoogleFonts.poppins(color: const Color(0xFF5B60F6), fontWeight: FontWeight.bold, fontSize: 11))
                                   : null,
                             ),
                           ),

@@ -266,8 +266,15 @@ class ChatbotOverlayManager {
       _fabEntry = null;
     }
 
-    final chatbotService = Provider.of<ChatbotService>(context, listen: false);
     final authService = Provider.of<AuthService>(context, listen: false);
+    if (!authService.isAuthenticated || authService.user == null) {
+      return;
+    }
+
+    final chatbotService = Provider.of<ChatbotService>(context, listen: false);
+    if (!chatbotService.isChatbotEnabled) {
+      return;
+    }
 
     _fabEntry = OverlayEntry(
       builder: (overlayContext) {
@@ -302,8 +309,12 @@ class ChatbotOverlayManager {
 
     hideFab();
 
-    final chatbotService = Provider.of<ChatbotService>(context, listen: false);
     final authService = Provider.of<AuthService>(context, listen: false);
+    if (!authService.isAuthenticated || authService.user == null) {
+      return;
+    }
+
+    final chatbotService = Provider.of<ChatbotService>(context, listen: false);
 
     _windowEntry = OverlayEntry(
       builder: (overlayContext) {
@@ -342,11 +353,15 @@ class ChatbotOverlayManager {
   }
 
   static void destroyAll() {
-    if (_windowEntry != null) {
-      _windowEntry!.remove();
-      _windowEntry = null;
-    }
-    hideFab();
+    try {
+      if (_windowEntry != null) {
+        _windowEntry!.remove();
+        _windowEntry = null;
+      }
+    } catch (_) {}
+    try {
+      hideFab();
+    } catch (_) {}
   }
 }
 
