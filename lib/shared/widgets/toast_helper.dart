@@ -3,10 +3,10 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_application/features/attendance/providers/attendance_provider.dart';
+import 'package:flutter_application/features/attendance/core/attendance_provider.dart';
 import 'package:flutter_application/shared/navigation/navigation_controller.dart';
-import '../services/auth_service.dart';
-import '../utils/error_helper.dart';
+import 'package:flutter_application/shared/services/auth_service.dart';
+import 'package:flutter_application/shared/utils/error_helper.dart';
 
 OverlayEntry? _currentToastEntry;
 
@@ -33,6 +33,8 @@ extension ToastExtension on BuildContext {
     bool isWarning = false,
     String? actionLabel,
     VoidCallback? onActionPressed,
+    Duration duration = const Duration(seconds: 5),
+    bool isTop = false,
   }) {
     if (!mounted) return;
 
@@ -62,7 +64,9 @@ extension ToastExtension on BuildContext {
       icon = Icons.info_outline;
     }
 
-    final overlay = navigatorKey.currentState?.overlay ?? Overlay.of(this);
+    final overlay = Overlay.maybeOf(this, rootOverlay: true) ??
+        navigatorKey.currentState?.overlay ??
+        Overlay.of(this);
     
     late final OverlayEntry entry;
     entry = OverlayEntry(
@@ -73,6 +77,8 @@ extension ToastExtension on BuildContext {
           bgColor: bgColor,
           actionLabel: actionLabel,
           onActionPressed: onActionPressed,
+          duration: duration,
+          isTop: isTop,
           onDismissed: () {
             if (_currentToastEntry == entry) {
               try {
@@ -97,7 +103,9 @@ extension ToastExtension on BuildContext {
   }) {
     if (!mounted) return;
 
-    final overlay = navigatorKey.currentState?.overlay ?? Overlay.of(this);
+    final overlay = Overlay.maybeOf(this, rootOverlay: true) ??
+        navigatorKey.currentState?.overlay ??
+        Overlay.of(this);
     
     late final OverlayEntry entry;
     entry = OverlayEntry(
@@ -172,6 +180,8 @@ class AnimatedToastWidget extends StatefulWidget {
   final String? actionLabel;
   final VoidCallback? onActionPressed;
   final VoidCallback onDismissed;
+  final Duration duration;
+  final bool isTop;
 
   const AnimatedToastWidget({
     super.key,
@@ -181,6 +191,8 @@ class AnimatedToastWidget extends StatefulWidget {
     this.actionLabel,
     this.onActionPressed,
     required this.onDismissed,
+    this.duration = const Duration(seconds: 5),
+    this.isTop = false,
   });
 
   @override
@@ -206,13 +218,16 @@ class _AnimatedToastWidgetState extends State<AnimatedToastWidget> with SingleTi
       curve: Curves.easeInOut,
     );
 
-    _slideAnimation = Tween<double>(begin: 40.0, end: 0.0).animate(
+    _slideAnimation = Tween<double>(
+      begin: widget.isTop ? -40.0 : 40.0,
+      end: 0.0,
+    ).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
     );
 
     _controller.forward();
 
-    _dismissTimer = Timer(Duration(seconds: widget.actionLabel != null ? 5 : 3), () {
+    _dismissTimer = Timer(widget.duration, () {
       if (mounted) {
         _controller.reverse().then((_) {
           if (mounted) {
@@ -235,9 +250,11 @@ class _AnimatedToastWidgetState extends State<AnimatedToastWidget> with SingleTi
     final mediaQuery = MediaQuery.of(context);
     final bottomInset = mediaQuery.viewInsets.bottom;
     final bottomPadding = mediaQuery.padding.bottom;
+    final topPadding = mediaQuery.padding.top;
     
     return Positioned(
-      bottom: 24 + bottomInset + bottomPadding,
+      top: widget.isTop ? (24 + topPadding) : null,
+      bottom: widget.isTop ? null : (24 + bottomInset + bottomPadding),
       left: 20,
       right: 20,
       child: Center(
@@ -254,7 +271,14 @@ class _AnimatedToastWidgetState extends State<AnimatedToastWidget> with SingleTi
           },
           child: Material(
             color: Colors.transparent,
-            child: Container(
+            child: GestureDetector(
+              onTap: () {
+                _dismissTimer?.cancel();
+                _controller.reverse().then((_) {
+                  if (mounted) widget.onDismissed();
+                });
+              },
+              child: Container(
               constraints: const BoxConstraints(maxWidth: 420),
               decoration: BoxDecoration(
                 color: widget.bgColor.withValues(alpha: 0.95),
@@ -323,8 +347,9 @@ class _AnimatedToastWidgetState extends State<AnimatedToastWidget> with SingleTi
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class InAppNotificationBanner extends StatefulWidget {

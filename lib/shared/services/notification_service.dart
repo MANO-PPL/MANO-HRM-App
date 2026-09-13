@@ -4,12 +4,12 @@ import 'package:dio/dio.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 // ignore: library_prefixes
 import 'package:socket_io_client/socket_io_client.dart' as IO;
-import '../constants/api_constants.dart';
-import '../models/notification_model.dart';
-import 'auth_service.dart';
-import 'socket_service.dart';
-import '../widgets/toast_helper.dart';
-import '../navigation/navigation_controller.dart';
+import 'package:flutter_application/shared/constants/api_constants.dart';
+import 'package:flutter_application/shared/models/notification_model.dart';
+import 'package:flutter_application/shared/services/auth_service.dart';
+import 'package:flutter_application/shared/services/socket_service.dart';
+import 'package:flutter_application/shared/widgets/toast_helper.dart';
+import 'package:flutter_application/shared/navigation/navigation_controller.dart';
 
 class NotificationService extends ChangeNotifier {
   final Dio _dio;
@@ -73,13 +73,13 @@ class NotificationService extends ChangeNotifier {
         final String? relatedEntityType = data['related_entity_type']?.toString().toUpperCase();
 
         if (type == 'LEAVE' || relatedEntityType == 'LEAVE') {
-          navigateTo(PageType.leavesAndHolidays);
+          navigateToHolidaysAndLeave(tab: 'leaves');
         } else if (type == 'ATTENDANCE' || relatedEntityType == 'ATTENDANCE' || relatedEntityType == 'CORRECTION') {
           navigateTo(PageType.myAttendance);
         } else if (type == 'SHIFT' || relatedEntityType == 'SHIFT') {
-          navigateTo(PageType.policyEngine);
+          navigateToPolicies(tab: 'shifts');
         } else if (type == 'LOCATION' || relatedEntityType == 'LOCATION') {
-          navigateTo(PageType.geoFencing);
+          navigateToPolicies(tab: 'geofencing');
         } else if (type == 'DAR' || relatedEntityType == 'DAR') {
           navigateTo(PageType.dailyActivity);
         } else if (type == 'FEEDBACK' || relatedEntityType == 'FEEDBACK') {
@@ -87,7 +87,7 @@ class NotificationService extends ChangeNotifier {
         } else if (type == 'CHAT' || type == 'CHAT_MESSAGE' || relatedEntityType == 'CHAT_MESSAGE') {
           navigateTo(PageType.collaboration);
         } else if (relatedEntityType == 'HOLIDAY') {
-          navigateTo(PageType.leavesAndHolidays);
+          navigateToHolidaysAndLeave(tab: 'holidays');
         }
       }
     });

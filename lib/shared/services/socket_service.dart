@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 // ignore: library_prefixes
 import 'package:socket_io_client/socket_io_client.dart' as IO;
-import '../constants/api_constants.dart';
-import 'auth_service.dart';
+import 'package:flutter_application/shared/constants/api_constants.dart';
+import 'package:flutter_application/shared/services/auth_service.dart';
 
 class SocketService extends ChangeNotifier {
   AuthService _auth;

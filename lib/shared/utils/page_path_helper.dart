@@ -9,30 +9,32 @@ class PagePathHelper {
         return '/dashboard';
       case PageType.employees:
         return '/employees';
+      case PageType.labourManagement:
+        return '/labour-management';
       case PageType.myAttendance:
         return '/attendance';
       case PageType.liveAttendance:
         return '/attendance-monitoring';
-      case PageType.dailyActivity:
-        return '/daily-activity';
-      case PageType.leavesAndHolidays:
-        return '/apply-leave';
-      case PageType.payroll:
-        return '/payroll';
       case PageType.reports:
         return '/reports';
-      case PageType.labourManagement:
-        return '/labour';
-      case PageType.policyEngine:
-        return '/shift-management';
-      case PageType.geoFencing:
-        return '/geofencing';
-      case PageType.profile:
-        return '/profile';
+      case PageType.payroll:
+        return '/payroll';
+      case PageType.dailyActivity:
+        return '/daily-activity';
+      case PageType.policies:
+        return '/policies';
+      case PageType.leavesAndHolidays:
+        return '/holidays';
       case PageType.feedback:
         return '/feedback';
       case PageType.collaboration:
-        return '/collaboration'; // ADDED
+        return '/collaboration';
+      case PageType.profile:
+        return '/profile';
+      case PageType.policyEngine:
+        return '/policies?tab=shifts';
+      case PageType.geoFencing:
+        return '/policies?tab=geofencing';
     }
   }
 
@@ -93,36 +95,31 @@ class PagePathHelper {
           'How do I mark daily site check-in?',
           'How are daily wages and payouts calculated?',
         ];
+      case PageType.policies:
       case PageType.policyEngine:
-        return [
-          'How do I create a new shift?',
-          'What is the late threshold grace period?',
-          'How do I assign shifts to staff?',
-        ];
       case PageType.geoFencing:
         return [
-          'What is geofencing location locking?',
-          'How do I add a new work location zone?',
-          'Can employees clock in from anywhere?',
+          'How do I create or edit a work shift?',
+          'How do I configure site geo-fencing radius?',
+          'How do salary package groups and overtime rates work?',
         ];
       case PageType.profile:
         return [
           'How do I change my profile avatar?',
-          'Can I update my password here?',
-          'How do I configure security settings?',
+          'Where do I see my assigned branch?',
+          'How do I change my account password?',
         ];
       case PageType.feedback:
         return [
-          'How do I submit a bug report?',
-          'Where do I suggest new features?',
-          'Who reviews the submitted feedback?',
+          'How do I report a bug or issue?',
+          'Where do I submit feature suggestions?',
         ];
       case PageType.collaboration:
         return [
-          'How do I start a new direct message?',
-          'How do I create a group channel?',
-          'How do I manage group channel members?',
-        ]; // ADDED
+          'How do I message team members?',
+          'Can I create project group channels?',
+          'How do channel mentions and attachments work?',
+        ];
     }
   }
 }
