@@ -54,6 +54,10 @@ class Shift {
   bool get entryGeofence => policyRules.entryRequirements.geofence;
   bool get exitSelfie => policyRules.exitRequirements.selfie;
   bool get exitGeofence => policyRules.exitRequirements.geofence;
+  bool get checkpointEnabled => policyRules.checkpointRequirements.enabled;
+  bool get checkpointSelfie => policyRules.checkpointRequirements.selfie;
+  double get overtimeBuffer => policyRules.overtime.buffer;
+  double get overtimeMaxHours => policyRules.overtime.maxOvertime;
 
   factory Shift.defaultShift() {
     return Shift(
@@ -71,6 +75,7 @@ class Shift {
         overtime: Overtime(enabled: false, threshold: 8.0),
         entryRequirements: EntryRequirements(selfie: true, geofence: true),
         exitRequirements: ExitRequirements(selfie: true, geofence: true),
+        checkpointRequirements: CheckpointRequirements(enabled: true, selfie: false),
         correctionDeadline: 2,
       ),
     );
@@ -94,6 +99,9 @@ class Shift {
     }
     if (!rulesMap.containsKey('exit_requirements') && (data.containsKey('exit_requirements') || data.containsKey('exitRequirements'))) {
       rulesMap['exit_requirements'] = data['exit_requirements'] ?? data['exitRequirements'];
+    }
+    if (!rulesMap.containsKey('checkpoint_requirements') && (data.containsKey('checkpoint_requirements') || data.containsKey('checkpointRequirements'))) {
+      rulesMap['checkpoint_requirements'] = data['checkpoint_requirements'] ?? data['checkpointRequirements'];
     }
 
     return Shift(
@@ -143,12 +151,31 @@ class AlternateSaturdays {
   Map<String, dynamic> toJson() => {'enabled': enabled, 'off': off};
 }
 
+class CheckpointRequirements {
+  final bool enabled;
+  final bool selfie;
+
+  CheckpointRequirements({required this.enabled, required this.selfie});
+
+  factory CheckpointRequirements.fromJson(dynamic json) {
+    final parsed = _parseJson(json);
+    final Map<String, dynamic> map = parsed is Map ? Map<String, dynamic>.from(parsed) : {};
+    return CheckpointRequirements(
+      enabled: _asBool(map['enabled'], defaultValue: true),
+      selfie: _asBool(map['selfie'], defaultValue: false),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {'enabled': enabled, 'selfie': selfie};
+}
+
 class PolicyRules {
   final ShiftTiming shiftTiming;
   final GracePeriod gracePeriod;
   final Overtime overtime;
   final EntryRequirements entryRequirements;
   final ExitRequirements exitRequirements;
+  final CheckpointRequirements checkpointRequirements;
   final int correctionDeadline;
 
   PolicyRules({
@@ -157,6 +184,7 @@ class PolicyRules {
     required this.overtime,
     required this.entryRequirements,
     required this.exitRequirements,
+    required this.checkpointRequirements,
     required this.correctionDeadline,
   });
 
@@ -170,6 +198,7 @@ class PolicyRules {
       overtime: Overtime.fromJson(map['overtime'] ?? {}),
       entryRequirements: EntryRequirements.fromJson(map['entry_requirements'] ?? map['entryRequirements'] ?? {}),
       exitRequirements: ExitRequirements.fromJson(map['exit_requirements'] ?? map['exitRequirements'] ?? {}),
+      checkpointRequirements: CheckpointRequirements.fromJson(map['checkpoint_requirements'] ?? map['checkpointRequirements'] ?? {}),
       correctionDeadline: map['correction_deadline'] is int 
           ? map['correction_deadline'] 
           : (int.tryParse(map['correction_deadline']?.toString() ?? '') ?? 2),
@@ -182,6 +211,7 @@ class PolicyRules {
     'overtime': overtime.toJson(),
     'entry_requirements': entryRequirements.toJson(),
     'exit_requirements': exitRequirements.toJson(),
+    'checkpoint_requirements': checkpointRequirements.toJson(),
     'correction_deadline': correctionDeadline,
   };
 }
@@ -212,16 +242,33 @@ class GracePeriod {
 class Overtime {
   final bool enabled;
   final double threshold;
-  Overtime({required this.enabled, required this.threshold});
+  final double buffer;
+  final double maxOvertime;
+
+  Overtime({
+    required this.enabled,
+    required this.threshold,
+    this.buffer = 0.5,
+    this.maxOvertime = 3.0,
+  });
+
   factory Overtime.fromJson(dynamic json) {
     final parsed = _parseJson(json);
     final Map<String, dynamic> map = parsed is Map ? Map<String, dynamic>.from(parsed) : {};
     return Overtime(
       enabled: _asBool(map['enabled']),
       threshold: double.tryParse(map['threshold']?.toString() ?? '') ?? 8.0,
+      buffer: double.tryParse(map['buffer']?.toString() ?? '') ?? 0.5,
+      maxOvertime: double.tryParse((map['max_overtime'] ?? map['maxOvertime'])?.toString() ?? '') ?? 3.0,
     );
   }
-  Map<String, dynamic> toJson() => {'enabled': enabled, 'threshold': threshold};
+
+  Map<String, dynamic> toJson() => {
+    'enabled': enabled,
+    'threshold': threshold,
+    'buffer': buffer,
+    'max_overtime': maxOvertime,
+  };
 }
 
 class EntryRequirements {
@@ -247,8 +294,8 @@ class ExitRequirements {
     final parsed = _parseJson(json);
     final Map<String, dynamic> map = parsed is Map ? Map<String, dynamic>.from(parsed) : {};
     return ExitRequirements(
-      selfie: map.containsKey('selfie') ? _asBool(map['selfie']) : true,
-      geofence: map.containsKey('geofence') ? _asBool(map['geofence']) : true,
+      selfie: map.containsKey('selfie') ? _asBool(map['selfie'], defaultValue: false) : false,
+      geofence: map.containsKey('geofence') ? _asBool(map['geofence'], defaultValue: true) : false,
     );
   }
   Map<String, dynamic> toJson() => {'selfie': selfie, 'geofence': geofence};

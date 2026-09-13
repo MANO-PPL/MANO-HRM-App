@@ -1,4 +1,4 @@
-import '../constants/api_constants.dart';
+import 'package:flutter_application/shared/constants/api_constants.dart';
 
 class AttendanceRecord {
   final int attendanceId;
@@ -71,12 +71,12 @@ class AttendanceRecord {
     if (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('data:')) {
       return str;
     }
-    final cleanPath = str.startsWith('/') ? str : '/$str';
+    final cleanKey = str.startsWith('/') ? str.substring(1) : str;
     String base = ApiConstants.baseUrl;
     if (base.endsWith('/api')) {
-      base = base.substring(0, base.length - 4);
+      return '$base/attendance/image?key=${Uri.encodeComponent(cleanKey)}';
     }
-    return '$base$cleanPath';
+    return '$base/api/attendance/image?key=${Uri.encodeComponent(cleanKey)}';
   }
   
   static double? _toDouble(dynamic val) {

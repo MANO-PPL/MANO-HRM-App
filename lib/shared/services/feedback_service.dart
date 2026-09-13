@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
-import '../constants/api_constants.dart';
+import 'package:flutter_application/shared/constants/api_constants.dart';
 
 class FeedbackService {
   final Dio _dio;

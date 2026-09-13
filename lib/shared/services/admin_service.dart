@@ -1,8 +1,8 @@
-import 'package:intl/intl.dart';
+﻿import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
-import '../constants/api_constants.dart';
-import '../../shared/services/auth_service.dart';
-import '../models/dashboard_model.dart'; 
+import 'package:flutter_application/shared/constants/api_constants.dart';
+import 'package:flutter_application/shared/services/auth_service.dart';
+import 'package:flutter_application/shared/models/dashboard_model.dart';
 
 class AdminService {
   final AuthService _authService;

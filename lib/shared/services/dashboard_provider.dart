@@ -1,11 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/admin_service.dart';
-import '../models/dashboard_model.dart';
-import 'auth_service.dart';
-import '../../features/attendance/services/attendance_service.dart';
-import '../../features/employees/models/employee_model.dart';
-import '../constants/api_constants.dart';
+import 'package:flutter_application/shared/services/admin_service.dart';
+import 'package:flutter_application/shared/models/dashboard_model.dart';
+import 'package:flutter_application/shared/services/auth_service.dart';
+import 'package:flutter_application/features/attendance/core/attendance_service.dart';
+import 'package:flutter_application/features/employees/core/employee_model.dart';
+import 'package:flutter_application/shared/constants/api_constants.dart';
 
 class DashboardProvider extends ChangeNotifier {
   final AuthService _authService;
