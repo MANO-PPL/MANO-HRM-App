@@ -1,9 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
 
-import 'package:flutter_application/features/auth/core/word_captcha.dart'; // Import WordCaptcha
+import 'package:flutter_application/features/auth/core/word_captcha.dart';
 import 'package:flutter_application/features/auth/views/login_mobile_portrait_view.dart';
 import 'package:flutter_application/features/auth/views/login_tablet_portrait_view.dart';
 import 'package:flutter_application/features/auth/views/login_tablet_landscape_view.dart';
@@ -11,6 +11,7 @@ import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
 import 'package:flutter_application/shared/navigation/navigation_controller.dart';
 import 'package:flutter_application/shared/widgets/loading_screen.dart';
+import 'package:flutter_application/shared/widgets/chatbot_fab.dart';
 import 'package:flutter_application/main.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -30,18 +31,48 @@ class LoginScreenState extends State<LoginScreen> {
   bool isPasswordVisible = false;
   bool rememberMe = true;
 
-  void setRememberMe(bool value) {}
+  void setRememberMe(bool value) {
+    setState(() => rememberMe = value);
+  }
 
-  void toggleRememberMe() {}
+  void toggleRememberMe() {
+    setState(() => rememberMe = !rememberMe);
+  }
 
-  // New Captcha State
+  // Captcha State
   String? captchaId;
   String? captchaValue;
 
   @override
   void initState() {
     super.initState();
+    // Guarantee no chatbot floating button or overlay is visible on the login screen
+    ChatbotOverlayManager.destroyAll();
+    _loadSavedIdentifier();
     forceStartLocation();
+  }
+
+  Future<void> _loadSavedIdentifier() async {
+    try {
+      final saved = await AuthService.getSavedIdentifier();
+      if (mounted) {
+        setState(() {
+          rememberMe = true;
+          if (saved != null && saved.isNotEmpty) {
+            identifierController.text = saved;
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading saved identifier: $e");
+    }
+  }
+
+  @override
+  void dispose() {
+    identifierController.dispose();
+    passwordController.dispose();
+    super.dispose();
   }
 
   Future<void> forceStartLocation() async {
@@ -151,7 +182,10 @@ class LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: [SystemUiOverlay.top],
+    );
 
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_application/shared/navigation/navigation_controller.dart';
 import 'package:flutter_application/shared/widgets/glass_container.dart';
@@ -49,7 +49,7 @@ class _SidebarContent extends StatelessWidget {
           if (!isEmployee) PageType.labourManagement,
           PageType.myAttendance,
           if (!isEmployee) PageType.liveAttendance,
-          if (!isEmployee) PageType.reports,
+          PageType.reports,
           if (!isEmployee) PageType.payroll,
           PageType.dailyActivity,
           if (!isEmployee) PageType.policies,
@@ -105,6 +105,7 @@ class _SidebarContent extends StatelessWidget {
                             context,
                             page,
                             currentPage == page,
+                            isEmployee: isEmployee,
                           )),
                     ],
                   ),
@@ -165,7 +166,7 @@ class _SidebarContent extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuItem(BuildContext context, PageType page, bool isActive) {
+  Widget _buildMenuItem(BuildContext context, PageType page, bool isActive, {bool isEmployee = false}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
@@ -188,7 +189,7 @@ class _SidebarContent extends StatelessWidget {
                 : (isDark ? Colors.grey : Colors.black54),
           ),
           title: Text(
-            page.title,
+            page.getTitle(isEmployee),
             style: GoogleFonts.poppins(
               fontSize: 12,
               fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
