@@ -5,10 +5,10 @@ import 'package:flutter_application/shared/navigation/navigation_controller.dart
 
 import 'package:flutter_application/features/dashboard/widgets/dashboard_tablet_view.dart';
 import 'package:flutter_application/features/employees/views/employees_tablet_portrait_view.dart';
-import 'package:flutter_application/features/attendance/views/attendance_tablet_portrait_view.dart';
+import 'package:flutter_application/features/attendance/views/attendance_tablet_landscape_view.dart';
 import 'package:flutter_application/features/live_attendance/views/live_attendance_tablet_portrait_view.dart';
-import 'package:flutter_application/features/reports/views/reports_tablet_landscape_view.dart';
-import 'package:flutter_application/features/leave/views/leave_tablet_landscape_view.dart';
+import 'package:flutter_application/features/reports/reports_page.dart';
+import 'package:flutter_application/features/leave/leave_page.dart';
 import 'package:flutter_application/features/policies/views/policies_tablet_landscape_view.dart';
 import 'package:flutter_application/features/profile/views/profile_tablet_portrait_view.dart';
 import 'package:flutter_application/features/feedback/views/feedback_tablet_landscape_view.dart';
@@ -57,13 +57,13 @@ class TabletLandscape extends StatelessWidget {
                       case PageType.employees:
                         return const EmployeesView();
                       case PageType.myAttendance:
-                        return const MyAttendanceView();
+                        return const AttendanceTabletLandscapeView();
                       case PageType.liveAttendance:
                         return const LiveAttendanceView();
                       case PageType.reports:
-                        return const ReportsTabletLandscapeView();
+                        return const ReportsView();
                       case PageType.leavesAndHolidays:
-                        return const LeaveTabletLandscape();
+                        return const LeavePage();
                       case PageType.payroll:
                         return const PayrollScreenTablet();
                       case PageType.policies:

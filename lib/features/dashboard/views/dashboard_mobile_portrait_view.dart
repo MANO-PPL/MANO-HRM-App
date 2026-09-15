@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart'; // Import Provider
@@ -26,7 +26,7 @@ class MobileDashboardContent extends StatelessWidget {
     final user = context.watch<AuthService>().user;
 
     if (user == null) {
-      return const LoadingScreen(message: "Authenticating...");
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (user.isEmployee) {
@@ -52,7 +52,6 @@ class _MobileAdminDashboardContentState
   final List<Map<String, dynamic>> adminQuickActions = [
     {
       'title': 'Mark Attendance',
-      'subtitle': 'Punch In / Out',
       'icon': Icons.fingerprint,
       'color': const Color(0xFF10B981),
       'page': PageType.myAttendance,
@@ -121,13 +120,13 @@ class _MobileAdminDashboardContentState
               if (missedPunchDate != null)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                    padding: const EdgeInsets.fromLTRB(10, 6, 10, 0),
                     child: _buildMissedPunchBanner(context, missedPunchDate, attendanceProvider),
                   ),
                 ),
               // 1. KPI Section (Grid)
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                padding: const EdgeInsets.fromLTRB(10, 6, 10, 0),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     _buildMobileKPIStack(
@@ -135,7 +134,7 @@ class _MobileAdminDashboardContentState
                       provider.trends,
                       false,
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 6),
                   ]),
                 ),
               ),
@@ -143,24 +142,24 @@ class _MobileAdminDashboardContentState
               // 2. Quick Actions
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Quick Actions',
                         style: GoogleFonts.poppins(
-                          fontSize: 14,
+                          fontSize: 12.5,
                           fontWeight: FontWeight.w600,
                           color: subTextColor,
                           letterSpacing: 0.5,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 4),
                       Column(
                         children: adminQuickActions.map((action) {
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.only(bottom: 4),
                             child: _buildQuickActionItem(
                               context,
                               action['title'],
@@ -180,32 +179,32 @@ class _MobileAdminDashboardContentState
                 ),
               ),
 
-              const SliverToBoxAdapter(child: SizedBox(height: 32)),
+              const SliverToBoxAdapter(child: SizedBox(height: 6)),
 
               // 3. Analytics
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     Text(
                       'Analytics',
                       style: GoogleFonts.poppins(
-                        fontSize: 14,
+                        fontSize: 12.5,
                         fontWeight: FontWeight.w600,
                         color: subTextColor,
                         letterSpacing: 0.5,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 4),
                     // Chart
                     SizedBox(
-                      height: 300,
+                      height: 215,
                       child: TrendsChart(chartData: provider.chartData),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 6),
                     // Activity Feed
                     ActivityFeed(activities: provider.activities),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 10),
                   ]),
                 ),
               ),
@@ -241,19 +240,21 @@ class _MobileAdminDashboardContentState
         'color': const Color(0xFF10B981),
       },
       {
-        'title': 'Total Employees',
-        'value': stats.totalEmployees.toString(),
-        'total': 'Registered',
-        'percentage': '',
-        'context': 'Active Staff',
-        'isPositive': true,
-        'icon': Icons.people_outline,
-        'color': const Color(0xFF3B82F6),
+        'title': 'Absent Today',
+        'value': stats.absentToday.toString(),
+        'total': '',
+        'percentage': trends.absent.startsWith('-')
+            ? trends.absent
+            : '+${trends.absent}',
+        'context': 'vs yesterday',
+        'isPositive': trends.absent.startsWith('-'),
+        'icon': Icons.cancel_outlined,
+        'color': const Color(0xFFEF4444),
       },
       {
         'title': 'Late Check-ins',
         'value': stats.lateCheckins.toString(),
-        'total': 'Employees',
+        'total': '',
         'percentage': trends.late,
         'context': 'vs yesterday',
         'isPositive': trends.late.startsWith('-'),
@@ -263,7 +264,7 @@ class _MobileAdminDashboardContentState
       {
         'title': 'On Leave',
         'value': '4',
-        'total': 'Planned',
+        'total': '',
         'percentage': '',
         'context': 'Monthly',
         'isPositive': true,
@@ -276,9 +277,9 @@ class _MobileAdminDashboardContentState
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      childAspectRatio: 1.35,
+      crossAxisSpacing: 8,
+      mainAxisSpacing: 8,
+      childAspectRatio: 1.52,
       children: kpis.map((data) {
         return StatCard(
           title: data['title'] as String,
@@ -317,7 +318,7 @@ class _MobileAdminDashboardContentState
             },
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: isExpired
@@ -330,15 +331,15 @@ class _MobileAdminDashboardContentState
           boxShadow: [
             BoxShadow(
               color: (isExpired ? Colors.red : Colors.orange).withValues(alpha: 0.35),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
@@ -346,38 +347,38 @@ class _MobileAdminDashboardContentState
               child: Icon(
                 isExpired ? Icons.block_rounded : Icons.warning_amber_rounded,
                 color: Colors.white,
-                size: 22,
+                size: 20,
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isExpired ? 'Missed Punch — Deadline Passed' : '⚠️  Missed Time-Out Detected',
+                    isExpired ? 'Missed Punch — Expired' : 'Missed Time-Out',
                     style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
                     isExpired
-                        ? 'No time-out recorded for $dateLabel. The correction window has expired.'
-                        : 'No time-out recorded for $dateLabel ($daysLeftLabel).',
+                        ? 'Correction window expired for $dateLabel.'
+                        : 'No time-out for $dateLabel ($daysLeftLabel).',
                     style: GoogleFonts.poppins(
                       fontSize: 11,
                       color: Colors.white.withValues(alpha: 0.9),
-                      height: 1.4,
+                      height: 1.3,
                     ),
                   ),
                 ],
               ),
             ),
             if (!isExpired) ...[
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               ElevatedButton(
                 onPressed: () {
                   CorrectionRequestDialogMobile.show(
@@ -390,9 +391,9 @@ class _MobileAdminDashboardContentState
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   foregroundColor: const Color(0xFFEA580C),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   elevation: 0,
                 ),
@@ -400,7 +401,7 @@ class _MobileAdminDashboardContentState
                   'Fix Now',
                   style: GoogleFonts.poppins(
                     fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -424,7 +425,6 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
   final List<Map<String, dynamic>> hrQuickActions = [
     {
       'title': 'Mark Attendance',
-      'subtitle': 'Punch In / Out',
       'icon': Icons.fingerprint,
       'color': const Color(0xFF10B981),
       'page': PageType.myAttendance,
@@ -493,17 +493,17 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
               if (missedPunchDate != null)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                    padding: const EdgeInsets.fromLTRB(10, 6, 10, 0),
                     child: _buildMissedPunchBanner(context, missedPunchDate, attendanceProvider),
                   ),
                 ),
               // 1. KPI Section (Grid)
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                padding: const EdgeInsets.fromLTRB(10, 6, 10, 0),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     _buildMobileKPIStack(provider.stats, provider.trends),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 6),
                   ]),
                 ),
               ),
@@ -511,24 +511,24 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
               // 2. Quick Actions
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Quick Actions',
                         style: GoogleFonts.poppins(
-                          fontSize: 14,
+                          fontSize: 12.5,
                           fontWeight: FontWeight.w600,
                           color: subTextColor,
                           letterSpacing: 0.5,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 4),
                       Column(
                         children: hrQuickActions.map((action) {
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.only(bottom: 4),
                             child: _buildQuickActionItem(
                               context,
                               action['title'],
@@ -548,32 +548,32 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
                 ),
               ),
 
-              const SliverToBoxAdapter(child: SizedBox(height: 32)),
+              const SliverToBoxAdapter(child: SizedBox(height: 6)),
 
               // 3. Analytics
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     Text(
                       'Analytics',
                       style: GoogleFonts.poppins(
-                        fontSize: 14,
+                        fontSize: 12.5,
                         fontWeight: FontWeight.w600,
                         color: subTextColor,
                         letterSpacing: 0.5,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 4),
                     // Chart
                     SizedBox(
-                      height: 300,
+                      height: 215,
                       child: TrendsChart(chartData: provider.chartData),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 6),
                     // Activity Feed
                     ActivityFeed(activities: provider.activities),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 10),
                   ]),
                 ),
               ),
@@ -607,7 +607,7 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
       {
         'title': 'Absent Today',
         'value': stats.absentToday.toString(),
-        'total': 'Employees',
+        'total': '',
         'percentage': trends.absent.startsWith('-')
             ? trends.absent
             : '+${trends.absent}',
@@ -619,7 +619,7 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
       {
         'title': 'Late Check-ins',
         'value': stats.lateCheckins.toString(),
-        'total': 'Employees',
+        'total': '',
         'percentage': trends.late,
         'context': 'vs yesterday',
         'isPositive': trends.late.startsWith('-'),
@@ -629,7 +629,7 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
       {
         'title': 'On Leave',
         'value': '4',
-        'total': 'Planned',
+        'total': '',
         'percentage': '',
         'context': 'Monthly',
         'isPositive': true,
@@ -642,9 +642,9 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      childAspectRatio: 1.35,
+      crossAxisSpacing: 8,
+      mainAxisSpacing: 8,
+      childAspectRatio: 1.52,
       children: kpis.map((data) {
         return StatCard(
           title: data['title'] as String,
@@ -683,7 +683,7 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
             },
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: isExpired
@@ -696,15 +696,15 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
           boxShadow: [
             BoxShadow(
               color: (isExpired ? Colors.red : Colors.orange).withValues(alpha: 0.35),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
@@ -712,38 +712,38 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
               child: Icon(
                 isExpired ? Icons.block_rounded : Icons.warning_amber_rounded,
                 color: Colors.white,
-                size: 22,
+                size: 20,
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isExpired ? 'Missed Punch — Deadline Passed' : '⚠️  Missed Time-Out Detected',
+                    isExpired ? 'Missed Punch — Expired' : 'Missed Time-Out',
                     style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
                     isExpired
-                        ? 'No time-out recorded for $dateLabel. The correction window has expired.'
-                        : 'No time-out recorded for $dateLabel ($daysLeftLabel).',
+                        ? 'Correction window expired for $dateLabel.'
+                        : 'No time-out for $dateLabel ($daysLeftLabel).',
                     style: GoogleFonts.poppins(
                       fontSize: 11,
                       color: Colors.white.withValues(alpha: 0.9),
-                      height: 1.4,
+                      height: 1.3,
                     ),
                   ),
                 ],
               ),
             ),
             if (!isExpired) ...[
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               ElevatedButton(
                 onPressed: () {
                   CorrectionRequestDialogMobile.show(
@@ -756,9 +756,9 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   foregroundColor: const Color(0xFFEA580C),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   elevation: 0,
                 ),
@@ -766,7 +766,7 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
                   'Fix Now',
                   style: GoogleFonts.poppins(
                     fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -793,31 +793,31 @@ Widget _buildQuickActionItem(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: color, size: 24),
+                child: Icon(icon, color: color, size: 18),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   title,
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                    fontSize: 13.5,
                     color: Theme.of(context).textTheme.bodyLarge?.color,
                   ),
                 ),
               ),
               Icon(
                 Icons.arrow_forward_ios,
-                size: 14,
+                size: 13,
                 color: Theme.of(context).textTheme.bodySmall?.color,
               ),
             ],

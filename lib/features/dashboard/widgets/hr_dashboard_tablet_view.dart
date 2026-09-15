@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -98,7 +98,7 @@ class _HrDashboardViewState extends State<HrDashboardView> {
                     department: user?.department,
                     designation: user?.designation,
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Column(
@@ -106,19 +106,19 @@ class _HrDashboardViewState extends State<HrDashboardView> {
                       children: [
                         if (missedPunchDate != null) ...[
                           _buildMissedPunchBanner(context, missedPunchDate, attendanceProvider),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 12),
                         ],
                         // Row 1: KPI Cards (Wrap or Row based on orientation)
                         _buildKPISection(provider.stats, provider.trends, isLandscape),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 14),
 
                         // Row 2: Quick Actions
                         _buildQuickActions(isLandscape),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 14),
 
                         // Row 3: Trends & Activity split based on orientation
                         _buildAnalyticsSection(provider, isLandscape),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
                       ],
                     ),
                   ),
@@ -181,9 +181,9 @@ class _HrDashboardViewState extends State<HrDashboardView> {
         children: kpis.map((data) {
           return Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 5),
               child: SizedBox(
-                height: 140,
+                height: 110,
                 child: StatCard(
                   title: data['title'] as String,
                   value: data['value'] as String,
@@ -205,9 +205,9 @@ class _HrDashboardViewState extends State<HrDashboardView> {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         crossAxisCount: 2,
-        crossAxisSpacing: 20,
-        mainAxisSpacing: 20,
-        childAspectRatio: 2.2,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 2.5,
         children: kpis.map((data) {
           return StatCard(
             title: data['title'] as String,
@@ -246,21 +246,21 @@ class _HrDashboardViewState extends State<HrDashboardView> {
           'QUICK ACTIONS',
           style: TextStyle(
             fontSize: 12,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
             color: Colors.grey[500],
             letterSpacing: 1,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         if (isLandscape)
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 4,
-              crossAxisSpacing: 20,
-              mainAxisSpacing: 20,
-              childAspectRatio: 2.0,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 2.4,
             ),
             itemCount: hrQuickActions.length,
             itemBuilder: (context, index) {
@@ -283,10 +283,10 @@ class _HrDashboardViewState extends State<HrDashboardView> {
           Column(
             children: actions.map((card) {
               return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.only(bottom: 8),
                 child: SizedBox(
                   width: double.infinity,
-                  height: 100,
+                  height: 76,
                   child: card,
                 ),
               );
@@ -305,15 +305,15 @@ class _HrDashboardViewState extends State<HrDashboardView> {
           Expanded(
             flex: 3,
             child: SizedBox(
-              height: 400,
+              height: 340,
               child: TrendsChart(chartData: provider.chartData),
             ),
           ),
-          const SizedBox(width: 32),
+          const SizedBox(width: 12),
           Expanded(
             flex: 2,
             child: SizedBox(
-              height: 400,
+              height: 340,
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 child: ActivityFeed(activities: provider.activities),
@@ -327,10 +327,10 @@ class _HrDashboardViewState extends State<HrDashboardView> {
       return Column(
         children: [
           SizedBox(
-            height: 350,
+            height: 300,
             child: TrendsChart(chartData: provider.chartData),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 12),
           ActivityFeed(activities: provider.activities),
         ],
       );
@@ -360,7 +360,7 @@ class _HrDashboardViewState extends State<HrDashboardView> {
             },
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: isExpired
@@ -398,10 +398,10 @@ class _HrDashboardViewState extends State<HrDashboardView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isExpired ? 'Missed Punch — Deadline Passed' : '⚠️  Missed Time-Out Detected',
+                    isExpired ? 'Missed Punch — Deadline Passed' : 'Missed Time-Out Detected',
                     style: GoogleFonts.poppins(
                       fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
                   ),
@@ -443,7 +443,7 @@ class _HrDashboardViewState extends State<HrDashboardView> {
                   'Fix Now',
                   style: GoogleFonts.poppins(
                     fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),

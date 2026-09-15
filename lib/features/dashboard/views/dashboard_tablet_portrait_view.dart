@@ -6,8 +6,8 @@ import 'package:flutter_application/features/dashboard/widgets/dashboard_tablet_
 import 'package:flutter_application/features/employees/views/employees_tablet_portrait_view.dart';
 import 'package:flutter_application/features/attendance/views/attendance_tablet_portrait_view.dart';
 import 'package:flutter_application/features/live_attendance/views/live_attendance_tablet_portrait_view.dart';
-import 'package:flutter_application/features/reports/views/reports_tablet_portrait_view.dart';
-import 'package:flutter_application/features/leave/views/leave_tablet_portrait_view.dart';
+import 'package:flutter_application/features/reports/reports_page.dart';
+import 'package:flutter_application/features/leave/leave_page.dart';
 import 'package:flutter_application/features/policies/views/policies_tablet_portrait_view.dart';
 import 'package:flutter_application/features/profile/views/profile_tablet_portrait_view.dart';
 import 'package:flutter_application/features/feedback/views/feedback_tablet_portrait_view.dart';
@@ -33,59 +33,63 @@ class TabletPortrait extends StatelessWidget {
             Navigator.pop(context);
           },
         ),
-        body: Stack(
-          children: [
-            Column(
-              children: [
-                ValueListenableBuilder<PageType>(
-                  valueListenable: navigationNotifier,
-                  builder: (context, currentPage, _) {
-                    return CustomAppBar(
-                      title: currentPage.title,
-                      showDrawerButton: true,
-                    );
-                  },
-                ),
-                Expanded(
-                  child: ValueListenableBuilder<PageType>(
+        body: SafeArea(
+          top: false,
+          bottom: true,
+          child: Stack(
+            children: [
+              Column(
+                children: [
+                  ValueListenableBuilder<PageType>(
                     valueListenable: navigationNotifier,
                     builder: (context, currentPage, _) {
-                      switch (currentPage) {
-                        case PageType.dashboard:
-                          return const DashboardView();
-                        case PageType.employees:
-                          return const EmployeesView();
-                        case PageType.myAttendance:
-                          return const MyAttendanceView();
-                        case PageType.liveAttendance:
-                          return const LiveAttendanceView();
-                        case PageType.reports:
-                          return const ReportsTabletPortraitView();
-                        case PageType.leavesAndHolidays:
-                          return const LeaveTabletPortrait();
-                        case PageType.payroll:
-                          return const PayrollScreenTablet();
-                        case PageType.policies:
-                        case PageType.policyEngine:
-                        case PageType.geoFencing:
-                          return const PoliciesTabletPortraitView();
-                        case PageType.dailyActivity:
-                          return const DailyActivityScreen();
-                        case PageType.feedback:
-                          return const FeedbackTabletPortrait();
-                        case PageType.collaboration:
-                          return const CollaborationScreen();
-                        case PageType.profile:
-                          return const ProfileView();
-                        case PageType.labourManagement:
-                          return const LabourTabletContent();
-                      }
+                      return CustomAppBar(
+                        title: currentPage.title,
+                        showDrawerButton: true,
+                      );
                     },
                   ),
-                ),
-              ],
-            ),
-          ],
+                  Expanded(
+                    child: ValueListenableBuilder<PageType>(
+                      valueListenable: navigationNotifier,
+                      builder: (context, currentPage, _) {
+                        switch (currentPage) {
+                          case PageType.dashboard:
+                            return const DashboardView();
+                          case PageType.employees:
+                            return const EmployeesView();
+                          case PageType.myAttendance:
+                            return const MyAttendanceView();
+                          case PageType.liveAttendance:
+                            return const LiveAttendanceView();
+                          case PageType.reports:
+                            return const ReportsView();
+                          case PageType.leavesAndHolidays:
+                            return const LeavePage();
+                          case PageType.payroll:
+                            return const PayrollScreenTablet();
+                          case PageType.policies:
+                          case PageType.policyEngine:
+                          case PageType.geoFencing:
+                            return const PoliciesTabletPortraitView();
+                          case PageType.dailyActivity:
+                            return const DailyActivityScreen();
+                          case PageType.feedback:
+                            return const FeedbackTabletPortrait();
+                          case PageType.profile:
+                            return const ProfileView();
+                          case PageType.collaboration:
+                            return const CollaborationScreen();
+                          case PageType.labourManagement:
+                            return const LabourTabletContent();
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         floatingActionButton: ValueListenableBuilder<PageType>(
           valueListenable: navigationNotifier,
