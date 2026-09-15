@@ -143,25 +143,25 @@ class _FeedbackMobileViewState extends State<FeedbackMobileView>
           children: [
             // Tab Switcher Fixed at Top
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+              padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
               child: Container(
-                height: 48,
+                height: 34,
                 decoration: BoxDecoration(
                   color: isDark
                       ? const Color(0xFF161B22)
                       : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: isDark ? const Color(0xFF30363D) : Colors.grey[300]!,
                     width: 1,
                   ),
                 ),
-                padding: const EdgeInsets.all(4),
+                padding: const EdgeInsets.all(2.5),
                 child: TabBar(
                   controller: _tabController!,
                   indicator: BoxDecoration(
                     color: isDark ? const Color(0xFF2D3139) : Colors.white,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(7),
                     border: Border.all(
                       color: isDark
                           ? const Color(0xFF30363D)
@@ -184,7 +184,7 @@ class _FeedbackMobileViewState extends State<FeedbackMobileView>
                       : Colors.grey[600],
                   labelStyle: GoogleFonts.poppins(
                     fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                    fontSize: 12,
                   ),
                   tabs: [
                     Tab(
@@ -193,8 +193,8 @@ class _FeedbackMobileViewState extends State<FeedbackMobileView>
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: const [
-                            Icon(Icons.bug_report, size: 16),
-                            SizedBox(width: 8),
+                            Icon(Icons.bug_report, size: 14),
+                            SizedBox(width: 6),
                             Text("Bug Report"),
                           ],
                         ),
@@ -206,8 +206,8 @@ class _FeedbackMobileViewState extends State<FeedbackMobileView>
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: const [
-                            Icon(Icons.feedback, size: 16),
-                            SizedBox(width: 8),
+                            Icon(Icons.feedback, size: 14),
+                            SizedBox(width: 6),
                             Text("Feedback"),
                           ],
                         ),
@@ -247,39 +247,40 @@ class _FeedbackMobileViewState extends State<FeedbackMobileView>
     required Color primaryColor,
   }) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 16),
       child: Form(
         key: isBugReport ? _bugFormKey : _feedbackFormKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildLabel(isBugReport ? "BUG TITLE" : "FEEDBACK TITLE"),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             TextFormField(
               controller: _titleController,
-              style: GoogleFonts.poppins(fontSize: 14),
+              style: GoogleFonts.poppins(fontSize: 13),
               validator: (v) => v!.isEmpty ? 'Required' : null,
               decoration: InputDecoration(
+                isDense: true,
                 hintText: isBugReport
                     ? "e.g., Error on Leave Page"
                     : "e.g., Suggestion for Dashboard",
-                hintStyle: GoogleFonts.poppins(color: Colors.grey[400]),
+                hintStyle: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[400]),
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
+                  horizontal: 12,
+                  vertical: 10,
                 ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide(color: Colors.grey[300]!),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide(
                     color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide(color: primaryColor),
                 ),
                 filled: true,
@@ -288,34 +289,35 @@ class _FeedbackMobileViewState extends State<FeedbackMobileView>
                     : const Color(0xFFF8FAFC),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
 
             _buildLabel(isBugReport ? "BUG DESCRIPTION" : "DESCRIPTION"),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             TextFormField(
               controller: _descController,
-              minLines: 4,
+              minLines: 3,
               maxLines: null,
-              style: GoogleFonts.poppins(fontSize: 14),
+              style: GoogleFonts.poppins(fontSize: 13),
               validator: (v) => v!.isEmpty ? 'Required' : null,
               decoration: InputDecoration(
+                isDense: true,
                 hintText: isBugReport
                     ? "Describe the issue and steps to reproduce..."
                     : "Describe your feedback or suggestion...",
-                hintStyle: GoogleFonts.poppins(color: Colors.grey[400]),
-                contentPadding: const EdgeInsets.all(16),
+                hintStyle: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[400]),
+                contentPadding: const EdgeInsets.all(12),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide(color: Colors.grey[300]!),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide(
                     color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide(color: primaryColor),
                 ),
                 filled: true,
@@ -324,25 +326,25 @@ class _FeedbackMobileViewState extends State<FeedbackMobileView>
                     : const Color(0xFFF8FAFC),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
 
             _buildLabel("SCREENSHOTS (OPTIONAL)"),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
 
             InkWell(
               onTap: _pickFiles,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
+                  horizontal: 12,
+                  vertical: 10,
                 ),
                 decoration: BoxDecoration(
                   color: isDark
                       ? const Color(0xFF161B22)
                       : const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
                   ),

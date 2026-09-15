@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -294,13 +294,13 @@ class _CollaborationMobileViewState extends State<CollaborationMobileView> {
           children: [
             // Filter Tabs
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
             child: Container(
-              height: 40,
-              padding: const EdgeInsets.all(3),
+              height: 34,
+              padding: const EdgeInsets.all(2.5),
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF161B22).withValues(alpha: 0.8) : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: isDark ? const Color(0xFF30363D).withValues(alpha: 0.5) : Colors.grey[200]!,
                   width: 1,
@@ -318,39 +318,52 @@ class _CollaborationMobileViewState extends State<CollaborationMobileView> {
 
           // Search Field
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-            child: TextField(
-              style: GoogleFonts.poppins(fontSize: 13, color: isDark ? Colors.white : Colors.black),
-              onChanged: (val) => setState(() => _searchQuery = val),
-              decoration: InputDecoration(
-                hintText: "Search conversations...",
-                hintStyle: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
-                prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF5B60F6)),
-                filled: true,
-                fillColor: isDark ? const Color(0xFF161B22).withValues(alpha: 0.6) : Colors.grey[100],
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(
-                    color: isDark ? const Color(0xFF30363D).withValues(alpha: 0.5) : Colors.grey[200]!,
-                    width: 1,
+            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 2.0),
+            child: SizedBox(
+              height: 36,
+              child: TextField(
+                style: GoogleFonts.poppins(fontSize: 12, color: isDark ? Colors.white : Colors.black),
+                onChanged: (val) => setState(() => _searchQuery = val),
+                decoration: InputDecoration(
+                  hintText: "Search conversations...",
+                  hintStyle: GoogleFonts.poppins(fontSize: 11.5, color: Colors.grey),
+                  prefixIcon: const Icon(Icons.search, size: 16, color: Color(0xFF5B60F6)),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.close, size: 14),
+                          onPressed: () => setState(() => _searchQuery = ''),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 28),
+                        )
+                      : null,
+                  filled: true,
+                  isDense: true,
+                  fillColor: isDark ? const Color(0xFF161B22).withValues(alpha: 0.6) : Colors.grey[100],
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
                   ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color(0xFF5B60F6),
-                    width: 1.5,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                      color: isDark ? const Color(0xFF30363D).withValues(alpha: 0.5) : Colors.grey[200]!,
+                      width: 1,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF5B60F6),
+                      width: 1.5,
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
 
           // List region
           Expanded(
@@ -486,7 +499,7 @@ class _CollaborationMobileViewState extends State<CollaborationMobileView> {
           child: Text(
             label,
             style: GoogleFonts.poppins(
-              fontSize: 12,
+              fontSize: 11.5,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               color: isSelected
                   ? (isDark ? Colors.white : const Color(0xFF5B60F6))

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_application/shared/navigation/navigation_controller.dart';
@@ -47,28 +47,28 @@ class _MobileProfileContentState extends State<MobileProfileContent> {
     final user = authService.user;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       child: Column(
         children: [
           // Hero Profile Card
           _buildHeroCard(context, user),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
 
           // Contact Info Card
           _buildContactInfoCard(context, user),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
 
           // Employment Details Card
           _buildEmploymentDetailsCard(context, user),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
 
           // Settings Card
           _buildSettingsCard(context),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
 
           // Diagnostics Card
           _buildDiagnosticsCard(context),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
 
           // Logout Card
           _buildLogoutCard(context),
@@ -86,44 +86,44 @@ class _MobileProfileContentState extends State<MobileProfileContent> {
 
     return GlassContainer(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(14),
       child: Column( // Stacked for Mobile
         children: [
           // Avatar
           ProfileAvatar(
-            size: 80,
+            size: 62,
             user: user,
             canEdit: true,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
 
           // Info
           Text(
             displayName,
             style: GoogleFonts.poppins(
-              fontSize: 20,
+              fontSize: 17,
               fontWeight: FontWeight.bold,
               color: Theme.of(context).textTheme.titleLarge?.color,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFF5B60F6).withValues(alpha: 0.2)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.shield_outlined, size: 14, color: Color(0xFF5B60F6)),
-                const SizedBox(width: 8),
+                const Icon(Icons.shield_outlined, size: 13, color: Color(0xFF5B60F6)),
+                const SizedBox(width: 6),
                 Text(
                   displayRole,
                   style: GoogleFonts.poppins(
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: FontWeight.w500,
                     color: const Color(0xFF5B60F6),
                   ),
@@ -139,21 +139,21 @@ class _MobileProfileContentState extends State<MobileProfileContent> {
   Widget _buildContactInfoCard(BuildContext context, User? user) {
     return GlassContainer(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Contact Information',
             style: GoogleFonts.poppins(
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
               color: Theme.of(context).textTheme.titleLarge?.color,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 10),
           const Divider(height: 1, thickness: 1, color: Colors.white10),
-          const SizedBox(height: 24),
+          const SizedBox(height: 10),
           // Vertical Stack for Mobile
           _buildInfoItem(
             context,
@@ -162,7 +162,7 @@ class _MobileProfileContentState extends State<MobileProfileContent> {
             value: user?.email ?? 'Not Available',
             valueFontSize: 12,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           _buildInfoItem(
             context,
             icon: Icons.phone_outlined,
@@ -177,21 +177,21 @@ class _MobileProfileContentState extends State<MobileProfileContent> {
   Widget _buildEmploymentDetailsCard(BuildContext context, User? user) {
     return GlassContainer(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Employment Details',
             style: GoogleFonts.poppins(
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
               color: Theme.of(context).textTheme.titleLarge?.color,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 10),
           const Divider(height: 1, thickness: 1, color: Colors.white10),
-          const SizedBox(height: 24),
+          const SizedBox(height: 10),
           // Vertical Stack
           _buildInfoItem(
             context,
@@ -199,7 +199,7 @@ class _MobileProfileContentState extends State<MobileProfileContent> {
             label: 'Department',
             value: user?.department ?? 'Not Set',
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           _buildInfoItem(
             context,
             icon: Icons.badge_outlined,
@@ -227,7 +227,7 @@ class _MobileProfileContentState extends State<MobileProfileContent> {
             if (context.mounted) {
                // Reset internal navigation state
                navigationNotifier.value = PageType.dashboard;
-    
+     
                context.showToast('Logged out successfully', isSuccess: true);
 
               Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
@@ -242,18 +242,18 @@ class _MobileProfileContentState extends State<MobileProfileContent> {
       },
       child: GlassContainer(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
         color: const Color(0xFFEF4444), // Solid Red
         border: Border.all(color: Colors.red.shade700),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.logout, color: Colors.white, size: 20),
+            const Icon(Icons.logout, color: Colors.white, size: 18),
             const SizedBox(width: 8),
             Text(
               'Log Out',
               style: GoogleFonts.poppins(
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
@@ -270,21 +270,21 @@ class _MobileProfileContentState extends State<MobileProfileContent> {
 
     return GlassContainer(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'App Settings',
             style: GoogleFonts.poppins(
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
               color: Theme.of(context).textTheme.titleLarge?.color,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           const Divider(height: 1, thickness: 1, color: Colors.white10),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -292,14 +292,14 @@ class _MobileProfileContentState extends State<MobileProfileContent> {
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(Icons.smart_toy_outlined, size: 20, color: Colors.grey[400]),
+                      child: Icon(Icons.smart_toy_outlined, size: 18, color: Colors.grey[400]),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,7 +307,7 @@ class _MobileProfileContentState extends State<MobileProfileContent> {
                           Text(
                             'Mano Copilot (AI Chatbot)',
                             style: GoogleFonts.poppins(
-                              fontSize: 13,
+                              fontSize: 12.5,
                               fontWeight: FontWeight.w600,
                               color: Theme.of(context).textTheme.bodyLarge?.color,
                             ),
@@ -318,7 +318,7 @@ class _MobileProfileContentState extends State<MobileProfileContent> {
                           Text(
                             'Show chatbot assistant button',
                             style: GoogleFonts.poppins(
-                              fontSize: 11,
+                              fontSize: 10.5,
                               color: Colors.grey[500],
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -355,14 +355,14 @@ class _MobileProfileContentState extends State<MobileProfileContent> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey[100],
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, size: 20, color: Colors.grey[400]),
+          child: Icon(icon, size: 18, color: Colors.grey[400]),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -370,17 +370,17 @@ class _MobileProfileContentState extends State<MobileProfileContent> {
               Text(
                 label,
                 style: GoogleFonts.poppins(
-                  fontSize: 12,
+                  fontSize: 11,
                   color: Colors.grey[500],
                 ),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 value,
                 style: GoogleFonts.poppins(
-                  fontSize: valueFontSize ?? 13,
+                  fontSize: valueFontSize ?? 12.5,
                   fontWeight: FontWeight.w600,
                   color: Theme.of(context).textTheme.bodyLarge?.color,
                 ),
@@ -399,33 +399,33 @@ class _MobileProfileContentState extends State<MobileProfileContent> {
 
     return GlassContainer(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Diagnostics & Logs',
             style: GoogleFonts.poppins(
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
               color: Theme.of(context).textTheme.titleLarge?.color,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           const Divider(height: 1, thickness: 1, color: Colors.white10),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey[100],
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.terminal_outlined, size: 20, color: Colors.grey[400]),
+                child: Icon(Icons.terminal_outlined, size: 18, color: Colors.grey[400]),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -433,7 +433,7 @@ class _MobileProfileContentState extends State<MobileProfileContent> {
                     Text(
                       'Local Unsent Logs',
                       style: GoogleFonts.poppins(
-                        fontSize: 13,
+                        fontSize: 12.5,
                         fontWeight: FontWeight.w600,
                         color: Theme.of(context).textTheme.bodyLarge?.color,
                       ),

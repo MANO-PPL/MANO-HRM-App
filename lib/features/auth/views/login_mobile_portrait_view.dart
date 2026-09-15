@@ -1,7 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_application/features/auth/core/login_screen.dart';
 import 'package:flutter_application/features/auth/core/forgot_password_screen.dart';
+import 'package:flutter_application/shared/providers/theme_simple.dart';
 
 class LoginMobilePortrait extends StatelessWidget {
   final LoginScreenState controller;
@@ -11,283 +13,390 @@ class LoginMobilePortrait extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final size = MediaQuery.of(context).size;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
       ),
-      child: Container(
-        width: double.infinity,
-        height: double.infinity,
-        color: isDark ? const Color(0xFF0D1117) : Colors.white,
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 360),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Logo
-                  Image.asset('assets/mano.png', height: 64, width: 64),
-                  const SizedBox(height: 16),
-
-                  // Welcome Back Text
-                  Text(
-                    'Welcome Back',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
+      child: Scaffold(
+        backgroundColor: isDark ? const Color(0xFF010404) : const Color(0xFFF8FAFC),
+        body: Stack(
+          children: [
+            // Background ambient glowing spheres
+            Positioned(
+              top: -100,
+              left: -100,
+              width: size.width * 0.75,
+              height: size.width * 0.75,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF2563EB).withValues(alpha: isDark ? 0.14 : 0.07),
+                      Colors.transparent,
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Sign in to continue to MANO Attendance',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    ),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -100,
+              right: -100,
+              width: size.width * 0.65,
+              height: size.width * 0.65,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF4F46E5).withValues(alpha: isDark ? 0.12 : 0.05),
+                      Colors.transparent,
+                    ],
                   ),
-                  const SizedBox(height: 24),
+                ),
+              ),
+            ),
 
-                  Card(
-                    elevation: 4,
-                    color: isDark ? const Color(0xFF161B22) : Colors.white,
-                    shadowColor: Colors.black.withValues(alpha: 0.1),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    clipBehavior: Clip.none,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 24,
+            // Theme toggle button in top right
+            Positioned(
+              top: 20,
+              right: 20,
+              child: SafeArea(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: toggleTheme,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF0D1117) : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      child: Form(
-                        key: controller.formKey,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Email or Mobile Identifier
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Email or Phone',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: isDark
-                                        ? Colors.white70
-                                        : Colors.black87,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                TextFormField(
-                                  controller: controller.identifierController,
-                                  style: TextStyle(
-                                    color: isDark ? Colors.white : Colors.black,
-                                    fontSize: 14,
-                                  ),
-                                  decoration: InputDecoration(
-                                    hintText: 'Enter email/phone no.',
-                                    hintStyle: TextStyle(
-                                      color: isDark
-                                          ? Colors.white30
-                                          : Colors.black38,
-                                    ),
-                                    filled: true,
-                                    fillColor: isDark
-                                        ? const Color(0xFF0D1117)
-                                        : const Color(0xFFF0F4FA),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                    prefixIcon: Icon(
-                                      Icons.mail_outline,
-                                      color: isDark
-                                          ? Colors.white54
-                                          : Colors.grey,
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 14,
-                                    ),
-                                  ),
-                                  validator: (v) =>
-                                      v!.isEmpty ? 'Required' : null,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
+                      child: Icon(
+                        isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                        size: 20,
+                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
 
-                            // Password
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+            // Centered Form Content
+            SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 440),
+                    child: Form(
+                      key: controller.formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Brand Header Logo
+                          Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: isDark ? const Color(0xFF0D1117) : Colors.white,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.1),
+                                        blurRadius: 10,
+                                      ),
+                                    ],
+                                  ),
+                                  padding: const EdgeInsets.all(7),
+                                  child: Image.asset(
+                                    'assets/mano.png',
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (context, error, stackTrace) => const Icon(
+                                      Icons.apartment_rounded,
+                                      color: Color(0xFF2563EB),
+                                      size: 24,
+                                    ),
+                                  ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      'Password',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: isDark
-                                            ? Colors.white70
-                                            : Colors.black87,
+                                    RichText(
+                                      text: TextSpan(
+                                        text: 'MANO ',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w900,
+                                          fontStyle: FontStyle.italic,
+                                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                          letterSpacing: -0.5,
+                                        ),
+                                        children: [
+                                          TextSpan(
+                                            text: 'ATTENDANCE',
+                                            style: GoogleFonts.inter(
+                                              color: const Color(0xFF2563EB),
+                                              fontWeight: FontWeight.w700,
+                                              fontStyle: FontStyle.normal,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    TextButton(
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                const ForgotPasswordScreen(),
-                                          ),
-                                        );
-                                      },
-                                      style: TextButton.styleFrom(
-                                        padding: EdgeInsets.zero,
-                                        minimumSize: Size.zero,
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                      ),
-                                      child: const Text(
-                                        'Forgot password?',
-                                        style: TextStyle(
-                                          color: Color(0xFF4F46E5),
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'ENTERPRISE OPERATIONS PORTAL',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 8.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                                        letterSpacing: 2.2,
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
-                                TextFormField(
-                                  controller: controller.passwordController,
-                                  obscureText: !controller.isPasswordVisible,
-                                  style: TextStyle(
-                                    color: isDark ? Colors.white : Colors.black,
-                                  ),
-                                  decoration: InputDecoration(
-                                    hintText: '••••••',
-                                    hintStyle: TextStyle(
-                                      color: isDark
-                                          ? Colors.white30
-                                          : Colors.black38,
-                                      letterSpacing: 2,
-                                    ),
-                                    filled: true,
-                                    fillColor: isDark
-                                        ? const Color(0xFF0D1117)
-                                        : const Color(0xFFF0F4FA),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                    prefixIcon: Icon(
-                                      Icons.lock_outline,
-                                      color: isDark
-                                          ? Colors.white54
-                                          : Colors.grey,
-                                    ),
-                                    suffixIcon: IconButton(
-                                      icon: Icon(
-                                        controller.isPasswordVisible
-                                            ? Icons.visibility
-                                            : Icons.visibility_off,
-                                        color: isDark
-                                            ? Colors.white54
-                                            : Colors.grey,
-                                      ),
-                                      onPressed:
-                                          controller.togglePasswordVisibility,
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 14,
-                                    ),
-                                  ),
-                                  validator: (v) =>
-                                      v!.isEmpty ? 'Required' : null,
-                                ),
                               ],
                             ),
-                            const SizedBox(height: 20),
-                            Center(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 304,
+                          ),
+                          const SizedBox(height: 32),
+
+                          // Identifier Field
+                          Text(
+                            'Email Address',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: controller.identifierController,
+                            keyboardType: TextInputType.emailAddress,
+                            style: GoogleFonts.inter(
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Enter your email or employee ID',
+                              hintStyle: GoogleFonts.inter(
+                                color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                                fontSize: 14,
+                              ),
+                              prefixIcon: const Icon(
+                                Icons.mail_outline_rounded,
+                                size: 20,
+                                color: Color(0xFF94A3B8),
+                              ),
+                              filled: true,
+                              fillColor: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(
+                                  color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
                                 ),
-                                child: controller.buildCaptcha(),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(
+                                  color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFF2563EB),
+                                  width: 1.5,
+                                ),
                               ),
                             ),
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return 'Please enter your email or employee ID';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 18),
 
-                            const SizedBox(height: 20),
+                          // Password Field
+                          Text(
+                            'Password',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: controller.passwordController,
+                            obscureText: !controller.isPasswordVisible,
+                            style: GoogleFonts.inter(
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Enter your password',
+                              hintStyle: GoogleFonts.inter(
+                                color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                                fontSize: 14,
+                              ),
+                              prefixIcon: const Icon(
+                                Icons.lock_outline_rounded,
+                                size: 20,
+                                color: Color(0xFF94A3B8),
+                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  controller.isPasswordVisible
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                  size: 20,
+                                  color: const Color(0xFF94A3B8),
+                                ),
+                                onPressed: controller.togglePasswordVisibility,
+                              ),
+                              filled: true,
+                              fillColor: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(
+                                  color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(
+                                  color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFF2563EB),
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                            validator: (val) {
+                              if (val == null || val.isEmpty) {
+                                return 'Please enter your password';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 18),
 
-                            // Login Button
-                            ElevatedButton(
-                              onPressed:
-                                  (controller.isLoading ||
-                                      controller.captchaValue == null)
+                          // Captcha Section
+                          controller.buildCaptcha(),
+                          const SizedBox(height: 18),
+
+                          // Forgot Password
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const ForgotPasswordScreen(),
+                                  ),
+                                );
+                              },
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                foregroundColor: const Color(0xFF2563EB),
+                              ),
+                              child: Text(
+                                'Forgot password?',
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF2563EB),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Sign In Button
+                          SizedBox(
+                            height: 52,
+                            child: ElevatedButton(
+                              onPressed: (controller.isLoading || controller.captchaValue == null || controller.captchaValue!.isEmpty)
                                   ? null
                                   : controller.handleLogin,
                               style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                backgroundColor: const Color(0xFF4F46E5),
+                                backgroundColor: const Color(0xFF2563EB),
                                 foregroundColor: Colors.white,
-                                elevation: 0,
+                                elevation: 4,
+                                shadowColor: const Color(0xFF2563EB).withValues(alpha: 0.4),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                disabledBackgroundColor: const Color(0xFF2563EB).withValues(alpha: 0.45),
                               ),
                               child: controller.isLoading
                                   ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
+                                      width: 22,
+                                      height: 22,
                                       child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
                                         color: Colors.white,
-                                        strokeWidth: 2,
                                       ),
                                     )
-                                  : const Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          'Sign in',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        SizedBox(width: 8),
-                                        Icon(Icons.arrow_forward, size: 20),
-                                      ],
+                                  : Text(
+                                      'SIGN IN',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.8,
+                                      ),
                                     ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ],
+                ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 }
-
-// [mod:2026-02-10T08:30:00+05:30]
-
-// [upd:2026-04-20T17:00:00+05:30]
