@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_application/shared/layout/responsive_layout.dart';
@@ -26,74 +26,122 @@ class DailyActivityScreen extends StatelessWidget {
       return myDarView;
     }
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final orientation = MediaQuery.of(context).orientation;
+    final isMobilePortrait = screenWidth < 600 && orientation == Orientation.portrait;
+    final isTabletPortrait = screenWidth >= 600 && orientation == Orientation.portrait;
+
+    final double horizontalPadding;
+    if (screenWidth < 600) {
+      horizontalPadding = isMobilePortrait ? 10 : 14;
+    } else if (isTabletPortrait) {
+      horizontalPadding = 16;
+    } else {
+      horizontalPadding = 24;
+    }
+
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Column(
           children: [
-            // Pill Styled Tab Bar
-            Container(
-              margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isDark ? const Color(0xFF30363D) : Colors.grey[300]!,
-                ),
+            // Pill Styled Tab Bar (Matching Attendance, Leave, Payroll, Feedback)
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                6,
+                horizontalPadding,
+                isMobilePortrait ? 6 : 8,
               ),
-              child: TabBar(
-                labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-                indicatorSize: TabBarIndicatorSize.tab,
-                indicator: BoxDecoration(
-                  color: isDark ? const Color(0xFF2D3139) : Colors.white,
-                  borderRadius: BorderRadius.circular(8),
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(isMobilePortrait ? 3 : 4),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(isMobilePortrait ? 10 : 12),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+                    width: 1,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 4,
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
                   ],
                 ),
-                dividerColor: Colors.transparent,
-                labelColor: isDark ? Colors.white : const Color(0xFF5B60F6),
-                unselectedLabelColor: isDark
-                    ? const Color(0xFF94A3B8)
-                    : const Color(0xFF64748B),
-                labelStyle: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                child: TabBar(
+                  labelPadding: EdgeInsets.symmetric(horizontal: isMobilePortrait ? 2 : 6),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicator: BoxDecoration(
+                    color: isDark ? const Color(0xFF2D3139) : Colors.white,
+                    borderRadius: BorderRadius.circular(isMobilePortrait ? 7 : 8),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+                      width: 1,
+                    ),
+                    boxShadow: isDark
+                        ? []
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                  ),
+                  dividerColor: Colors.transparent,
+                  labelColor: isDark ? Colors.white : const Color(0xFF4F46E5),
+                  unselectedLabelColor: isDark
+                      ? const Color(0xFF94A3B8)
+                      : const Color(0xFF64748B),
+                  labelStyle: GoogleFonts.poppins(
+                    fontSize: isMobilePortrait ? 11.5 : (isTabletPortrait ? 13 : 13.5),
+                    fontWeight: FontWeight.w600,
+                  ),
+                  unselectedLabelStyle: GoogleFonts.poppins(
+                    fontSize: isMobilePortrait ? 11.5 : (isTabletPortrait ? 13 : 13.5),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  tabs: [
+                    Tab(
+                      height: isMobilePortrait ? 34 : (isTabletPortrait ? 38 : 40),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.person_outline_rounded,
+                              size: isMobilePortrait ? 15 : 17,
+                            ),
+                            SizedBox(width: isMobilePortrait ? 6 : 8),
+                            const Text("My DAR"),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Tab(
+                      height: isMobilePortrait ? 34 : (isTabletPortrait ? 38 : 40),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.people_outline_rounded,
+                              size: isMobilePortrait ? 15 : 17,
+                            ),
+                            SizedBox(width: isMobilePortrait ? 6 : 8),
+                            const Text("Employees' DAR"),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                tabs: [
-                  Tab(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.person_outline, size: 16),
-                          SizedBox(width: 8),
-                          Text("My DAR"),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Tab(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.people_outline, size: 16),
-                          SizedBox(width: 8),
-                          Text("Employees' DAR"),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ),
             
