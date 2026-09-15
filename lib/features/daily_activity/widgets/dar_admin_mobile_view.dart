@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -92,7 +92,7 @@ class _FilterBar extends StatelessWidget {
 
     return Container(
       color: fieldBg,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -102,21 +102,23 @@ class _FilterBar extends StatelessWidget {
             child: TextField(
               style: GoogleFonts.poppins(fontSize: 12),
               decoration: InputDecoration(
-                hintText: 'Search employee name or role…',
-                hintStyle: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
+                hintText: 'Search employee or role…',
+                hintStyle: GoogleFonts.poppins(fontSize: 11.5, color: Colors.grey),
                 prefixIcon:
                     const Icon(Icons.search, size: 16, color: Colors.grey),
-                contentPadding: EdgeInsets.zero,
+                prefixIconConstraints:
+                    const BoxConstraints(minWidth: 32, minHeight: 32),
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
                 filled: true,
                 fillColor: bg,
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(color: border)),
                 enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(color: border)),
                 focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                     borderSide:
                         const BorderSide(color: Color(0xFF5B60F6))),
               ),

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application/features/daily_activity/core/dar_models.dart';
@@ -190,12 +190,18 @@ class _TaskEditDialogState extends State<TaskEditDialog> {
     }
 
     final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    if (_dateStr == todayStr) {
+    String status = 'COMPLETED';
+    if (_dateStr.compareTo(todayStr) > 0) {
+      status = 'PLANNED';
+    } else if (_dateStr == todayStr) {
       final now = DateTime.now();
       final nowStr = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
       if (_endTime.compareTo(nowStr) > 0) {
+        status = 'PLANNED';
+      }
+      if (widget.initialTimeIn != null && widget.initialTimeIn!.isNotEmpty && _startTime.compareTo(widget.initialTimeIn!) < 0) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("End time cannot be in the future (after $nowStr).")),
+          SnackBar(content: Text("Task start time cannot precede check-in time (${widget.initialTimeIn}).")),
         );
         return;
       }
@@ -208,6 +214,7 @@ class _TaskEditDialogState extends State<TaskEditDialog> {
       'end_time': _endTime,
       'activity_date': _dateStr,
       'activity_type': _selectedCategory,
+      'status': status,
     });
     Navigator.of(context).pop();
   }

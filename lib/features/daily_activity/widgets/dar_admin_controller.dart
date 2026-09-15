@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/features/employees/core/employee_service.dart';
@@ -47,23 +47,45 @@ class DarAdminController extends ChangeNotifier {
     _notify();
 
     try {
-      if (employees.isEmpty) {
-        final empService = EmployeeService(auth);
-        final list = await empService.getEmployees();
-        employees = list.where((e) => !e.isDeleted).toList();
-        departments = employees
-            .map((e) => e.department)
-            .whereType<String>()
-            .where((d) => d.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
-      }
-
       final startStr =
           DateFormat('yyyy-MM-dd').format(isRange ? startDate : singleDate);
       final endStr =
           DateFormat('yyyy-MM-dd').format(isRange ? endDate : singleDate);
+
+      try {
+        final usersRes = await auth.dio.get('/admin/users', queryParameters: {
+          'startDate': startStr,
+          'endDate': endStr,
+        });
+        if (usersRes.statusCode == 200 && usersRes.data != null && usersRes.data['users'] is List) {
+          final fetched = (usersRes.data['users'] as List)
+              .map((u) => Employee.fromJson(u as Map<String, dynamic>))
+              .toList();
+          if (fetched.isNotEmpty) {
+            employees = fetched.where((e) => !e.isDeleted).toList();
+            departments = employees
+                .map((e) => e.department)
+                .whereType<String>()
+                .where((d) => d.isNotEmpty)
+                .toSet()
+                .toList()
+              ..sort();
+          }
+        }
+      } catch (_) {
+        if (employees.isEmpty) {
+          final empService = EmployeeService(auth);
+          final list = await empService.getEmployees();
+          employees = list.where((e) => !e.isDeleted).toList();
+          departments = employees
+              .map((e) => e.department)
+              .whereType<String>()
+              .where((d) => d.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
+        }
+      }
 
       final results = await Future.wait([
         auth.dio.get('/dar/activities/admin/all', queryParameters: {

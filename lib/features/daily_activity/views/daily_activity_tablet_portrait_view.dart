@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dio/dio.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +10,7 @@ import 'package:flutter_application/features/daily_activity/core/dar_models.dart
 import 'package:flutter_application/features/daily_activity/core/dar_service.dart';
 import 'package:flutter_application/features/holidays/core/holiday_service.dart';
 import 'package:flutter_application/features/attendance/core/attendance_service.dart';
+import 'package:flutter_application/features/attendance/core/attendance_record.dart';
 import 'package:flutter_application/features/daily_activity/widgets/day_snapshot_card.dart';
 import 'package:flutter_application/features/daily_activity/widgets/multi_day_timeline_widget.dart';
 import 'package:flutter_application/features/daily_activity/widgets/mini_calendar_widget.dart';
@@ -96,6 +97,7 @@ class _TabletDailyActivityViewState extends State<TabletDailyActivityView> {
       // 2. Fetch timeline tasks & attendance & holidays
       await _fetchTimelineData();
 
+      if (!mounted) return;
       setState(() {
         if (cats.isNotEmpty) {
           _categories = cats;
@@ -103,8 +105,8 @@ class _TabletDailyActivityViewState extends State<TabletDailyActivityView> {
         _isLoading = false;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
       if (mounted) {
+        setState(() => _isLoading = false);
         context.showToast("Error loading initial data: ${_getErrorMessage(e)}", isError: true);
       }
     }
@@ -126,19 +128,18 @@ class _TabletDailyActivityViewState extends State<TabletDailyActivityView> {
     // Keep _startDate aligned so timeline starts at the selected date
     _startDate = effectiveStart;
 
-    final acts = await _darService.getActivities(
-      dateFrom: dateFrom,
-      dateTo: dateTo,
-    );
-    final evts = await _darService.getEvents(
-      dateFrom: dateFrom,
-      dateTo: dateTo,
-    );
-    final hols = await _holidayService.getHolidays();
-    final atts = await _attendanceService.getMyRecords(
-      fromDate: dateFrom,
-      toDate: dateTo,
-    );
+    // Parallelize network calls to prevent tablet timeline lag
+    final results = await Future.wait([
+      _darService.getActivities(dateFrom: dateFrom, dateTo: dateTo),
+      _darService.getEvents(dateFrom: dateFrom, dateTo: dateTo),
+      _holidayService.getHolidays(),
+      _attendanceService.getMyRecords(fromDate: dateFrom, toDate: dateTo),
+    ]);
+
+    final acts = results[0] as List<DarActivity>;
+    final evts = results[1] as List<DarEvent>;
+    final hols = results[2] as List<dynamic>;
+    final atts = results[3] as List<AttendanceRecord>;
 
     final List<DarItem> merged = [];
     merged.addAll(acts.map((a) => DarItem.fromActivity(a)));

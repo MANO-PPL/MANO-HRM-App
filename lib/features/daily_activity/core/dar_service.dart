@@ -1,4 +1,4 @@
-﻿import 'package:dio/dio.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_application/shared/constants/api_constants.dart';
 import 'package:flutter_application/features/daily_activity/core/dar_models.dart';
@@ -110,6 +110,38 @@ class DarService {
       throw Exception("Failed to save activity");
     } catch (e) {
       debugPrint("DarService saveActivity error: $e");
+      rethrow;
+    }
+  }
+
+  // 4.1 Batch Save Activities (Advance task planning)
+  Future<Map<String, dynamic>> batchSaveActivities({
+    required String activityDate,
+    required List<DarActivity> tasks,
+  }) async {
+    try {
+      final taskPayloads = tasks.map((t) {
+        return {
+          if (t.activityId != null) 'id': t.activityId,
+          'start_time': t.startTime,
+          'end_time': t.endTime,
+          'title': t.title,
+          'description': t.description,
+          'activity_type': t.activityType,
+          'status': t.status,
+        };
+      }).toList();
+
+      final response = await _dio.post(
+        ApiConstants.darActivitiesBatchSave,
+        data: {
+          'activity_date': activityDate,
+          'tasks': taskPayloads,
+        },
+      );
+      return response.data is Map ? Map<String, dynamic>.from(response.data) : {'ok': true};
+    } catch (e) {
+      debugPrint("DarService batchSaveActivities error: $e");
       rethrow;
     }
   }

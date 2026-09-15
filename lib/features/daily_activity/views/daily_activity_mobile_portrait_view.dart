@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dio/dio.dart';
 import 'package:provider/provider.dart';
@@ -114,7 +114,9 @@ class _MobileDailyActivityViewState extends State<MobileDailyActivityView> {
         context.showToast("Error loading initial data: ${_getErrorMessage(e)}", isError: true);
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -327,7 +329,7 @@ class _MobileDailyActivityViewState extends State<MobileDailyActivityView> {
             ? int.tryParse(initialItem.id.replaceFirst('act-', ''))
             : null;
 
-        final status = targetDate.compareTo(todayStr) > 0 ? 'PLANNED' : 'COMPLETED';
+        final status = payload['status'] ?? (targetDate.compareTo(todayStr) > 0 ? 'PLANNED' : 'COMPLETED');
 
         final act = DarActivity(
           activityId: id,
