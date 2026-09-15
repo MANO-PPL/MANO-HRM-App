@@ -1,11 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_application/shared/widgets/glass_container.dart';
 import 'package:flutter_application/features/attendance/core/attendance_provider.dart';
 import 'package:flutter_application/shared/navigation/navigation_controller.dart';
-import 'package:flutter_application/shared/services/auth_service.dart';
 
 class EmployeeHeaderStack extends StatelessWidget {
   final String userName;
@@ -21,7 +20,6 @@ class EmployeeHeaderStack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthService>().user;
     final hour = DateTime.now().hour;
     String greeting;
     if (hour < 12) {
@@ -34,18 +32,13 @@ class EmployeeHeaderStack extends StatelessWidget {
 
     final formattedDate = DateFormat('EEEE, MMMM d').format(DateTime.now());
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    // Get Initials for Avatar
+
     final nameParts = userName.trim().split(' ');
-    final initials = nameParts.length > 1 
-        ? '${nameParts[0][0]}${nameParts[1][0]}'.toUpperCase()
-        : nameParts[0].isNotEmpty ? nameParts[0][0].toUpperCase() : 'E';
-        
     final firstName = nameParts.first.isNotEmpty ? nameParts.first : 'User';
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -55,96 +48,50 @@ class EmployeeHeaderStack extends StatelessWidget {
               : [const Color(0xFF4F46E5), const Color(0xFF3730A3)],
         ),
         borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
+          bottomLeft: Radius.circular(16),
+          bottomRight: Radius.circular(16),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  formattedDate,
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white.withValues(alpha: 0.7),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    '$greeting, $firstName!',
-                    style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                if (designation != null || department != null) ...[
-                  const SizedBox(height: 2),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      [designation, department].whereType<String>().join(' • '),
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white.withValues(alpha: 0.8),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+          Text(
+            formattedDate,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Colors.white.withValues(alpha: 0.7),
             ),
           ),
-          const SizedBox(width: 16),
-          // Avatar with Navigation (white border for contrast on blue card)
-          GestureDetector(
-            onTap: () => navigateTo(PageType.profile),
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.6),
-                  width: 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-                ],
-              ),
-              child: CircleAvatar(
-                radius: 24,
-                backgroundColor: Colors.white.withValues(alpha: 0.15),
-                backgroundImage: (user?.profileImage != null && user!.profileImage!.isNotEmpty)
-                    ? NetworkImage(user.profileImage!)
-                    : null,
-                child: (user?.profileImage == null || user!.profileImage!.isEmpty)
-                    ? Text(
-                        initials,
-                        style: GoogleFonts.poppins(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      )
-                    : null,
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '$greeting, $firstName!',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
               ),
             ),
           ),
+          if (designation != null || department != null) ...[
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                [designation, department].whereType<String>().join(' • '),
+                style: GoogleFonts.poppins(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white.withValues(alpha: 0.8),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -165,7 +112,6 @@ class EmployeeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthService>().user;
     final hour = DateTime.now().hour;
     String greeting;
     if (hour < 12) {
@@ -178,95 +124,44 @@ class EmployeeHeader extends StatelessWidget {
 
     final formattedDate = DateFormat('EEEE, MMMM d').format(DateTime.now());
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    // Get Initials for Avatar
-    final nameParts = userName.trim().split(' ');
-    final initials = nameParts.length > 1 
-        ? '${nameParts[0][0]}${nameParts[1][0]}'.toUpperCase()
-        : nameParts[0].isNotEmpty ? nameParts[0][0].toUpperCase() : 'E';
 
+    final nameParts = userName.trim().split(' ');
     final firstName = nameParts.first.isNotEmpty ? nameParts.first : 'User';
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.center,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                formattedDate.toUpperCase(),
-                style: GoogleFonts.poppins(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.grey[500] : Colors.grey[600],
-                  letterSpacing: 1.2,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '$greeting, $firstName 👋',
-                style: GoogleFonts.poppins(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : const Color(0xFF0D1117),
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (designation != null || department != null) ...[
-                const SizedBox(height: 2),
-                Text(
-                  [designation, department].whereType<String>().join(' • '),
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: isDark ? Colors.grey[400] : Colors.grey[700],
-                  ),
-                ),
-              ],
-            ],
+        Text(
+          formattedDate.toUpperCase(),
+          style: GoogleFonts.poppins(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.grey[500] : Colors.grey[600],
+            letterSpacing: 1.2,
           ),
         ),
-        const SizedBox(width: 16),
-        // Avatar with Navigation
-        GestureDetector(
-          onTap: () => navigateTo(PageType.profile),
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
-                width: 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
-                  blurRadius: 8,
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
-             child: CircleAvatar(
-              radius: 26,
-              backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-              backgroundImage: (user?.profileImage != null && user!.profileImage!.isNotEmpty)
-                  ? NetworkImage(user.profileImage!)
-                  : null,
-              child: (user?.profileImage == null || user!.profileImage!.isEmpty)
-                  ? Text(
-                      initials,
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    )
-                  : null,
+        const SizedBox(height: 4),
+        Text(
+          '$greeting, $firstName',
+          style: GoogleFonts.poppins(
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white : const Color(0xFF0D1117),
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (designation != null || department != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            [designation, department].whereType<String>().join(' • '),
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: isDark ? Colors.grey[400] : Colors.grey[700],
             ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -289,7 +184,8 @@ class _AttendanceStatusCardState extends State<AttendanceStatusCard> {
     final bool isChecking = attendanceProvider.isLoading;
 
     return GlassContainer(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      borderRadius: 12,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -297,15 +193,15 @@ class _AttendanceStatusCardState extends State<AttendanceStatusCard> {
             children: [
               Icon(
                 Icons.today_outlined,
-                size: 18,
+                size: 15,
                 color: primaryColor,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Text(
                 "TODAY'S SESSIONS",
                 style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
                   color: isDark ? Colors.grey[300] : const Color(0xFF30363D),
                   letterSpacing: 0.8,
                 ),
@@ -322,22 +218,22 @@ class _AttendanceStatusCardState extends State<AttendanceStatusCard> {
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           if (todayRecords.isEmpty) ...[
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: 6),
               child: Row(
                 children: [
                   const Icon(
                     Icons.info_outline,
-                    size: 16,
+                    size: 15,
                     color: Colors.grey,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     'No sessions clocked today.',
                     style: GoogleFonts.poppins(
-                      fontSize: 13,
+                      fontSize: 12.5,
                       color: Colors.grey,
                     ),
                   ),
@@ -349,7 +245,7 @@ class _AttendanceStatusCardState extends State<AttendanceStatusCard> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: todayRecords.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 8),
+              separatorBuilder: (context, index) => const SizedBox(height: 6),
               itemBuilder: (context, index) {
                 final record = todayRecords[index];
                 final timeInParsed = record.timeIn != null ? DateTime.parse(record.timeIn!).toLocal() : null;
@@ -361,30 +257,17 @@ class _AttendanceStatusCardState extends State<AttendanceStatusCard> {
                     children: [
                       const Icon(
                         Icons.play_circle_fill,
-                        size: 16,
+                        size: 15,
                         color: Color(0xFF10B981),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        'Active Session:',
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.grey[300] : const Color(0xFF30363D),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
                       Expanded(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'In at $timeInStr',
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : const Color(0xFF0D1117),
-                            ),
+                        child: Text(
+                          'In at $timeInStr',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : const Color(0xFF0D1117),
                           ),
                         ),
                       ),
@@ -399,7 +282,7 @@ class _AttendanceStatusCardState extends State<AttendanceStatusCard> {
                           'ACTIVE',
                           style: GoogleFonts.poppins(
                             fontSize: 8,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
                             color: const Color(0xFF10B981),
                           ),
                         ),
@@ -415,30 +298,17 @@ class _AttendanceStatusCardState extends State<AttendanceStatusCard> {
                     children: [
                       const Icon(
                         Icons.check_circle,
-                        size: 16,
-                        color: Colors.grey,
+                        size: 15,
+                        color: Color(0xFF10B981),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        'Session Completed:',
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
                       Expanded(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'In: $timeInStr - Out: $timeOutStr',
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.grey[300] : const Color(0xFF30363D),
-                            ),
+                        child: Text(
+                          'Clocked: $timeInStr – $timeOutStr',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                            color: isDark ? Colors.grey[300] : const Color(0xFF30363D),
                           ),
                         ),
                       ),
@@ -486,11 +356,11 @@ class EmployeeQuickActions extends StatelessWidget {
         'page': PageType.leavesAndHolidays,
       },
       {
-        'title': 'Holidays',
-        'subtitle': 'View List',
-        'icon': Icons.celebration_outlined,
+        'title': 'Team Chat',
+        'subtitle': 'Messages & Channels',
+        'icon': Icons.forum_outlined,
         'color': const Color(0xFF8B5CF6),
-        'page': PageType.leavesAndHolidays,
+        'page': PageType.collaboration,
       },
     ];
 
@@ -500,16 +370,16 @@ class EmployeeQuickActions extends StatelessWidget {
         final int crossAxisCount = constraints.maxWidth > 600 ? 4 : 2;
         // Adjust aspect ratio dynamically on mobile to prevent layout overflows
         final double aspectRatio = constraints.maxWidth > 600 
-            ? 1.6 
-            : (constraints.maxWidth < 360 ? 1.15 : 1.35);
+            ? 1.8 
+            : (constraints.maxWidth < 360 ? 1.4 : 1.62);
 
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
             childAspectRatio: aspectRatio,
           ),
           itemCount: actions.length,
@@ -519,27 +389,28 @@ class EmployeeQuickActions extends StatelessWidget {
             
             return GlassContainer(
               padding: EdgeInsets.zero,
+              borderRadius: 12,
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: () => navigateTo(action['page'] as PageType),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6.5),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: const EdgeInsets.all(7),
                           decoration: BoxDecoration(
                             color: color.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(9),
                           ),
                           child: Icon(
                             action['icon'] as IconData,
                             color: color,
-                            size: 20,
+                            size: 18,
                           ),
                         ),
                         Expanded(
@@ -553,8 +424,8 @@ class EmployeeQuickActions extends StatelessWidget {
                                 child: Text(
                                   action['title'] as String,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
                                     color: isDark ? Colors.white : const Color(0xFF30363D),
                                   ),
                                 ),
@@ -566,7 +437,8 @@ class EmployeeQuickActions extends StatelessWidget {
                                 child: Text(
                                   action['subtitle'] as String,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 10,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w400,
                                     color: isDark ? Colors.grey[500] : Colors.grey[600],
                                   ),
                                 ),
@@ -608,8 +480,8 @@ class EmployeeStatCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return GlassContainer(
-      // Reduced padding to prevent vertical text and icon overflows on smaller screens
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      borderRadius: 12,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -618,25 +490,25 @@ class EmployeeStatCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: iconColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: iconColor, size: 20),
+                child: Icon(icon, color: iconColor, size: 16),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF30363D) : Colors.grey[200],
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
                     badgeText,
                     style: GoogleFonts.poppins(
-                      fontSize: 9,
+                      fontSize: 8,
                       fontWeight: FontWeight.w600,
                       color: isDark ? Colors.grey[400] : Colors.grey[700],
                     ),
@@ -645,8 +517,7 @@ class EmployeeStatCard extends StatelessWidget {
               ),
             ],
           ),
-          // Reduced vertical spacing
-          const SizedBox(height: 8),
+          const SizedBox(height: 3),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -656,20 +527,20 @@ class EmployeeStatCard extends StatelessWidget {
                 child: Text(
                   value,
                   style: GoogleFonts.poppins(
-                    fontSize: 24,
+                    fontSize: 19,
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : const Color(0xFF0D1117),
                   ),
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 1),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
                 child: Text(
                   label,
                   style: GoogleFonts.poppins(
-                    fontSize: 12,
+                    fontSize: 10.5,
                     fontWeight: FontWeight.w500,
                     color: isDark ? Colors.grey[400] : Colors.grey[600],
                   ),
@@ -701,22 +572,21 @@ class EmployeeInfoCard extends StatelessWidget {
     final primaryColor = Theme.of(context).colorScheme.primary;
 
     return GlassContainer(
-      // Reduced padding for a tighter, more consistent visual grid
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: primaryColor.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, size: 18, color: primaryColor),
+                child: Icon(icon, size: 16, color: primaryColor),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
@@ -724,8 +594,8 @@ class EmployeeInfoCard extends StatelessWidget {
                   child: Text(
                     title,
                     style: GoogleFonts.poppins(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
                       color: isDark ? Colors.white : const Color(0xFF0D1117),
                     ),
                   ),
@@ -733,7 +603,7 @@ class EmployeeInfoCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           child,
         ],
       ),

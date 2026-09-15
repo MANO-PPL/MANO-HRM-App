@@ -25,7 +25,7 @@ class TrendsChart extends StatelessWidget {
 
     // Use a GlassContainer directly
     return GlassContainer(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -42,7 +42,7 @@ class TrendsChart extends StatelessWidget {
                     'Attendance Trends',
                     style: GoogleFonts.poppins(
                       fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                       color: textColor,
                     ),
                   ),
@@ -69,7 +69,7 @@ class TrendsChart extends StatelessWidget {
               )
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
           Expanded(
             child: LineChart(
               LineChartData(

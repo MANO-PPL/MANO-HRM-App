@@ -33,7 +33,7 @@ class _ActivityFeedState extends State<ActivityFeed> {
     final subTextColor = Theme.of(context).textTheme.bodySmall?.color;
 
     return GlassContainer(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -44,7 +44,7 @@ class _ActivityFeedState extends State<ActivityFeed> {
                 'Live Activity',
                 style: GoogleFonts.poppins(
                   fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
                   color: textColor,
                 ),
               ),
@@ -66,7 +66,7 @@ class _ActivityFeedState extends State<ActivityFeed> {
             physics: const NeverScrollableScrollPhysics(),
             itemCount: displayedActivities.length,
             separatorBuilder: (context, index) => Divider(
-              height: 24,
+              height: 14,
               color: dividerColor,
             ),
             itemBuilder: (context, index) {
@@ -84,7 +84,7 @@ class _ActivityFeedState extends State<ActivityFeed> {
                       avatarChar,
                       style: GoogleFonts.poppins(
                         fontSize: 12,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                         color: color,
                       ),
                     ),
