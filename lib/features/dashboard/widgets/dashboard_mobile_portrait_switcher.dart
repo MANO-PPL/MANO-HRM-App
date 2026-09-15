@@ -6,10 +6,10 @@ import 'package:flutter_application/features/dashboard/views/dashboard_mobile_po
 import 'package:flutter_application/features/employees/views/employees_mobile_portrait_view.dart';
 import 'package:flutter_application/features/attendance/views/attendance_mobile_portrait_view.dart';
 import 'package:flutter_application/features/live_attendance/views/live_attendance_mobile_portrait_view.dart';
-import 'package:flutter_application/features/reports/views/reports_mobile_portrait_view.dart';
+import 'package:flutter_application/features/reports/reports_page.dart';
 import 'package:flutter_application/features/profile/views/profile_mobile_portrait_view.dart';
 import 'package:flutter_application/features/policies/views/policies_mobile_portrait_view.dart';
-import 'package:flutter_application/features/leave/views/leave_mobile_portrait_view.dart';
+import 'package:flutter_application/features/leave/leave_page.dart';
 import 'package:flutter_application/features/daily_activity/daily_activity_page.dart';
 import 'package:flutter_application/shared/widgets/chatbot_fab.dart';
 import 'package:flutter_application/features/feedback/views/feedback_mobile_portrait_view.dart';
@@ -33,26 +33,30 @@ class MobilePortrait extends StatelessWidget {
             Navigator.pop(context);
           },
         ),
-        body: Column(
-          children: [
-            ValueListenableBuilder<PageType>(
-              valueListenable: navigationNotifier,
-              builder: (context, currentPage, _) {
-                return CustomAppBar(
-                  title: currentPage.title,
-                  showDrawerButton: true,
-                );
-              },
-            ),
-            Expanded(
-              child: ValueListenableBuilder<PageType>(
+        body: SafeArea(
+          top: false,
+          bottom: true,
+          child: Column(
+            children: [
+              ValueListenableBuilder<PageType>(
                 valueListenable: navigationNotifier,
-                builder: (context, currentPage, child) {
-                  return _buildContent(context, currentPage, isDark);
+                builder: (context, currentPage, _) {
+                  return CustomAppBar(
+                    title: currentPage.title,
+                    showDrawerButton: true,
+                  );
                 },
               ),
-            ),
-          ],
+              Expanded(
+                child: ValueListenableBuilder<PageType>(
+                  valueListenable: navigationNotifier,
+                  builder: (context, currentPage, child) {
+                    return _buildContent(context, currentPage, isDark);
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
         floatingActionButton: ValueListenableBuilder<PageType>(
           valueListenable: navigationNotifier,
@@ -76,9 +80,9 @@ class MobilePortrait extends StatelessWidget {
       case PageType.liveAttendance:
         return const MobileLiveAttendanceContent();
       case PageType.reports:
-        return const ReportsMobileView();
+        return const ReportsView();
       case PageType.leavesAndHolidays:
-        return const LeaveMobileView();
+        return const LeavePage();
       case PageType.payroll:
         return const PayrollScreenMobile();
       case PageType.profile:

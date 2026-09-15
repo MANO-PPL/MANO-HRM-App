@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -63,7 +63,7 @@ class _MobileEmployeeDashboardContentState extends State<MobileEmployeeDashboard
           message: "Loading dashboard...",
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.only(bottom: 24),
+            padding: const EdgeInsets.only(bottom: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -73,39 +73,39 @@ class _MobileEmployeeDashboardContentState extends State<MobileEmployeeDashboard
                   department: user?.department,
                   designation: user?.designation,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 6),
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  padding: EdgeInsets.symmetric(horizontal: 10),
                   child: AttendanceStatusCard(),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 6),
 
                 if (missedPunchDate != null) ...[
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
                     child: _buildMissedPunchBanner(context, missedPunchDate, attendanceProvider),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 6),
                 ],
   
                 // 2. Dashboard content wrapped in horizontal padding
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Quick Actions
                       const EmployeeQuickActions(),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 6),
         
                       // Stats Grid (2x2) with dynamic aspect ratio based on screen size
                       GridView.count(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: MediaQuery.of(context).size.width < 360 ? 1.15 : 1.35,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                        childAspectRatio: MediaQuery.of(context).size.width < 360 ? 1.4 : 1.62,
                         children: [
                           EmployeeStatCard(
                             label: 'Present Days',
@@ -134,15 +134,15 @@ class _MobileEmployeeDashboardContentState extends State<MobileEmployeeDashboard
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
         
                       // Info Cards (Stacked)
                       EmployeeInfoCard(
-                        title: 'Your Work Location',
+                        title: 'Work Location',
                         icon: Icons.location_on_outlined,
                         child: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                           decoration: BoxDecoration(
                             color: Theme.of(context).brightness == Brightness.dark 
                                 ? Colors.white.withValues(alpha: 0.03) 
@@ -172,7 +172,7 @@ class _MobileEmployeeDashboardContentState extends State<MobileEmployeeDashboard
                                 ],
                               ),
                               if (provider.userWorkLocations.isNotEmpty) ...[
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 8),
                                 Text(
                                   'Assigned Locations:',
                                   style: GoogleFonts.poppins(
@@ -183,19 +183,19 @@ class _MobileEmployeeDashboardContentState extends State<MobileEmployeeDashboard
                                         : Colors.grey[700],
                                   ),
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 6),
                                 Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
+                                  spacing: 6,
+                                  runSpacing: 6,
                                   children: provider.userWorkLocations.map((loc) {
                                     final locActive = loc.isActive;
                                     return Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
                                         color: locActive 
                                             ? const Color(0xFF3B82F6).withValues(alpha: 0.1) 
                                             : Colors.grey.withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(10),
                                         border: Border.all(
                                           color: locActive 
                                               ? const Color(0xFF3B82F6).withValues(alpha: 0.25) 
@@ -227,24 +227,11 @@ class _MobileEmployeeDashboardContentState extends State<MobileEmployeeDashboard
                                   }).toList(),
                                 ),
                               ],
-                              const SizedBox(height: 12),
-                              Text(
-                                provider.userWorkLocations.isEmpty
-                                    ? 'You are currently assigned to standard work locations. Please ensure you are within the geofenced area when marking attendance.'
-                                    : 'Please ensure you are within one of the geofenced areas above when marking attendance.',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  color: Theme.of(context).brightness == Brightness.dark 
-                                      ? Colors.grey[400] 
-                                      : Colors.grey[600],
-                                  height: 1.5,
-                                ),
-                              ),
                             ],
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       EmployeeInfoCard(
                         title: 'Policies & Reminders',
                         icon: Icons.info_outline,
@@ -252,10 +239,10 @@ class _MobileEmployeeDashboardContentState extends State<MobileEmployeeDashboard
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _buildBulletPoint(context, 'Mark attendance before 09:30 AM to avoid late remarks.'),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 4),
                             _buildBulletPoint(context, 'Apply for leave at least 2 days in advance.'),
-                            const SizedBox(height: 10),
-                            _buildBulletPoint(context, 'Missed a punch-out? Submit a correction request via the Attendance page within 2 days to avoid marked absences.'),
+                            const SizedBox(height: 4),
+                            _buildBulletPoint(context, 'Submit daily activity report before the end of shift.'),
                           ],
                         ),
                       ),
@@ -273,9 +260,8 @@ class _MobileEmployeeDashboardContentState extends State<MobileEmployeeDashboard
   Widget _buildMissedPunchBanner(BuildContext context, DateTime missedDate, AttendanceProvider provider) {
     final dateLabel = DateFormat('EEE, MMM d').format(missedDate);
     final deadlineDays = provider.correctionDeadlineDays;
-    // Expiry = end-of-day on (missedDate + deadlineDays days)
     final expiry = DateTime(missedDate.year, missedDate.month, missedDate.day)
-        .add(Duration(days: deadlineDays + 1)); // +1 so the full last day counts
+        .add(Duration(days: deadlineDays + 1));
     final hoursLeft = expiry.difference(DateTime.now()).inHours;
     final daysLeft = expiry.difference(DateTime.now()).inDays;
     final daysLeftLabel = hoursLeft <= 0 ? 'Expired' : daysLeft == 0 ? 'Last chance today' : '$daysLeft day${daysLeft == 1 ? '' : 's'} left';
@@ -294,7 +280,7 @@ class _MobileEmployeeDashboardContentState extends State<MobileEmployeeDashboard
             },
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: isExpired
@@ -307,15 +293,15 @@ class _MobileEmployeeDashboardContentState extends State<MobileEmployeeDashboard
           boxShadow: [
             BoxShadow(
               color: (isExpired ? Colors.red : Colors.orange).withValues(alpha: 0.35),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
@@ -323,38 +309,38 @@ class _MobileEmployeeDashboardContentState extends State<MobileEmployeeDashboard
               child: Icon(
                 isExpired ? Icons.block_rounded : Icons.warning_amber_rounded,
                 color: Colors.white,
-                size: 22,
+                size: 20,
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isExpired ? 'Missed Punch — Deadline Passed' : '⚠️  Missed Time-Out Detected',
+                    isExpired ? 'Missed Punch — Expired' : 'Missed Time-Out',
                     style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
                     isExpired
-                        ? 'No time-out recorded for $dateLabel. The correction window has expired.'
-                        : 'No time-out recorded for $dateLabel ($daysLeftLabel).',
+                        ? 'Correction window expired for $dateLabel.'
+                        : 'No time-out for $dateLabel ($daysLeftLabel).',
                     style: GoogleFonts.poppins(
                       fontSize: 11,
                       color: Colors.white.withValues(alpha: 0.9),
-                      height: 1.4,
+                      height: 1.3,
                     ),
                   ),
                 ],
               ),
             ),
             if (!isExpired) ...[
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               ElevatedButton(
                 onPressed: () {
                   CorrectionRequestDialogMobile.show(
@@ -367,9 +353,9 @@ class _MobileEmployeeDashboardContentState extends State<MobileEmployeeDashboard
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   foregroundColor: const Color(0xFFEA580C),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   elevation: 0,
                 ),
@@ -377,7 +363,7 @@ class _MobileEmployeeDashboardContentState extends State<MobileEmployeeDashboard
                   'Fix Now',
                   style: GoogleFonts.poppins(
                     fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -394,19 +380,19 @@ class _MobileEmployeeDashboardContentState extends State<MobileEmployeeDashboard
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: CircleAvatar(radius: 3.5, backgroundColor: primaryColor),
+          padding: const EdgeInsets.only(top: 5),
+          child: CircleAvatar(radius: 3, backgroundColor: primaryColor),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 10),
         Expanded(
           child: Text(
             text,
             style: GoogleFonts.poppins(
-              fontSize: 13,
+              fontSize: 12,
               color: Theme.of(context).brightness == Brightness.dark 
                   ? Colors.grey[300] 
                   : Colors.grey[800],
-              height: 1.5,
+              height: 1.35,
             ),
           ),
         ),

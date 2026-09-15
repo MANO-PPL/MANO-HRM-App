@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -28,18 +28,20 @@ class GeofencingScreen extends StatefulWidget {
 }
 
 class _GeofencingScreenState extends State<GeofencingScreen> {
-  // Map Configurations
+  // Map Configurations (Free tile providers with zero API key watermarks)
   static const Map<String, Map<String, String>> _mapThemes = {
-    'dark':    {'name': 'Night Mode',  'url': 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'},
-    'light':   {'name': 'Light Mode',  'url': 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'},
-    'voyager': {'name': 'Day Mode',    'url': 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'},
-    'satellite':{'name': 'Satellite',  'url': 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'},
-    'streets': {'name': 'Streets',     'url': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'},
+    'streets':   {'name': 'Streets',    'url': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'},
+    'voyager':   {'name': 'Day Mode',   'url': 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png'},
+    'light':     {'name': 'Light Mode', 'url': 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'},
+    'dark':      {'name': 'Night Mode', 'url': 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'},
+    'satellite': {'name': 'Satellite',  'url': 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'},
   };
 
-  String _activeMapTheme = 'voyager';
+  String _activeMapTheme = 'streets';
   bool _isMapThemeMenuOpen = false;
   final MapController _mapController = MapController();
+  String _searchLocationQuery = '';
+  int _tabletPortraitTab = 0; // 0: Map & Geofence, 1: Staff
 
   // Locations State
   List<WorkLocation> _locations = [];
@@ -263,19 +265,21 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       body: LoadingScreen(
         isLoading: _isLoading || _isLoadingUsers,
         message: "Loading locations...",
-        child: OrientationBuilder(
-          builder: (context, orientation) {
-            if (orientation == Orientation.landscape) {
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth >= 950) {
               return _buildDesktopLayout();
+            } else if (constraints.maxWidth >= 580) {
+              return _buildTabletPortraitLayout();
             }
             return _buildMobileLayout();
           },
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.small(
         onPressed: _showCreateDialog,
         backgroundColor: Colors.indigo,
-        child: const Icon(Icons.add, color: Colors.white),
+        child: const Icon(Icons.add, color: Colors.white, size: 20),
       ),
     );
   }
@@ -284,16 +288,16 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(8.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 1. LEFT PANEL: Locations List (320px)
+          // 1. LEFT PANEL: Locations List (240px)
           SizedBox(
-            width: 320,
+            width: 240,
             child: GlassContainer(
               color: isDark ? const Color(0xFF161B22) : Colors.white,
-              borderRadius: 12,
+              borderRadius: 10,
               padding: EdgeInsets.zero,
               child: Column(
                 children: [
@@ -305,46 +309,46 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
             ),
           ),
           
-          const SizedBox(width: 16),
+          const SizedBox(width: 8),
           
           // 2. CENTER PANEL: Location Details (Flexible)
           Expanded(
             flex: 2,
             child: GlassContainer(
                color: isDark ? const Color(0xFF161B22) : Colors.white,
-               borderRadius: 12,
-               padding: const EdgeInsets.all(24),
+               borderRadius: 10,
+               padding: const EdgeInsets.all(10),
                child: _selectedLocation == null 
-                  ? const Center(child: Text("Select a location to edit", style: TextStyle(color: Colors.grey)))
+                  ? const Center(child: Text("Select a location to edit", style: TextStyle(color: Colors.grey, fontSize: 12)))
                   : _buildLocationSettingsPanel(isDark),
             ),
           ),
           
-          const SizedBox(width: 16),
+          const SizedBox(width: 8),
           
-          // 3. RIGHT PANEL: Assigned Staff (320px)
+          // 3. RIGHT PANEL: Assigned Staff (240px)
           SizedBox(
-            width: 320,
+            width: 240,
             child: GlassContainer(
               color: isDark ? const Color(0xFF161B22) : Colors.white,
-              borderRadius: 12,
+              borderRadius: 10,
               padding: EdgeInsets.zero,
               child: Column(
                 children: [
                    Padding(
-                     padding: const EdgeInsets.all(16),
+                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                      child: Row(
                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                        children: [
                          Row(
                            children: [
-                             const Icon(Icons.people_outline, size: 20),
-                             const SizedBox(width: 8),
+                             const Icon(Icons.people_outline, size: 16),
+                             const SizedBox(width: 6),
                              Text(
                                "Assigned Staff",
-                               style: TextStyle(
-                                 fontWeight: FontWeight.bold,
-                                 fontSize: 16,
+                               style: GoogleFonts.poppins(
+                                 fontWeight: FontWeight.w600,
+                                 fontSize: 13,
                                  color: isDark ? Colors.white : Colors.black87,
                                ),
                              ),
@@ -352,8 +356,10 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                          ),
                          if (_selectedLocation != null)
                            IconButton(
-                             icon: const Icon(Icons.person_add_alt_1_outlined, color: Colors.indigo, size: 20),
+                             icon: const Icon(Icons.person_add_alt_1_outlined, color: Colors.indigo, size: 18),
                              tooltip: "Assign Staff",
+                             padding: EdgeInsets.zero,
+                             constraints: const BoxConstraints(),
                              onPressed: () => _showAssignStaffDialog(context, _selectedLocation!),
                            ),
                        ],
@@ -363,6 +369,164 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                    Expanded(child: _buildStaffList()),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabletPortraitLayout() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Count assigned staff for selected location
+    final assignedCount = _selectedLocation == null
+        ? 0
+        : _users.where((u) {
+            final List<dynamic>? userLocs = u['work_locations'];
+            if (userLocs == null) return false;
+            return userLocs.any((l) => l is Map && (l['location_id'] == _selectedLocation!.id || l['loc_id'] == _selectedLocation!.id));
+          }).length;
+
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 1. LEFT PANEL: Locations List (230px)
+          SizedBox(
+            width: 230,
+            child: GlassContainer(
+              color: isDark ? const Color(0xFF161B22) : Colors.white,
+              borderRadius: 10,
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                   _buildListHeader(),
+                   const Divider(height: 1),
+                   Expanded(child: _buildLocationList()),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(width: 8),
+          
+          // 2. RIGHT PANEL: Location Details with Switcher (Map vs Staff)
+          Expanded(
+            child: GlassContainer(
+               color: isDark ? const Color(0xFF161B22) : Colors.white,
+               borderRadius: 10,
+               padding: const EdgeInsets.all(10),
+               child: _selectedLocation == null 
+                  ? const Center(child: Text("Select a location to edit", style: TextStyle(color: Colors.grey, fontSize: 12)))
+                  : Column(
+                      children: [
+                        // Tab Selector between Map and Staff
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF0D1117) : const Color(0xFFE2E8F0),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () => setState(() => _tabletPortraitTab = 0),
+                                  borderRadius: BorderRadius.circular(5),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: _tabletPortraitTab == 0
+                                          ? (isDark ? const Color(0xFF21262D) : Colors.white)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.map_outlined, size: 13, color: _tabletPortraitTab == 0 ? const Color(0xFF6366F1) : Colors.grey),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          "Map & Geofence",
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 11,
+                                            fontWeight: _tabletPortraitTab == 0 ? FontWeight.w600 : FontWeight.w500,
+                                            color: _tabletPortraitTab == 0 ? (isDark ? Colors.white : const Color(0xFF0F172A)) : Colors.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () => setState(() => _tabletPortraitTab = 1),
+                                  borderRadius: BorderRadius.circular(5),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: _tabletPortraitTab == 1
+                                          ? (isDark ? const Color(0xFF21262D) : Colors.white)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.people_outline, size: 13, color: _tabletPortraitTab == 1 ? const Color(0xFF6366F1) : Colors.grey),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          "Staff ($assignedCount)",
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 11,
+                                            fontWeight: _tabletPortraitTab == 1 ? FontWeight.w600 : FontWeight.w500,
+                                            color: _tabletPortraitTab == 1 ? (isDark ? Colors.white : const Color(0xFF0F172A)) : Colors.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        Expanded(
+                          child: _tabletPortraitTab == 0
+                              ? _buildLocationSettingsPanel(isDark)
+                              : Column(
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            "Staff at ${_selectedLocation!.name}",
+                                            style: GoogleFonts.poppins(fontSize: 12.5, fontWeight: FontWeight.w600),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.person_add_alt_1_outlined, color: Colors.indigo, size: 18),
+                                            tooltip: "Assign Staff",
+                                            onPressed: () => _showAssignStaffDialog(context, _selectedLocation!),
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const Divider(height: 1),
+                                    Expanded(child: _buildStaffList()),
+                                  ],
+                                ),
+                        ),
+                      ],
+                    ),
             ),
           ),
         ],
@@ -390,16 +554,18 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                 children: [
                   Text(
                     _selectedLocation!.name,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                       color: isDark ? Colors.white : Colors.black87,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 1),
                   Text(
                     _selectedLocation!.address,
-                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    style: GoogleFonts.poppins(color: Colors.grey, fontSize: 11),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -407,19 +573,22 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            Switch(
-              value: _selectedLocation!.isActive,
-              onChanged: (_) => _toggleActiveStatus(),
-              activeTrackColor: Colors.indigo,
+            Transform.scale(
+              scale: 0.8,
+              child: Switch(
+                value: _selectedLocation!.isActive,
+                onChanged: (_) => _toggleActiveStatus(),
+                activeTrackColor: Colors.indigo,
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
 
         // 2. CENTER: Leaflet Map View
         Expanded(
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(8),
             child: Stack(
               children: [
                 FlutterMap(
@@ -436,7 +605,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                   children: [
                     TileLayer(
                       urlTemplate: tileUrl,
-                      subdomains: _activeMapTheme == 'satellite' ? const [] : const ['a', 'b', 'c'],
+                      subdomains: tileUrl.contains('{s}') ? const ['a', 'b', 'c'] : const [],
                       userAgentPackageName: 'co.mano.attendance',
                       retinaMode: RetinaMode.isHighDensity(context),
                     ),
@@ -456,12 +625,12 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                       markers: [
                         Marker(
                           point: centerLatLng,
-                          width: 40,
-                          height: 40,
+                          width: 32,
+                          height: 32,
                           child: const Icon(
                             Icons.location_on,
                             color: Colors.red,
-                            size: 40,
+                            size: 32,
                           ),
                         ),
                       ],
@@ -471,8 +640,8 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
                 // Map Theme Button Overlay
                 Positioned(
-                  top: 10,
-                  right: 10,
+                  top: 8,
+                  right: 8,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
@@ -485,28 +654,28 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: isDark ? const Color(0xFF1F2937) : Colors.white,
                           foregroundColor: isDark ? Colors.white : Colors.black87,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          elevation: 4,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          elevation: 3,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                         ),
-                        icon: const Icon(Icons.layers_outlined, size: 16),
+                        icon: const Icon(Icons.layers_outlined, size: 14),
                         label: Text(
                           _mapThemes[_activeMapTheme]!['name']!,
-                          style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600),
+                          style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600),
                         ),
                       ),
                       if (_isMapThemeMenuOpen) ...[
                         const SizedBox(height: 4),
                         Container(
-                          width: 140,
+                          width: 130,
                           decoration: BoxDecoration(
                             color: isDark ? const Color(0xFF1F2937) : Colors.white,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(6),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.15),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
                               ),
                             ],
                           ),
@@ -523,18 +692,18 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                                 },
                                 child: Container(
                                   width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                   decoration: BoxDecoration(
                                     color: isSelected
                                         ? Colors.indigo.withValues(alpha: 0.1)
                                         : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
                                     e.value['name']!,
                                     style: GoogleFonts.poppins(
-                                      fontSize: 11,
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                      fontSize: 10.5,
+                                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                                       color: isSelected
                                           ? Colors.indigo
                                           : (isDark ? Colors.white70 : Colors.black87),
@@ -553,24 +722,24 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
 
         // 3. BOTTOM: Geofence Slider & Coordinates Info Cards
         Text(
           "Geofence Radius",
-          style: TextStyle(
+          style: GoogleFonts.poppins(
             fontWeight: FontWeight.w600,
-            fontSize: 13,
+            fontSize: 11.5,
             color: isDark ? Colors.white70 : Colors.black54,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Row(
           children: [
             Expanded(
               child: SliderTheme(
                 data: SliderTheme.of(context).copyWith(
-                  trackHeight: 6,
+                  trackHeight: 4,
                   activeTrackColor: Colors.indigo,
                   thumbColor: Colors.indigo,
                   overlayColor: Colors.indigo.withValues(alpha: 0.2),
@@ -587,19 +756,19 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: Colors.indigo.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 "${_currentRadius.toInt()} m",
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo, fontSize: 13),
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.indigo, fontSize: 11.5),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
 
         // Coordinates Cards (Read Only)
         Row(
@@ -607,7 +776,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
             Expanded(
               child: _buildInfoCard(isDark, "Latitude", _selectedLocation!.latitude.toString()),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 8),
             Expanded(
               child: _buildInfoCard(isDark, "Longitude", _selectedLocation!.longitude.toString()),
             ),
@@ -617,51 +786,61 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     );
   }
 
-
-  
   Widget _buildInfoCard(bool isDark, String label, String value) {
      return Container(
-       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
        decoration: BoxDecoration(
          color: isDark ? const Color(0xFF0D1117) : Colors.grey[50],
-         borderRadius: BorderRadius.circular(12),
+         borderRadius: BorderRadius.circular(8),
          border: Border.all(color: isDark ? Colors.white10 : Colors.grey[200]!)
        ),
        child: Column(
          crossAxisAlignment: CrossAxisAlignment.start,
          children: [
-            Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-            const SizedBox(height: 2),
-            Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+            Text(label, style: GoogleFonts.poppins(fontSize: 9.5, color: Colors.grey)),
+            const SizedBox(height: 1),
+            Text(value, style: GoogleFonts.poppins(fontSize: 12.5, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
          ],
        ),
      );
   }
 
   Widget _buildMobileLayout() {
-     return _buildLocationList(isMobile: true);
+     return Column(
+       children: [
+         _buildListHeader(),
+         const Divider(height: 1),
+         Expanded(child: _buildLocationList(isMobile: true)),
+       ],
+     );
   }
 
   // --- SUB-WIDGETS ---
 
   Widget _buildListHeader() {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-           const Text("Locations", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-           const SizedBox(height: 10),
-           TextField(
-             decoration: InputDecoration(
-               hintText: "Search offices...",
-               prefixIcon: const Icon(Icons.search, size: 18),
-               filled: true,
-               fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey[100],
-               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-               contentPadding: const EdgeInsets.symmetric(vertical: 8)
+           Text("Locations", style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13.5)),
+           const SizedBox(height: 6),
+           SizedBox(
+             height: 32,
+             child: TextField(
+               onChanged: (val) => setState(() => _searchLocationQuery = val.trim()),
+               style: GoogleFonts.poppins(fontSize: 11.5),
+               decoration: InputDecoration(
+                 hintText: "Search offices...",
+                 hintStyle: GoogleFonts.poppins(fontSize: 11),
+                 prefixIcon: const Icon(Icons.search, size: 15),
+                 filled: true,
+                 fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey[100],
+                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
+                 contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+               ),
              ),
-           )
+           ),
         ],
       ),
     );
@@ -670,12 +849,18 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   Widget _buildLocationList({bool isMobile = false}) {
      if (_isLoading) return const SizedBox.shrink();
      
+     final filteredLocations = _locations.where((l) {
+       if (_searchLocationQuery.isEmpty) return true;
+       final q = _searchLocationQuery.toLowerCase();
+       return l.name.toLowerCase().contains(q) || l.address.toLowerCase().contains(q);
+     }).toList();
+     
      return ListView.separated(
-       padding: const EdgeInsets.all(12),
-       itemCount: _locations.length,
-       separatorBuilder: (context, index) => const SizedBox(height: 8),
+       padding: const EdgeInsets.all(6),
+       itemCount: filteredLocations.length,
+       separatorBuilder: (context, index) => const SizedBox(height: 5),
        itemBuilder: (context, index) {
-         final loc = _locations[index];
+         final loc = filteredLocations[index];
          final isSelected = loc.id == _selectedLocation?.id;
          final isDark = Theme.of(context).brightness == Brightness.dark;
          
@@ -694,12 +879,12 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
               }
            },
            child: Container(
-             padding: const EdgeInsets.all(12),
+             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
              decoration: BoxDecoration(
                color: isSelected && !isMobile
                   ? (isDark ? Colors.indigo.withValues(alpha: 0.2) : Colors.indigo[50])
                   : (isDark ? const Color(0xFF161B22) : Colors.white),
-               borderRadius: BorderRadius.circular(8),
+               borderRadius: BorderRadius.circular(6),
                border: isSelected && !isMobile ? Border.all(color: Colors.indigo.withValues(alpha: 0.5)) : null,
              ),
              child: Column(
@@ -711,16 +896,17 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                      Expanded(
                        child: Text(
                          loc.name,
-                         style: TextStyle(
-                           fontWeight: FontWeight.bold,
+                         style: GoogleFonts.poppins(
+                           fontWeight: FontWeight.w600,
+                           fontSize: 12.5,
                            color: isSelected && !isMobile ? Colors.indigo : null,
                          ),
                          overflow: TextOverflow.ellipsis,
                        ),
                      ),
-                     const SizedBox(width: 8),
+                     const SizedBox(width: 6),
                      Container(
-                       width: 8, height: 8,
+                       width: 7, height: 7,
                        decoration: BoxDecoration(
                          color: loc.isActive ? Colors.green : Colors.grey,
                          shape: BoxShape.circle,
@@ -728,31 +914,31 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                      )
                    ],
                  ),
-                 const SizedBox(height: 4),
+                 const SizedBox(height: 2),
                  Row(
                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                    children: [
                      Expanded(
                        child: Text(
                          loc.address,
-                         style: const TextStyle(fontSize: 11, color: Colors.grey),
+                         style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey),
                          maxLines: 1,
                          overflow: TextOverflow.ellipsis,
                        ),
                      ),
-                     const SizedBox(width: 8),
+                     const SizedBox(width: 6),
                      Container(
-                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                        decoration: BoxDecoration(
                          color: isSelected && !isMobile
                              ? Colors.indigo.withValues(alpha: 0.15)
                              : (isDark ? Colors.white10 : Colors.grey[100]),
-                         borderRadius: BorderRadius.circular(10),
+                         borderRadius: BorderRadius.circular(6),
                        ),
                        child: Text(
                          "$activeUsers staff",
-                         style: TextStyle(
-                           fontSize: 10,
+                         style: GoogleFonts.poppins(
+                           fontSize: 9.5,
                            fontWeight: FontWeight.w600,
                            color: isSelected && !isMobile
                                ? Colors.indigo
@@ -774,7 +960,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     final targetLocation = location ?? _selectedLocation;
 
     if (targetLocation == null) {
-      return const Center(child: Text("Select a location", style: TextStyle(color: Colors.grey)));
+      return const Center(child: Text("Select a location", style: TextStyle(color: Colors.grey, fontSize: 12)));
     }
     if (_isLoadingUsers) return const SizedBox.shrink();
 
@@ -790,11 +976,11 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.people_outline, size: 40, color: Colors.grey.withValues(alpha: 0.5)),
-            const SizedBox(height: 8),
-            const Text(
+            Icon(Icons.people_outline, size: 32, color: Colors.grey.withValues(alpha: 0.5)),
+            const SizedBox(height: 6),
+            Text(
               "No staff assigned",
-              style: TextStyle(color: Colors.grey, fontSize: 13),
+              style: GoogleFonts.poppins(color: Colors.grey, fontSize: 11.5),
             ),
           ],
         ),
@@ -802,7 +988,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     }
     
     return ListView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(6),
       itemCount: assignedUsers.length,
       itemBuilder: (context, index) {
         final user = assignedUsers[index];
@@ -812,34 +998,36 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
         final profileImage = _resolveAvatarUrl(user['profile_image'] ?? user['profile_image_url'] ?? user['avatar_url']);
 
         return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
           child: Row(
             children: [
               CircleAvatar(
-                radius: 16,
+                radius: 13,
                 backgroundColor: Colors.indigo[100],
                 backgroundImage: (profileImage != null && profileImage.isNotEmpty)
                     ? NetworkImage(profileImage)
                     : null,
                 child: (profileImage == null || profileImage.isEmpty)
-                    ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold, fontSize: 12))
+                    ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold, fontSize: 10))
                     : null,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                    Text(role, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                    Text(name, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)),
+                    Text(role, style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey)),
                   ],
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.remove_circle_outline),
+                icon: const Icon(Icons.remove_circle_outline, size: 16),
                 color: Colors.red[300],
                 tooltip: "Remove Staff",
-                onPressed: () => _toggleUserAssignment(userId, name, true), // Passing isAssigned = true will remove them
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: () => _toggleUserAssignment(userId, name, true),
               )
             ],
           ),

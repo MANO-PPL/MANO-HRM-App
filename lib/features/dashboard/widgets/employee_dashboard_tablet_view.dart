@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -73,19 +73,19 @@ class _EmployeeDashboardViewState extends State<EmployeeDashboardView> {
                     department: user?.department,
                     designation: user?.designation,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 24),
                     child: AttendanceStatusCard(),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
 
                   if (missedPunchDate != null) ...[
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: _buildMissedPunchBanner(context, missedPunchDate, attendanceProvider),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
                   ],
 
                   // 2. Dashboard content wrapped in horizontal padding
@@ -96,7 +96,7 @@ class _EmployeeDashboardViewState extends State<EmployeeDashboardView> {
                       children: [
                         // Quick Actions
                         const EmployeeQuickActions(),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 10),
 
                         // Stats Section
                         if (isPortrait)
@@ -105,9 +105,9 @@ class _EmployeeDashboardViewState extends State<EmployeeDashboardView> {
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
                             crossAxisCount: 2,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                            childAspectRatio: 2.2, 
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                            childAspectRatio: 2.5, 
                             children: [
                               EmployeeStatCard(
                                 label: 'Present Days',
@@ -148,7 +148,7 @@ class _EmployeeDashboardViewState extends State<EmployeeDashboardView> {
                                   iconColor: const Color(0xFF10B981),
                                 ),
                               ),
-                              const SizedBox(width: 16),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: EmployeeStatCard(
                                   label: 'Absent Days',
@@ -157,7 +157,7 @@ class _EmployeeDashboardViewState extends State<EmployeeDashboardView> {
                                   iconColor: const Color(0xFFEF4444),
                                 ),
                               ),
-                              const SizedBox(width: 16),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: EmployeeStatCard(
                                   label: 'Late Arrivals',
@@ -166,7 +166,7 @@ class _EmployeeDashboardViewState extends State<EmployeeDashboardView> {
                                   iconColor: const Color(0xFFF59E0B),
                                 ),
                               ),
-                              const SizedBox(width: 16),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: EmployeeStatCard(
                                   label: 'Leave Balance',
@@ -179,7 +179,7 @@ class _EmployeeDashboardViewState extends State<EmployeeDashboardView> {
                             ],
                           ),
                         
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 10),
 
                         // Info Cards Row
                         Row(
@@ -192,7 +192,7 @@ class _EmployeeDashboardViewState extends State<EmployeeDashboardView> {
                                 child: _buildLocationText(context, provider),
                               ),
                             ),
-                            const SizedBox(width: 16),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: EmployeeInfoCard(
                                 title: 'Policies & Reminders',
@@ -216,7 +216,7 @@ class _EmployeeDashboardViewState extends State<EmployeeDashboardView> {
 
   Widget _buildLocationText(BuildContext context, DashboardProvider provider) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: Theme.of(context).brightness == Brightness.dark 
             ? Colors.white.withValues(alpha: 0.03) 
@@ -246,7 +246,7 @@ class _EmployeeDashboardViewState extends State<EmployeeDashboardView> {
             ],
           ),
           if (provider.userWorkLocations.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Text(
               'Assigned Locations:',
               style: GoogleFonts.poppins(
@@ -301,11 +301,9 @@ class _EmployeeDashboardViewState extends State<EmployeeDashboardView> {
               }).toList(),
             ),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
-            provider.userWorkLocations.isEmpty
-                ? 'You are currently assigned to standard work locations. Please ensure you are within the geofenced area when marking attendance.'
-                : 'Please ensure you are within one of the geofenced areas above when marking attendance.',
+            'Ensure your device is within your designated geofence area when marking attendance.',
             style: GoogleFonts.poppins(
               fontSize: 13,
               color: Theme.of(context).brightness == Brightness.dark 
@@ -324,10 +322,10 @@ class _EmployeeDashboardViewState extends State<EmployeeDashboardView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildBulletPoint(context, 'Mark your attendance before 09:30 AM to avoid late remarks.'),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         _buildBulletPoint(context, 'Apply for leave at least 2 days in advance.'),
-        const SizedBox(height: 12),
-        _buildBulletPoint(context, '⚠️ Missed a punch-out? Submit a correction request via the Attendance page within 2 days to avoid marked absences.'),
+        const SizedBox(height: 8),
+        _buildBulletPoint(context, 'Submit your daily activity report before the end of your shift.'),
       ],
     );
   }
@@ -356,7 +354,7 @@ class _EmployeeDashboardViewState extends State<EmployeeDashboardView> {
             },
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: isExpired
@@ -394,10 +392,10 @@ class _EmployeeDashboardViewState extends State<EmployeeDashboardView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isExpired ? 'Missed Punch — Deadline Passed' : '⚠️  Missed Time-Out Detected',
+                    isExpired ? 'Missed Punch — Deadline Passed' : 'Missed Time-Out Detected',
                     style: GoogleFonts.poppins(
                       fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
                   ),
@@ -439,7 +437,7 @@ class _EmployeeDashboardViewState extends State<EmployeeDashboardView> {
                   'Fix Now',
                   style: GoogleFonts.poppins(
                     fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),

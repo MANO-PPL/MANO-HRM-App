@@ -20,10 +20,10 @@ import 'package:flutter_application/shared/widgets/toast_helper.dart';
 import 'package:flutter_application/features/employees/views/employees_mobile_portrait_view.dart';
 import 'package:flutter_application/features/attendance/views/attendance_mobile_portrait_view.dart';
 import 'package:flutter_application/features/live_attendance/views/live_attendance_mobile_portrait_view.dart';
-import 'package:flutter_application/features/reports/views/reports_mobile_portrait_view.dart';
+import 'package:flutter_application/features/reports/reports_page.dart';
 import 'package:flutter_application/features/policies/views/policies_mobile_portrait_view.dart';
 import 'package:flutter_application/features/labour/views/labour_mobile_portrait_view.dart';
-import 'package:flutter_application/features/leave/views/leave_tablet_landscape_view.dart';
+import 'package:flutter_application/features/leave/leave_page.dart';
 import 'package:flutter_application/features/daily_activity/daily_activity_page.dart'; // ADDED
 import 'package:flutter_application/features/feedback/views/feedback_mobile_portrait_view.dart'; // Reusing tablet view
 import 'package:flutter_application/features/collaboration/collaboration_page.dart'; // ADDED
@@ -79,10 +79,10 @@ class MobileLandscape extends StatelessWidget {
           return const MobileLiveAttendanceContent();
 
       case PageType.reports:
-          return const ReportsMobileView();
+          return const ReportsView();
 
       case PageType.leavesAndHolidays:
-        return const LeaveTabletLandscape();
+        return const LeavePage();
 
       case PageType.payroll:
         return const PayrollScreenMobile();
@@ -116,7 +116,7 @@ class MobileDashboardLandscapeDispatcher extends StatelessWidget {
     final user = context.watch<AuthService>().user;
     
     if (user == null) {
-       return const LoadingScreen(message: "Authenticating...");
+       return const Center(child: CircularProgressIndicator());
     }
 
     if (user.isEmployee) {
@@ -188,12 +188,12 @@ class _MobileEmployeeDashboardLandscapeState extends State<MobileEmployeeDashboa
                   department: user?.department,
                   designation: user?.designation,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
                   child: AttendanceStatusCard(),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
                 
                 // 2. Dashboard content wrapped in horizontal padding
                 Padding(
@@ -208,13 +208,13 @@ class _MobileEmployeeDashboardLandscapeState extends State<MobileEmployeeDashboa
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             const EmployeeQuickActions(),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 8),
                             EmployeeInfoCard(
                               title: 'Work Location',
                               icon: Icons.location_on_outlined,
                               child: Container(
                                 width: double.infinity,
-                                padding: const EdgeInsets.all(12),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                 decoration: BoxDecoration(
                                   color: Theme.of(context).brightness == Brightness.dark 
                                       ? Colors.white.withValues(alpha: 0.03) 
@@ -244,7 +244,7 @@ class _MobileEmployeeDashboardLandscapeState extends State<MobileEmployeeDashboa
                                       ],
                                     ),
                                     if (provider.userWorkLocations.isNotEmpty) ...[
-                                      const SizedBox(height: 12),
+                                      const SizedBox(height: 8),
                                       Text(
                                         'Assigned Locations:',
                                         style: GoogleFonts.poppins(
@@ -255,19 +255,19 @@ class _MobileEmployeeDashboardLandscapeState extends State<MobileEmployeeDashboa
                                               : Colors.grey[700],
                                         ),
                                       ),
-                                      const SizedBox(height: 8),
+                                      const SizedBox(height: 6),
                                       Wrap(
-                                        spacing: 8,
-                                        runSpacing: 8,
+                                        spacing: 6,
+                                        runSpacing: 6,
                                         children: provider.userWorkLocations.map((loc) {
                                           final locActive = loc.isActive;
                                           return Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                             decoration: BoxDecoration(
                                               color: locActive 
                                                   ? const Color(0xFF3B82F6).withValues(alpha: 0.1) 
                                                   : Colors.grey.withValues(alpha: 0.1),
-                                              borderRadius: BorderRadius.circular(12),
+                                              borderRadius: BorderRadius.circular(10),
                                               border: Border.all(
                                                 color: locActive 
                                                     ? const Color(0xFF3B82F6).withValues(alpha: 0.25) 
@@ -299,19 +299,6 @@ class _MobileEmployeeDashboardLandscapeState extends State<MobileEmployeeDashboa
                                         }).toList(),
                                       ),
                                     ],
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      provider.userWorkLocations.isEmpty
-                                          ? 'Standard locations. Ensure you are within the geofence to mark attendance.'
-                                          : 'Please ensure you are within one of the geofenced areas above when marking attendance.',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 12,
-                                        color: Theme.of(context).brightness == Brightness.dark 
-                                            ? Colors.grey[400] 
-                                            : Colors.grey[600],
-                                        height: 1.5,
-                                      ),
-                                    ),
                                   ],
                                 ),
                               ),
@@ -319,7 +306,7 @@ class _MobileEmployeeDashboardLandscapeState extends State<MobileEmployeeDashboa
                           ],
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       // Right Column: Stats Grid & Reminders Info
                       Expanded(
                         flex: 5,
@@ -330,9 +317,9 @@ class _MobileEmployeeDashboardLandscapeState extends State<MobileEmployeeDashboa
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
                               crossAxisCount: 2,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 1.5,
+                              crossAxisSpacing: 8,
+                              mainAxisSpacing: 8,
+                              childAspectRatio: 1.6,
                               children: [
                                 EmployeeStatCard(
                                   label: 'Present Days',
@@ -361,7 +348,7 @@ class _MobileEmployeeDashboardLandscapeState extends State<MobileEmployeeDashboa
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 8),
                             EmployeeInfoCard(
                               title: 'Reminders',
                               icon: Icons.info_outline,
@@ -369,10 +356,10 @@ class _MobileEmployeeDashboardLandscapeState extends State<MobileEmployeeDashboa
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   _buildBulletPoint(context, 'Mark before 09:30 AM.'),
-                                  const SizedBox(height: 8),
+                                  const SizedBox(height: 4),
                                   _buildBulletPoint(context, 'Leave 2 days prior.'),
-                                  const SizedBox(height: 8),
-                                  _buildBulletPoint(context, 'Missed punch-out? Request correction in 2 days.'),
+                                  const SizedBox(height: 4),
+                                  _buildBulletPoint(context, 'Submit DAR before shift end.'),
                                 ],
                               ),
                             ),
@@ -487,17 +474,17 @@ class _MobileAdminDashboardLandscapeState extends State<MobileAdminDashboardLand
                 department: user?.department,
                 designation: user?.designation,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildKPISection(provider.stats, provider.trends),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 8),
 
                     _buildQuickActions(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 8),
 
                     _buildAnalyticsSection(provider),
                   ],
@@ -529,19 +516,19 @@ class _MobileAdminDashboardLandscapeState extends State<MobileAdminDashboardLand
         'color': const Color(0xFF10B981),
       },
       {
-        'title': 'Total Employees',
-        'value': stats.totalEmployees.toString(),
-        'total': 'Registered',
-        'percentage': '',
-        'context': 'Active Staff',
-        'isPositive': true,
-        'icon': Icons.people_outline,
-        'color': const Color(0xFF3B82F6),
+        'title': 'Absent Today',
+        'value': stats.absentToday.toString(),
+        'total': '',
+        'percentage': trends.absent.startsWith('-') ? trends.absent : '+${trends.absent}',
+        'context': 'vs yesterday',
+        'isPositive': trends.absent.startsWith('-'),
+        'icon': Icons.cancel_outlined,
+        'color': const Color(0xFFEF4444),
       },
       {
         'title': 'Late Check-ins',
         'value': stats.lateCheckins.toString(),
-        'total': 'Employees',
+        'total': '',
         'percentage': trends.late,
         'context': 'vs yesterday',
         'isPositive': trends.late.startsWith('-'),
@@ -551,7 +538,7 @@ class _MobileAdminDashboardLandscapeState extends State<MobileAdminDashboardLand
       {
         'title': 'On Leave',
         'value': '4',
-        'total': 'Planned',
+        'total': '',
         'percentage': '',
         'context': 'Monthly',
         'isPositive': true,
@@ -564,9 +551,9 @@ class _MobileAdminDashboardLandscapeState extends State<MobileAdminDashboardLand
       children: kpis.map((data) {
         return Expanded(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             child: SizedBox(
-               height: 100, 
+               height: 84, 
                child: StatCard(
                 title: data['title'] as String,
                 value: data['value'] as String,
@@ -588,19 +575,24 @@ class _MobileAdminDashboardLandscapeState extends State<MobileAdminDashboardLand
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'QUICK ACTIONS',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1),
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey,
+            letterSpacing: 0.8,
+          ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 6),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 4,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.8, 
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: 2.3, 
           ),
           itemCount: adminQuickActions.length,
           itemBuilder: (context, index) {
@@ -626,10 +618,10 @@ class _MobileAdminDashboardLandscapeState extends State<MobileAdminDashboardLand
     return Column(
       children: [
          SizedBox(
-          height: 300,
+          height: 240,
           child: TrendsChart(chartData: provider.chartData),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 8),
         ActivityFeed(activities: provider.activities),
       ],
     );
@@ -706,17 +698,17 @@ class _MobileHrDashboardLandscapeState extends State<MobileHrDashboardLandscape>
                 department: user?.department,
                 designation: user?.designation,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildKPISection(provider.stats, provider.trends),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 8),
 
                     _buildQuickActions(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 8),
 
                     _buildAnalyticsSection(provider),
                   ],
@@ -750,7 +742,7 @@ class _MobileHrDashboardLandscapeState extends State<MobileHrDashboardLandscape>
       {
         'title': 'Absent Today',
         'value': stats.absentToday.toString(),
-        'total': 'Employees',
+        'total': '',
         'percentage': trends.absent.startsWith('-') ? trends.absent : '+${trends.absent}',
         'context': 'vs yesterday',
         'isPositive': trends.absent.startsWith('-'),
@@ -760,7 +752,7 @@ class _MobileHrDashboardLandscapeState extends State<MobileHrDashboardLandscape>
       {
         'title': 'Late Check-ins',
         'value': stats.lateCheckins.toString(),
-        'total': 'Employees',
+        'total': '',
         'percentage': trends.late,
         'context': 'vs yesterday',
         'isPositive': trends.late.startsWith('-'),
@@ -770,7 +762,7 @@ class _MobileHrDashboardLandscapeState extends State<MobileHrDashboardLandscape>
       {
         'title': 'On Leave',
         'value': '4',
-        'total': 'Planned',
+        'total': '',
         'percentage': '',
         'context': 'Monthly',
         'isPositive': true,
@@ -783,9 +775,9 @@ class _MobileHrDashboardLandscapeState extends State<MobileHrDashboardLandscape>
       children: kpis.map((data) {
         return Expanded(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             child: SizedBox(
-               height: 100, 
+               height: 84, 
                child: StatCard(
                 title: data['title'] as String,
                 value: data['value'] as String,
@@ -807,19 +799,24 @@ class _MobileHrDashboardLandscapeState extends State<MobileHrDashboardLandscape>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'QUICK ACTIONS',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1),
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey,
+            letterSpacing: 0.8,
+          ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 6),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 4,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.8, 
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: 2.3, 
           ),
           itemCount: hrQuickActions.length,
           itemBuilder: (context, index) {
@@ -845,10 +842,10 @@ class _MobileHrDashboardLandscapeState extends State<MobileHrDashboardLandscape>
     return Column(
       children: [
          SizedBox(
-          height: 300,
+          height: 240,
           child: TrendsChart(chartData: provider.chartData),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 8),
         ActivityFeed(activities: provider.activities),
       ],
     );
