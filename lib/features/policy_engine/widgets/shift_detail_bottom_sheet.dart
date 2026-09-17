@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_application/features/policy_engine/core/shift_model.dart';
@@ -7,7 +7,6 @@ import 'package:flutter_application/features/employees/core/employee_model.dart'
 import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/shared/constants/api_constants.dart';
 import 'package:flutter_application/features/policy_engine/core/week_off_policy_helper.dart';
-import 'package:flutter_application/features/policy_engine/widgets/shift_action_sheet.dart';
 
 class ShiftDetailBottomSheet extends StatefulWidget {
   final Shift shift;
@@ -304,31 +303,79 @@ class _ShiftDetailBottomSheetState extends State<ShiftDetailBottomSheet> {
                 ],
               ),
             ),
-            if (widget.onEdit != null || widget.onDelete != null) ...[
-              IconButton(
-                onPressed: () {
-                  ShiftActionSheet.show(
-                    context,
-                    shiftName: widget.shift.name,
-                    onEdit: () {
-                      Navigator.pop(context); // Close bottom sheet
-                      widget.onEdit?.call();
-                    },
-                    onDelete: () {
-                      Navigator.pop(context); // Close bottom sheet
-                      widget.onDelete?.call();
-                    },
-                  );
-                },
-                icon: Icon(Icons.more_vert, color: subTextColor),
-              ),
-            ],
             IconButton(
               onPressed: () => Navigator.pop(context),
               icon: Icon(Icons.close, color: subTextColor),
             ),
           ],
         ),
+
+        // Direct Action Buttons (Edit & Delete)
+        if (widget.onEdit != null || widget.onDelete != null) ...[
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              if (widget.onEdit != null)
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      widget.onEdit?.call();
+                    },
+                    icon: const Icon(Icons.edit_outlined, size: 16),
+                    label: Text(
+                      "Edit Shift",
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF6366F1),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+              if (widget.onEdit != null && widget.onDelete != null)
+                const SizedBox(width: 10),
+              if (widget.onDelete != null)
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      widget.onDelete?.call();
+                    },
+                    icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                    label: Text(
+                      "Delete Shift",
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFEF4444),
+                      side: BorderSide(
+                        color: const Color(0xFFEF4444).withValues(alpha: 0.4),
+                        width: 1.2,
+                      ),
+                      backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.08),
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
         const SizedBox(height: 20),
         Divider(
             height: 1,
@@ -401,6 +448,30 @@ class _ShiftDetailBottomSheetState extends State<ShiftDetailBottomSheet> {
             ]
           ],
         ),
+        if (widget.shift.isOvertimeEnabled) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildInfoItem(
+                  context,
+                  "Grace Buffer",
+                  "${widget.shift.overtimeBuffer} Hours",
+                  Icons.hourglass_bottom,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildInfoItem(
+                  context,
+                  "Max OT Cap",
+                  "${widget.shift.overtimeMaxHours} Hours",
+                  Icons.trending_up_rounded,
+                ),
+              ),
+            ],
+          ),
+        ],
 
         const SizedBox(height: 20),
 
@@ -417,44 +488,74 @@ class _ShiftDetailBottomSheetState extends State<ShiftDetailBottomSheet> {
                   isDark ? Colors.white10 : Colors.grey.shade200,
             ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Column(
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("CHECK-IN",
-                        style: GoogleFonts.poppins(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey)),
-                    const SizedBox(height: 8),
-                    _buildRequirementRow(
-                        "GPS (Mandatory)", true, textColor),
-                    const SizedBox(height: 4),
-                    _buildRequirementRow(
-                        "Selfie", widget.shift.entrySelfie, textColor),
-                  ],
-                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("CHECK-IN",
+                            style: GoogleFonts.poppins(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey)),
+                        const SizedBox(height: 8),
+                        _buildRequirementRow(
+                            "Geofence", widget.shift.entryGeofence, textColor),
+                        const SizedBox(height: 4),
+                        _buildRequirementRow(
+                            "Selfie", widget.shift.entrySelfie, textColor),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("CHECK-OUT",
+                            style: GoogleFonts.poppins(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey)),
+                        const SizedBox(height: 8),
+                        _buildRequirementRow(
+                            "Geofence", widget.shift.exitGeofence, textColor),
+                        const SizedBox(height: 4),
+                        _buildRequirementRow(
+                            "Selfie", widget.shift.exitSelfie, textColor),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("CHECK-OUT",
-                        style: GoogleFonts.poppins(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey)),
-                    const SizedBox(height: 8),
-                    _buildRequirementRow(
-                        "GPS (Mandatory)", true, textColor),
-                    const SizedBox(height: 4),
-                    _buildRequirementRow(
-                        "Selfie", widget.shift.exitSelfie, textColor),
-                  ],
-                ),
+              const SizedBox(height: 12),
+              Divider(height: 1, color: isDark ? Colors.white10 : Colors.black12),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("LOCATION CHECKPOINT",
+                            style: GoogleFonts.poppins(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.indigoAccent)),
+                        const SizedBox(height: 8),
+                        _buildRequirementRow(
+                            "Enabled", widget.shift.checkpointEnabled, textColor),
+                        const SizedBox(height: 4),
+                        _buildRequirementRow(
+                            "Selfie Mandatory", widget.shift.checkpointSelfie, textColor),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -904,13 +1005,17 @@ class _ShiftDetailBottomSheetState extends State<ShiftDetailBottomSheet> {
           color: isRequired ? Colors.green : Colors.grey,
         ),
         const SizedBox(width: 6),
-        Text(
-          "$label ${isRequired ? 'Required' : 'Optional'}",
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            color: isRequired ? textColor : Colors.grey,
-            fontWeight:
-                isRequired ? FontWeight.w500 : FontWeight.normal,
+        Expanded(
+          child: Text(
+            "$label ${isRequired ? 'Required' : 'Optional'}",
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: isRequired ? textColor : Colors.grey,
+              fontWeight:
+                  isRequired ? FontWeight.w500 : FontWeight.normal,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
