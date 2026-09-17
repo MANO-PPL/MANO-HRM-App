@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
@@ -62,6 +62,7 @@ class ReportService {
     String? deptId,
     String? desgId,
     String? shiftId,
+    Map<String, dynamic>? currentUserInfo,
   }) async {
     final query = {
       'type': type,
@@ -93,6 +94,7 @@ class ReportService {
             endDate: endDate,
             deptId: deptId,
             userId: userId,
+            currentUserInfo: currentUserInfo,
           );
         }
       }
@@ -109,6 +111,7 @@ class ReportService {
       endDate: endDate,
       deptId: deptId,
       userId: userId,
+      currentUserInfo: currentUserInfo,
     );
   }
 
@@ -122,6 +125,7 @@ class ReportService {
     String? endDate,
     String? deptId,
     String? userId,
+    Map<String, dynamic>? currentUserInfo,
   }) async {
     final List<String> columns = (data['columns'] as List? ?? []).map((e) => e.toString()).toList();
     final List<List<dynamic>> rows = (data['rows'] as List? ?? [])
@@ -148,6 +152,85 @@ class ReportService {
       );
     }
 
+    // If backend preview returned cardRecords (standard payload from backend reports API)
+    if (data['cardRecords'] is List && (data['cardRecords'] as List).isNotEmpty) {
+      final Map<String, AttendanceMatrixEmployee> empMap = {};
+      final Set<String> dateSet = {};
+
+      for (final raw in (data['cardRecords'] as List)) {
+        if (raw is! Map) continue;
+        final map = Map<String, dynamic>.from(raw);
+        final uId = map['user_id']?.toString() ?? '';
+        final uName = (map['user_name'] ?? map['name'] ?? 'Employee').toString();
+        final uDesg = (map['designation'] ?? 'Staff').toString();
+        final uDept = (map['department'] ?? 'General').toString();
+        final rawDate = (map['rawDate'] ?? map['date'] ?? '').toString();
+
+        if (rawDate.isNotEmpty) {
+          dateSet.add(rawDate);
+        }
+
+        if (!empMap.containsKey(uId)) {
+          empMap[uId] = AttendanceMatrixEmployee(
+            userId: uId,
+            name: uName,
+            employeeId: (map['employee_id'] ?? map['emp_id'] ?? uId).toString(),
+            department: uDept,
+            designation: uDesg,
+            avatarUrl: map['avatar_url'] ?? map['avatarUrl'],
+            dailyRecords: {},
+          );
+        }
+
+        final emp = empMap[uId]!;
+        final dayRec = AttendanceMatrixDayRecord.fromJson(map);
+        emp.dailyRecords[rawDate] = dayRec;
+      }
+
+      // Ensure all dates in the month are included
+      if (month != null && month.contains('-')) {
+        final parts = month.split('-');
+        final y = int.tryParse(parts[0]) ?? DateTime.now().year;
+        final m = int.tryParse(parts[1]) ?? DateTime.now().month;
+        final totalDays = DateTime(y, m + 1, 0).day;
+        for (int d = 1; d <= totalDays; d++) {
+          dateSet.add("$y-${m.toString().padLeft(2, '0')}-${d.toString().padLeft(2, '0')}");
+        }
+      }
+
+      // Fill in any missing dates for employees
+      for (final emp in empMap.values) {
+        for (final dStr in dateSet) {
+          if (!emp.dailyRecords.containsKey(dStr)) {
+            DateTime? dt;
+            try {
+              dt = DateTime.parse(dStr);
+            } catch (_) {}
+            final isSun = dt?.weekday == DateTime.sunday;
+            final isFuture = dt != null && dt.isAfter(DateTime.now());
+            emp.dailyRecords[dStr] = AttendanceMatrixDayRecord(
+              date: dStr,
+              status: isSun ? 'WO' : (isFuture ? '-' : 'A'),
+            );
+          }
+        }
+      }
+
+      final List<String> matrixDates = dateSet.toList()..sort();
+      final List<AttendanceMatrixEmployee> matrix = empMap.values.toList();
+      final summary = data['summary'] is Map
+          ? ReportSummaryStats.fromJson(Map<String, dynamic>.from(data['summary']))
+          : _calculateStatsFromMatrix(matrix);
+
+      return ReportPreviewResult(
+        columns: columns,
+        rows: rows,
+        summary: summary,
+        matrix: matrix,
+        matrixDates: matrixDates,
+      );
+    }
+
     // Build real matrix from live DB records
     final live = await _fetchLiveDatabaseMatrix(
       type: type,
@@ -157,6 +240,7 @@ class ReportService {
       endDate: endDate,
       deptId: deptId,
       userId: userId,
+      currentUserInfo: currentUserInfo,
     );
 
     return ReportPreviewResult(
@@ -177,13 +261,14 @@ class ReportService {
     String? endDate,
     String? deptId,
     String? userId,
+    Map<String, dynamic>? currentUserInfo,
   }) async {
     final targetMonth = month ?? DateFormat('yyyy-MM').format(DateTime.now());
     final parts = targetMonth.split('-');
     final year = int.tryParse(parts[0]) ?? DateTime.now().year;
     final mNum = int.tryParse(parts.length > 1 ? parts[1] : '1') ?? DateTime.now().month;
 
-    // Calculate dates in month
+    // Calculate all dates in month
     final lastDay = DateTime(year, mNum + 1, 0).day;
     final List<String> matrixDates = [];
     for (int day = 1; day <= lastDay; day++) {
@@ -191,19 +276,25 @@ class ReportService {
     }
 
     // 1. Fetch Real Users from Database
-    final usersList = await fetchRealEmployees();
+    List<Map<String, dynamic>> usersList = [];
+    try {
+      usersList = await fetchRealEmployees();
+    } catch (_) {}
 
-    // 2. Fetch Real Raw Attendance Records from Database
+    final resolvedStart = startDate ?? (matrixDates.isNotEmpty ? matrixDates.first : null);
+    final resolvedEnd = endDate ?? (matrixDates.isNotEmpty ? matrixDates.last : null);
+
+    // 2. Fetch Attendance Records from Database
     List<Map<String, dynamic>> rawRecords = [];
     try {
       final res = await _dio.get(
         ApiConstants.adminAttendanceRecords,
         queryParameters: {
-          'month': targetMonth,
-          if (startDate != null) 'startDate': startDate,
-          if (endDate != null) 'endDate': endDate,
+          if (resolvedStart != null) 'date_from': resolvedStart,
+          if (resolvedEnd != null) 'date_to': resolvedEnd,
           if (deptId != null && deptId != 'All' && deptId.isNotEmpty) 'dept_id': deptId,
           if (userId != null && userId.isNotEmpty) 'user_id': userId,
+          'limit': 1000,
         },
       );
       if (res.statusCode == 200 && res.data != null) {
@@ -214,6 +305,65 @@ class ReportService {
       }
     } catch (e) {
       debugPrint("adminAttendanceRecords DB query notice: $e");
+    }
+
+    // Fallback: If admin records failed or returned empty (e.g. employee role), try employee endpoint
+    if (rawRecords.isEmpty) {
+      try {
+        final res = await _dio.get(
+          ApiConstants.attendanceRecords,
+          queryParameters: {
+            if (resolvedStart != null) 'date_from': resolvedStart,
+            if (resolvedEnd != null) 'date_to': resolvedEnd,
+            if (userId != null && userId.isNotEmpty) 'user_id': userId,
+            'limit': 1000,
+          },
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final d = res.data is Map ? (res.data['data'] ?? res.data['records'] ?? []) : res.data;
+          if (d is List) {
+            rawRecords = d.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          }
+        }
+      } catch (e) {
+        debugPrint("attendanceRecords employee endpoint query notice: $e");
+      }
+    }
+
+    // If usersList is empty (e.g. employee cannot fetch /admin/users):
+    if (usersList.isEmpty) {
+      if (currentUserInfo != null) {
+        usersList.add(currentUserInfo);
+      } else if (userId != null && userId.isNotEmpty) {
+        usersList.add({
+          'user_id': userId,
+          'id': userId,
+          'user_name': 'Employee',
+          'name': 'Employee',
+          'employee_id': 'EMP',
+          'dept_name': 'General',
+          'desg_name': 'Staff',
+        });
+      } else {
+        // Collect from rawRecords
+        final seen = <String>{};
+        for (final r in rawRecords) {
+          final rUid = r['user_id']?.toString() ?? r['id']?.toString() ?? '';
+          if (rUid.isNotEmpty && !seen.contains(rUid)) {
+            seen.add(rUid);
+            usersList.add({
+              'user_id': rUid,
+              'id': rUid,
+              'user_name': r['user_name'] ?? r['name'] ?? 'Employee',
+              'name': r['user_name'] ?? r['name'] ?? 'Employee',
+              'employee_id': r['employee_id'] ?? r['emp_id'] ?? rUid,
+              'dept_name': r['dept_name'] ?? r['department'] ?? 'General',
+              'desg_name': r['desg_name'] ?? r['designation'] ?? 'Staff',
+              'avatar_url': r['avatar_url'] ?? r['avatarUrl'],
+            });
+          }
+        }
+      }
     }
 
     // Filter real users by department/user selection
@@ -251,17 +401,44 @@ class ReportService {
       for (final dateStr in matrixDates) {
         // Find matching record from database
         final match = rawRecords.firstWhere(
-          (r) =>
-              (r['user_id']?.toString() == uId || r['employee_id']?.toString() == uEmpId) &&
-              (r['date']?.toString() == dateStr || r['attendance_date']?.toString() == dateStr),
+          (r) {
+            final rUid = r['user_id']?.toString() ?? r['id']?.toString();
+            final rEmpId = r['employee_id']?.toString() ?? r['emp_id']?.toString();
+            final idMatches = (userId == null || userId.isEmpty || rUid == null || rUid.isEmpty || rUid == uId || rEmpId == uEmpId);
+            if (!idMatches) return false;
+
+            String? rDate = r['date']?.toString() ?? r['attendance_date']?.toString();
+            if (rDate == null || rDate.isEmpty) {
+              final tIn = r['time_in']?.toString() ?? r['clock_in']?.toString() ?? r['created_at']?.toString();
+              if (tIn != null && tIn.length >= 10) {
+                rDate = tIn.substring(0, 10);
+              }
+            }
+            return rDate == dateStr;
+          },
           orElse: () => <String, dynamic>{},
         );
 
         if (match.isNotEmpty) {
           final statusRaw = (match['status']?.toString() ?? 'P').toUpperCase();
-          final clockIn = match['clock_in'] ?? match['clockIn'] ?? match['time_in'];
-          final clockOut = match['clock_out'] ?? match['clockOut'] ?? match['time_out'];
-          final duration = match['work_duration'] ?? match['worked_hours']?.toString();
+          final rawIn = match['clock_in'] ?? match['clockIn'] ?? match['time_in'];
+          final rawOut = match['clock_out'] ?? match['clockOut'] ?? match['time_out'];
+          final clockIn = _formatPunchTime(rawIn);
+          final clockOut = _formatPunchTime(rawOut);
+
+          String? duration = match['work_duration']?.toString() ?? match['worked_hours']?.toString();
+          if ((duration == null || duration.isEmpty || duration == '0.00') && rawIn != null && rawOut != null) {
+            try {
+              final inDt = DateTime.parse(rawIn.toString());
+              final outDt = DateTime.parse(rawOut.toString());
+              final diff = outDt.difference(inDt);
+              if (!diff.isNegative) {
+                final hrs = diff.inMinutes / 60.0;
+                duration = "${hrs.toStringAsFixed(1)} hrs";
+              }
+            } catch (_) {}
+          }
+
           final ot = (match['overtime'] as num?)?.toDouble() ?? 0.0;
           final isLate = match['is_late'] == true || (match['late_minutes'] as num? ?? 0) > 0;
           final lateMin = (match['late_minutes'] as num?)?.toInt() ?? 0;
@@ -279,9 +456,9 @@ class ReportService {
           dayRecords[dateStr] = AttendanceMatrixDayRecord(
             date: dateStr,
             status: statusRaw.startsWith('P') ? 'P' : statusRaw.startsWith('A') ? 'A' : statusRaw.startsWith('L') ? 'L' : statusRaw.startsWith('H') ? 'HD' : statusRaw,
-            clockIn: clockIn?.toString(),
-            clockOut: clockOut?.toString(),
-            workDuration: duration?.toString(),
+            clockIn: clockIn,
+            clockOut: clockOut,
+            workDuration: duration,
             overtimeHours: ot,
             inLocation: inLoc?.toString(),
             outLocation: outLoc?.toString(),
@@ -293,12 +470,13 @@ class ReportService {
           // Check if Sunday / Weekend
           final dt = DateTime.parse(dateStr);
           final isWeekend = dt.weekday == DateTime.sunday;
+          final isFuture = dt.isAfter(DateTime.now());
 
           dayRecords[dateStr] = AttendanceMatrixDayRecord(
             date: dateStr,
-            status: isWeekend ? 'WO' : 'A',
+            status: isWeekend ? 'WO' : (isFuture ? '-' : 'A'),
           );
-          if (!isWeekend && dt.isBefore(DateTime.now())) {
+          if (!isWeekend && !isFuture) {
             totalAbsent++;
           }
         }
@@ -350,6 +528,19 @@ class ReportService {
     );
   }
 
+  String? _formatPunchTime(dynamic val) {
+    if (val == null) return null;
+    final s = val.toString().trim();
+    if (s.isEmpty || s == '-' || s == 'null') return null;
+    if (s.contains('T')) {
+      try {
+        final dt = DateTime.parse(s).toLocal();
+        return DateFormat('hh:mm a').format(dt);
+      } catch (_) {}
+    }
+    return s;
+  }
+
   ReportSummaryStats _calculateStatsFromMatrix(List<AttendanceMatrixEmployee> matrix) {
     int p = 0, a = 0, l = 0, hd = 0, lt = 0;
     double ot = 0.0;
@@ -375,7 +566,7 @@ class ReportService {
     );
   }
 
-  // 4. Export Report (Real File Generation)
+  // 4. Export Report (Server Download with Client Fallback)
   Future<String?> exportReport({
     required String type,
     required String format, // "xlsx", "csv", "pdf"
@@ -387,6 +578,39 @@ class ReportService {
     String? deptId,
   }) async {
     try {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = "Report_${type}_$timestamp.$format";
+
+      // Attempt 1: Fetch server-generated report from backend (supports xlsx, csv)
+      if (format == 'xlsx' || format == 'csv') {
+        try {
+          final query = {
+            'type': type,
+            'format': format,
+            if (month != null && month.isNotEmpty) 'month': month,
+            if (date != null && date.isNotEmpty) 'date': date,
+            if (startDate != null && startDate.isNotEmpty) 'startDate': startDate,
+            if (endDate != null && endDate.isNotEmpty) 'endDate': endDate,
+            if (userId != null && userId.isNotEmpty) 'user_id': userId,
+            if (deptId != null && deptId.isNotEmpty && deptId != 'All' && deptId != 'All Departments') 'dept_id': deptId,
+          };
+          final response = await _dio.get(
+            ApiConstants.reportsDownload,
+            queryParameters: query,
+            options: Options(responseType: ResponseType.bytes),
+          );
+          if (response.statusCode == 200 && response.data != null && (response.data as List).isNotEmpty) {
+            final savePath = await _getSavePath(fileName);
+            final file = File(savePath);
+            await file.writeAsBytes(response.data);
+            await _saveHistory(fileName, savePath, type);
+            return savePath;
+          }
+        } catch (serverErr) {
+          debugPrint("Server report download notice: $serverErr. Using local generator fallback.");
+        }
+      }
+
       final result = await getPreview(
         type: type,
         month: month,
@@ -405,9 +629,6 @@ class ReportService {
       final rows = result.rows;
 
       String? savePath;
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final fileName = "Report_${type}_$timestamp.$format";
-
       if (format == 'xlsx') {
         savePath = await _generateExcel(fileName, columns, rows);
       } else if (format == 'pdf') {
@@ -499,14 +720,9 @@ class ReportService {
   }
 
   Future<String> _getSavePath(String fileName) async {
-    Directory? dir;
-    if (Platform.isAndroid) {
-      dir = await getExternalStorageDirectory();
-    } else {
-      dir = await getApplicationDocumentsDirectory();
-    }
-
-    if (dir == null) throw Exception("Storage directory not found");
+    final Directory dir = Platform.isAndroid
+        ? await getTemporaryDirectory()
+        : await getApplicationDocumentsDirectory();
     return "${dir.path}/$fileName";
   }
 

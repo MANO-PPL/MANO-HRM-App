@@ -68,18 +68,24 @@ class AttendanceMatrixDayRecord {
   });
 
   factory AttendanceMatrixDayRecord.fromJson(Map<String, dynamic> json) {
+    final otVal = json['overtime'] ?? json['overtime_hours'] ?? json['overtimeHours'];
+    final double ot = (otVal is num) ? otVal.toDouble() : (double.tryParse(otVal?.toString() ?? '') ?? 0.0);
+
+    final lateVal = json['late_minutes'] ?? json['lateMinutes'] ?? json['late'];
+    final int lateMins = (lateVal is num) ? lateVal.toInt() : (int.tryParse(lateVal?.toString() ?? '') ?? 0);
+
     return AttendanceMatrixDayRecord(
-      date: json['date'] ?? '',
-      status: json['status'] ?? 'A',
-      clockIn: json['clock_in'] ?? json['clockIn'],
-      clockOut: json['clock_out'] ?? json['clockOut'],
-      workDuration: json['work_duration'] ?? json['workDuration'],
-      overtimeHours: (json['overtime'] as num?)?.toDouble() ?? 0.0,
-      inLocation: json['in_location'] ?? json['inLocation'],
-      outLocation: json['out_location'] ?? json['outLocation'],
-      verificationImage: json['verification_image'] ?? json['verificationImage'],
-      isLate: json['is_late'] == true,
-      lateMinutes: (json['late_minutes'] as num?)?.toInt() ?? 0,
+      date: (json['rawDate'] ?? json['date'] ?? '').toString(),
+      status: (json['status'] ?? 'A').toString(),
+      clockIn: json['clock_in'] ?? json['clockIn'] ?? json['time_in'],
+      clockOut: json['clock_out'] ?? json['clockOut'] ?? json['time_out'],
+      workDuration: (json['work_duration'] ?? json['workDuration'] ?? json['work_hrs'] ?? json['total_hrs'])?.toString(),
+      overtimeHours: ot,
+      inLocation: json['in_location'] ?? json['inLocation'] ?? json['time_in_address'],
+      outLocation: json['out_location'] ?? json['outLocation'] ?? json['time_out_address'],
+      verificationImage: json['verification_image'] ?? json['verificationImage'] ?? json['time_in_image'],
+      isLate: json['is_late'] == true || (json['is_late']?.toString().toLowerCase() == 'true') || lateMins > 0,
+      lateMinutes: lateMins,
       reason: json['reason'],
     );
   }
