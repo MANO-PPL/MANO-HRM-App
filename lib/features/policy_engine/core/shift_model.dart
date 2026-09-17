@@ -37,23 +37,51 @@ class Shift {
 
   bool get entrySelfie {
     final entry = policyRules['entry_requirements'] ?? policyRules['entryRequirements'];
-    if (entry is Map && entry.containsKey('selfie')) return _asBool(entry['selfie']);
+    if (entry is Map && entry.containsKey('selfie')) return _asBool(entry['selfie'], defaultValue: true);
     return true;
   }
   bool get entryGeofence {
     final entry = policyRules['entry_requirements'] ?? policyRules['entryRequirements'];
-    if (entry is Map && entry.containsKey('geofence')) return _asBool(entry['geofence']);
+    if (entry is Map && entry.containsKey('geofence')) return _asBool(entry['geofence'], defaultValue: true);
     return true;
   }
   bool get exitSelfie {
     final exit = policyRules['exit_requirements'] ?? policyRules['exitRequirements'];
-    if (exit is Map && exit.containsKey('selfie')) return _asBool(exit['selfie']);
-    return true;
+    if (exit is Map && exit.containsKey('selfie')) return _asBool(exit['selfie'], defaultValue: false);
+    return false;
   }
   bool get exitGeofence {
     final exit = policyRules['exit_requirements'] ?? policyRules['exitRequirements'];
-    if (exit is Map) return _asBool(exit['geofence']);
+    if (exit is Map && exit.containsKey('geofence')) return _asBool(exit['geofence'], defaultValue: true);
     return false;
+  }
+  bool get checkpointEnabled {
+    final cp = policyRules['checkpoint_requirements'] ?? policyRules['checkpointRequirements'];
+    if (cp is Map && cp.containsKey('enabled')) return _asBool(cp['enabled'], defaultValue: true);
+    return true;
+  }
+  bool get checkpointSelfie {
+    final cp = policyRules['checkpoint_requirements'] ?? policyRules['checkpointRequirements'];
+    if (cp is Map && cp.containsKey('selfie')) return _asBool(cp['selfie'], defaultValue: false);
+    return false;
+  }
+  double get overtimeBuffer {
+    final ot = policyRules['overtime'];
+    if (ot is Map && ot.containsKey('buffer')) {
+      final b = ot['buffer'];
+      if (b is num) return b.toDouble();
+      return double.tryParse(b?.toString() ?? '') ?? 0.5;
+    }
+    return 0.5;
+  }
+  double get overtimeMaxHours {
+    final ot = policyRules['overtime'];
+    if (ot is Map) {
+      final m = ot['max_overtime'] ?? ot['maxOvertime'];
+      if (m is num) return m.toDouble();
+      return double.tryParse(m?.toString() ?? '') ?? 3.0;
+    }
+    return 3.0;
   }
   int get correctionDeadline => policyRules['correction_deadline'] is int 
       ? policyRules['correction_deadline'] 
@@ -88,6 +116,9 @@ class Shift {
     }
     if (!rulesMap.containsKey('exit_requirements') && (data.containsKey('exit_requirements') || data.containsKey('exitRequirements'))) {
       rulesMap['exit_requirements'] = data['exit_requirements'] ?? data['exitRequirements'];
+    }
+    if (!rulesMap.containsKey('checkpoint_requirements') && (data.containsKey('checkpoint_requirements') || data.containsKey('checkpointRequirements'))) {
+      rulesMap['checkpoint_requirements'] = data['checkpoint_requirements'] ?? data['checkpointRequirements'];
     }
 
     return Shift(

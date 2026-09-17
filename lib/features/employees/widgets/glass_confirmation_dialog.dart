@@ -26,8 +26,8 @@ class GlassConfirmationDialog extends StatelessWidget {
       backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       child: GlassContainer(
-        borderRadius: 24,
-        padding: const EdgeInsets.all(24),
+        borderRadius: 20,
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -35,20 +35,20 @@ class GlassConfirmationDialog extends StatelessWidget {
             Text(
               title,
               style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
                 color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Text(
               content,
               style: GoogleFonts.poppins(
-                fontSize: 14,
+                fontSize: 13.5,
                 color: Theme.of(context).textTheme.bodySmall?.color,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -63,11 +63,12 @@ class GlassConfirmationDialog extends StatelessWidget {
                   child: Text(
                     cancelLabel,
                     style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w500,
                       color: Theme.of(context).textTheme.bodySmall?.color,
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 ElevatedButton(
                   onPressed: () {
                     // We assume the caller handles closing or we close with true
@@ -76,11 +77,15 @@ class GlassConfirmationDialog extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red.withValues(alpha: 0.8),
                     foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: Text(confirmLabel),
+                  child: Text(
+                    confirmLabel,
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
             ),

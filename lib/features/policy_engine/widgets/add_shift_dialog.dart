@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_application/features/policy_engine/core/shift_model.dart';
 import 'package:flutter_application/features/policy_engine/core/week_off_policy_helper.dart';
@@ -24,8 +24,15 @@ class _AddShiftDialogState extends State<AddShiftDialog> {
   bool _isOvertimeEnabled = false;
   
   // Validation Rules
-  bool _checkInSelfie = false;
+  bool _checkInSelfie = true;
+  bool _checkInGeofence = true;
   bool _checkOutSelfie = false;
+  bool _checkOutGeofence = false;
+  bool _checkpointEnabled = true;
+  bool _checkpointSelfie = false;
+
+  final _otBufferCtrl = TextEditingController(text: "0.5");
+  final _otMaxCtrl = TextEditingController(text: "3.0");
 
   // Policy rules variables
   List<String> _workingDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -42,12 +49,18 @@ class _AddShiftDialogState extends State<AddShiftDialog> {
       _graceCtrl.text = s.gracePeriodMins.toString();
       _isOvertimeEnabled = s.isOvertimeEnabled;
       _otThresholdCtrl.text = s.overtimeThresholdHours.toString();
+      _otBufferCtrl.text = s.overtimeBuffer.toString();
+      _otMaxCtrl.text = s.overtimeMaxHours.toString();
       _startTime = _parseTime(s.startTime);
       _endTime = _parseTime(s.endTime);
       
       // Load Rules
       _checkInSelfie = s.entrySelfie;
+      _checkInGeofence = s.entryGeofence;
       _checkOutSelfie = s.exitSelfie;
+      _checkOutGeofence = s.exitGeofence;
+      _checkpointEnabled = s.checkpointEnabled;
+      _checkpointSelfie = s.checkpointSelfie;
       _correctionDeadlineCtrl.text = s.correctionDeadline.toString();
 
       final parsed = WeekOffPolicyHelper.parsePolicy(
@@ -59,7 +72,13 @@ class _AddShiftDialogState extends State<AddShiftDialog> {
     } else {
       // Defaults
        _checkInSelfie = true;
+       _checkInGeofence = true;
        _checkOutSelfie = false;
+       _checkOutGeofence = false;
+       _checkpointEnabled = true;
+       _checkpointSelfie = false;
+       _otBufferCtrl.text = "0.5";
+       _otMaxCtrl.text = "3.0";
        _correctionDeadlineCtrl.text = "2";
        _workingDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
        _weekOffRules = [];
@@ -122,15 +141,20 @@ class _AddShiftDialogState extends State<AddShiftDialog> {
       'overtime': {
         'enabled': _isOvertimeEnabled,
         'threshold': double.tryParse(_otThresholdCtrl.text) ?? 8.0,
-        'buffer': widget.existingShift?.policyRules['overtime']?['buffer'] ?? 0.5,
+        'buffer': double.tryParse(_otBufferCtrl.text) ?? 0.5,
+        'max_overtime': double.tryParse(_otMaxCtrl.text) ?? 3.0,
       },
       'entry_requirements': {
-        'geofence': true,
+        'geofence': _checkInGeofence,
         'selfie': _checkInSelfie,
       },
       'exit_requirements': {
-        'geofence': true,
+        'geofence': _checkOutGeofence,
         'selfie': _checkOutSelfie,
+      },
+      'checkpoint_requirements': {
+        'enabled': _checkpointEnabled,
+        'selfie': _checkpointSelfie,
       },
       'correction_deadline': int.tryParse(_correctionDeadlineCtrl.text) ?? 2,
       'week_off_policy': weekOffPolicyJson,
@@ -496,7 +520,7 @@ class _AddShiftDialogState extends State<AddShiftDialog> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Enable automatic OT tracking',
+                  'Enable automatic OT tracking and buffers',
                   style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[500]),
                 ),
               ],
@@ -523,6 +547,56 @@ class _AddShiftDialogState extends State<AddShiftDialog> {
             borderColor: borderColor,
             textColor: textColor,
             isNumeric: true
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildLabel('Grace Buffer', labelColor),
+                    _buildTextField(
+                      controller: _otBufferCtrl,
+                      hint: '0.5',
+                      suffix: 'Hr',
+                      fillColor: inputColor,
+                      borderColor: borderColor,
+                      textColor: textColor,
+                      isNumeric: true,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Extra time below buffer ignored.',
+                      style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey[500]),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildLabel('Max OT Cap', labelColor),
+                    _buildTextField(
+                      controller: _otMaxCtrl,
+                      hint: '3.0',
+                      suffix: 'Hr',
+                      fillColor: inputColor,
+                      borderColor: borderColor,
+                      textColor: textColor,
+                      isNumeric: true,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Daily maximum overtime cap.',
+                      style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey[500]),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ],
@@ -859,15 +933,16 @@ class _AddShiftDialogState extends State<AddShiftDialog> {
         children: [
           Row(
             children: [
-              Icon(Icons.location_on_outlined, size: 16, color: isDark ? Colors.indigo[200] : const Color(0xFF6366F1)),
+              Icon(Icons.verified_user_outlined, size: 16, color: isDark ? Colors.indigo[200] : const Color(0xFF6366F1)),
               const SizedBox(width: 8),
               Text(
-                'Attendance Validation',
+                'Verification & Validation Rules',
                 style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14, color: textColor),
               ),
             ],
           ),
           const SizedBox(height: 16),
+          // Check In & Check Out Rules
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -875,9 +950,11 @@ class _AddShiftDialogState extends State<AddShiftDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('CHECK-IN', style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[500])),
+                    Text('CLOCK-IN', style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[500])),
                     const SizedBox(height: 8),
                     _buildCheckbox('Selfie Required', _checkInSelfie, (v) => setState(() => _checkInSelfie = v!), textColor, isDark),
+                    const SizedBox(height: 6),
+                    _buildCheckbox('Geofence Required', _checkInGeofence, (v) => setState(() => _checkInGeofence = v!), textColor, isDark),
                   ],
                 ),
               ),
@@ -886,14 +963,73 @@ class _AddShiftDialogState extends State<AddShiftDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('CHECK-OUT', style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[500])),
+                    Text('CLOCK-OUT', style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[500])),
                     const SizedBox(height: 8),
                     _buildCheckbox('Selfie Required', _checkOutSelfie, (v) => setState(() => _checkOutSelfie = v!), textColor, isDark),
+                    const SizedBox(height: 6),
+                    _buildCheckbox('Geofence Required', _checkOutGeofence, (v) => setState(() => _checkOutGeofence = v!), textColor, isDark),
                   ],
                 ),
               ),
             ],
-          )
+          ),
+          const SizedBox(height: 16),
+          Divider(height: 1, color: isDark ? Colors.white12 : Colors.black12),
+          const SizedBox(height: 14),
+
+          // Location Checkpoint Section
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.location_pin, size: 14, color: Color(0xFF6366F1)),
+                  const SizedBox(width: 6),
+                  Text('LOCATION CHECKPOINT', style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[500])),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _buildCheckbox(
+                      'Enable Checkpoints',
+                      _checkpointEnabled,
+                      (v) => setState(() {
+                        _checkpointEnabled = v!;
+                        if (!_checkpointEnabled) _checkpointSelfie = false;
+                      }),
+                      textColor,
+                      isDark,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Opacity(
+                      opacity: _checkpointEnabled ? 1.0 : 0.4,
+                      child: _buildCheckbox(
+                        'Require Selfie',
+                        _checkpointSelfie,
+                        _checkpointEnabled ? (v) => setState(() => _checkpointSelfie = v!) : (v) {},
+                        textColor,
+                        isDark,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _checkpointEnabled
+                    ? (_checkpointSelfie
+                        ? 'Staff must take a live front selfie along with GPS coordinates when marking checkpoints.'
+                        : 'Staff will record GPS coordinates and note without camera selfie.')
+                    : 'Checkpoints are disabled for staff assigned to this shift.',
+                style: GoogleFonts.poppins(fontSize: 10.5, color: Colors.grey[500]),
+              ),
+            ],
+          ),
         ],
       ),
     );

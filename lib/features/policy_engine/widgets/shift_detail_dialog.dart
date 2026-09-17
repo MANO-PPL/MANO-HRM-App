@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_application/shared/widgets/glass_container.dart';
 import 'package:flutter_application/features/policy_engine/core/shift_model.dart';
@@ -100,6 +100,30 @@ class ShiftDetailDialog extends StatelessWidget {
                   ]
                 ],
               ),
+              if (shift.isOvertimeEnabled) ...[
+                SizedBox(height: isMobile ? 8 : 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildInfoItem(
+                        context,
+                        "Grace Buffer",
+                        "${shift.overtimeBuffer} Hours",
+                        Icons.hourglass_bottom,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildInfoItem(
+                        context,
+                        "Max OT Cap",
+                        "${shift.overtimeMaxHours} Hours",
+                        Icons.trending_up_rounded,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               
               SizedBox(height: isMobile ? 16 : 24),
 
@@ -113,32 +137,56 @@ class ShiftDetailDialog extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.white10),
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Column(
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("CHECK-IN", style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-                          const SizedBox(height: 8),
-                          _buildRequirementRow("GPS (Mandatory)", true, textColor),
-                          const SizedBox(height: 4),
-                          _buildRequirementRow("Selfie", shift.entrySelfie, textColor),
-                        ],
-                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("CHECK-IN", style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                              const SizedBox(height: 8),
+                              _buildRequirementRow("Geofence", shift.entryGeofence, textColor),
+                              const SizedBox(height: 4),
+                              _buildRequirementRow("Selfie", shift.entrySelfie, textColor),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("CHECK-OUT", style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                              const SizedBox(height: 8),
+                              _buildRequirementRow("Geofence", shift.exitGeofence, textColor),
+                              const SizedBox(height: 4),
+                              _buildRequirementRow("Selfie", shift.exitSelfie, textColor),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("CHECK-OUT", style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-                          const SizedBox(height: 8),
-                          _buildRequirementRow("GPS (Mandatory)", true, textColor),
-                          const SizedBox(height: 4),
-                          _buildRequirementRow("Selfie", shift.exitSelfie, textColor),
-                        ],
-                      ),
+                    const SizedBox(height: 12),
+                    Divider(height: 1, color: isDark ? Colors.white10 : Colors.black12),
+                    const SizedBox(height: 12),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("LOCATION CHECKPOINT", style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.indigoAccent)),
+                              const SizedBox(height: 8),
+                              _buildRequirementRow("Enabled", shift.checkpointEnabled, textColor),
+                              const SizedBox(height: 4),
+                              _buildRequirementRow("Selfie Mandatory", shift.checkpointSelfie, textColor),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

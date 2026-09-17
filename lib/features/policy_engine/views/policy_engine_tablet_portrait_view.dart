@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_application/shared/widgets/glass_container.dart';
@@ -131,7 +131,7 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
-    final horizontalPadding = isMobile ? 12.0 : 32.0;
+    final horizontalPadding = isMobile ? 10.0 : 14.0;
 
     return LoadingScreen(
       isLoading: _isLoadingShifts,
@@ -139,49 +139,46 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header Section (padded horizontally and top)
+          // Header Section
           Padding(
             padding: EdgeInsets.fromLTRB(
               horizontalPadding,
-              isMobile ? 16 : 24,
+              isMobile ? 10 : 12,
               horizontalPadding,
               0,
             ),
             child: _buildHelperHeader(context),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 8),
 
-          // Shifts Grid (occupies full width, scrolling area matches screen bounds)
+          // Shifts Grid (occupies full width, compact multi-column)
           Expanded(
             child: _shifts.isEmpty 
-              ? Center(child: Text("No shifts found", style: GoogleFonts.poppins(color: Colors.grey)))
+              ? Center(child: Text("No shifts found", style: GoogleFonts.poppins(color: Colors.grey, fontSize: 12)))
               : LayoutBuilder(
               builder: (context, constraints) {
-                // Determine if we should stack vertically or horizontally
-                final isPortrait = constraints.maxWidth < 900; 
+                final crossAxisCount = constraints.maxWidth > 950 ? 3 : (constraints.maxWidth > 580 ? 2 : 1);
                 final usableWidth = constraints.maxWidth - (2 * horizontalPadding);
+                const spacing = 8.0;
+                final itemWidth = (usableWidth - (spacing * (crossAxisCount - 1))) / crossAxisCount;
 
-                // We'll wrap in Wrap or Grid or ListView depending on layout.
-                // Reusing _buildShiftCard for each item.
                 return SingleChildScrollView(
                   padding: EdgeInsets.fromLTRB(
                     horizontalPadding,
                     0,
                     horizontalPadding,
-                    isMobile ? 24 : 32,
+                    12,
                   ),
                   child: Wrap(
-                    spacing: isMobile ? 16 : 24,
-                    runSpacing: isMobile ? 16 : 24,
+                    spacing: spacing,
+                    runSpacing: spacing,
                     alignment: WrapAlignment.start,
                     children: _shifts.map<Widget>((shift) {
-                       final itemWidth = isPortrait ? usableWidth : (usableWidth - 48) / 3;
-                       
                        return SizedBox(
                          width: itemWidth,
                          child: _buildShiftCard(
-                             context,
-                             shift: shift,
+                           context,
+                           shift: shift,
                          ),
                        );
                     }).toList(),
@@ -200,8 +197,8 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
 
     return GlassContainer(
       padding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : 24,
-        vertical: isMobile ? 16 : 20,
+        horizontal: isMobile ? 12 : 14,
+        vertical: isMobile ? 8 : 10,
       ),
       child: isMobile
           ? Column(
@@ -213,7 +210,7 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
                     Text(
                       'Active Shifts',
                       style: GoogleFonts.poppins(
-                        fontSize: 16,
+                        fontSize: 14.5,
                         fontWeight: FontWeight.w600,
                         color: Theme.of(context).textTheme.bodyLarge?.color,
                       ),
@@ -221,28 +218,28 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
                     ElevatedButton.icon(
                       onPressed: () => _showAddShiftDialog(),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6366F1), // Indigo
+                        backgroundColor: const Color(0xFF6366F1),
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         elevation: 0,
                       ),
-                      icon: const Icon(Icons.add, size: 16),
+                      icon: const Icon(Icons.add, size: 14),
                       label: Text(
                         'Add Shift',
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w600,
-                          fontSize: 12,
+                          fontSize: 11.5,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 Text(
                   'Manage work timings and grace periods',
                   style: GoogleFonts.poppins(
-                    fontSize: 13,
+                    fontSize: 11,
                     color: Colors.grey,
                   ),
                 ),
@@ -258,16 +255,16 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
                       Text(
                         'Active Shifts',
                         style: GoogleFonts.poppins(
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: Theme.of(context).textTheme.bodyLarge?.color,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
                         'Manage work timings and grace periods',
                         style: GoogleFonts.poppins(
-                          fontSize: 13,
+                          fontSize: 11.5,
                           color: Colors.grey,
                         ),
                       ),
@@ -277,18 +274,18 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
                 ElevatedButton.icon(
                   onPressed: () => _showAddShiftDialog(),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6366F1), // Indigo
+                    backgroundColor: const Color(0xFF6366F1),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                     elevation: 0,
                   ),
-                  icon: const Icon(Icons.add, size: 18),
+                  icon: const Icon(Icons.add, size: 15),
                   label: Text(
                     'Add Shift',
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
-                      fontSize: 13,
+                      fontSize: 12,
                     ),
                   ),
                 ),
@@ -298,18 +295,30 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
   }
 
   Widget _buildShiftCard(BuildContext context, {required Shift shift}) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
     final color = Colors.indigoAccent;
     final icon = Icons.access_time_filled;
     
-    // Calculate duration (simple approximation if needed, or pass from backend)
-    // Display shift data
+    // Calculate duration
+    String duration = "";
+    try {
+      final sParts = shift.startTime.split(':');
+      final eParts = shift.endTime.split(':');
+      int sMins = int.parse(sParts[0]) * 60 + int.parse(sParts[1]);
+      int eMins = int.parse(eParts[0]) * 60 + int.parse(eParts[1]);
+      if (eMins < sMins) eMins += 24 * 60; // overnight shift
+      final diff = eMins - sMins;
+      duration = "${diff ~/ 60}h ${diff % 60}m";
+    } catch (_) {
+      duration = "";
+    }
+
     final title = shift.name;
-    final type = "Shift"; // Backend doesn't seem to have type yet, or maybe 'shift_name' implies it?
     final timing = "${shift.startTime} - ${shift.endTime}";
     final gracePeriod = "${shift.gracePeriodMins} Mins";
     final overtime = shift.isOvertimeEnabled ? "On (> ${shift.overtimeThresholdHours}h)" : "Off";
-    
+    final checkpointText = shift.checkpointEnabled
+        ? (shift.checkpointSelfie ? "Selfie Required" : "GPS Only")
+        : "Disabled";
     
     return InkWell(
       onTap: () => ShiftDetailBottomSheet.show(
@@ -318,9 +327,9 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
         onEdit: () => _showAddShiftDialog(existingShift: shift),
         onDelete: () => _deleteShift(shift),
       ),
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(12),
       child: GlassContainer(
-        padding: EdgeInsets.all(isMobile ? 16 : 24),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -328,14 +337,14 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Icon(icon, color: color, size: 20),
+                  child: Icon(icon, color: color, size: 16),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -344,34 +353,55 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
                         title,
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w600,
-                          fontSize: 15,
+                          fontSize: 13,
                           color: Theme.of(context).textTheme.bodyLarge?.color,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        type,
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey,
-                          letterSpacing: 0.5,
-                        ),
+                      const SizedBox(height: 1),
+                      Row(
+                        children: [
+                          Text(
+                            "Shift",
+                            style: GoogleFonts.poppins(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          if (duration.isNotEmpty) ...[
+                            const SizedBox(width: 5),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: Colors.indigoAccent.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                duration,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.indigoAccent,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
                   decoration: BoxDecoration(
                     color: Colors.indigoAccent.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     'View',
                     style: GoogleFonts.poppins(
-                      fontSize: 11,
+                      fontSize: 9.5,
                       fontWeight: FontWeight.w600,
                       color: Colors.indigoAccent,
                     ),
@@ -379,21 +409,25 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 6),
             const Divider(height: 1, thickness: 1, color: Colors.white10),
-            const SizedBox(height: 16),
+            const SizedBox(height: 6),
   
             // Details List
             _buildDetailRow(context, 'Timing', timing, isBold: true),
-            const SizedBox(height: 12),
-            // _buildDetailRow(context, 'Duration', duration), // Duration omitted for simplicity or calculated
-            // const SizedBox(height: 16),
-            // const Divider(height: 1, thickness: 1, color: Colors.white10),
-            // const SizedBox(height: 16),
+            const SizedBox(height: 4),
+            _buildDetailRow(
+              context,
+              'Checkpoints',
+              checkpointText,
+              icon: Icons.location_pin,
+              iconColor: shift.checkpointEnabled ? const Color(0xFF6366F1) : Colors.grey,
+            ),
+            const SizedBox(height: 4),
             _buildDetailRow(context, 'Grace Period', gracePeriod, icon: Icons.warning_amber_rounded, iconColor: Colors.amber),
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
             _buildDetailRow(context, 'Overtime', overtime, icon: Icons.bolt, iconColor: const Color(0xFF5B60F6)),
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
             _buildDetailRow(
               context,
               'Correction Deadline',
@@ -415,26 +449,26 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
            mainAxisSize: MainAxisSize.min,
            children: [
             if (icon != null) ...[
-              Icon(icon, size: 14, color: iconColor),
-              const SizedBox(width: 8),
+              Icon(icon, size: 12, color: iconColor),
+              const SizedBox(width: 5),
             ],
             Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 13,
+                fontSize: 11,
                 color: icon != null ? iconColor : Colors.grey,
                 fontWeight: icon != null ? FontWeight.w500 : FontWeight.normal,
               ),
             ),
            ],
         ),
-        const SizedBox(width: 16), // Minimum gap
+        const SizedBox(width: 8),
         Flexible(
           child: Text(
             value,
             style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: isBold || icon != null ? FontWeight.w600 : FontWeight.w500,
+              fontSize: 11,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
               color: Theme.of(context).textTheme.bodyLarge?.color,
             ),
             overflow: TextOverflow.ellipsis,
