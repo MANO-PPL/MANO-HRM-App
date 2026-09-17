@@ -21,48 +21,49 @@ class EmployeeSuccessDialog extends StatelessWidget {
     return Dialog(
       backgroundColor: Colors.transparent,
       child: GlassContainer(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
+        borderRadius: 20,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.green.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check_circle_outline, color: Colors.green, size: 48),
+              child: const Icon(Icons.check_circle_outline, color: Colors.green, size: 40),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             Text(
               title,
               style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
                 color: isDark ? Colors.white : Colors.black87,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Text(
               message,
               style: GoogleFonts.poppins(
-                fontSize: 14,
+                fontSize: 13.5,
                 color: isDark ? Colors.white70 : Colors.black54,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: onDismiss,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                child: Text("Done", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: Text("Done", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600)),
               ),
             ),
           ],

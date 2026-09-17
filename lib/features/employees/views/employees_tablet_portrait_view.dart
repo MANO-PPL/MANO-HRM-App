@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
@@ -400,18 +400,18 @@ class _EmployeesViewState extends State<EmployeesView> {
       child: Stack(
         children: [
           SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: Column(
               children: [
                 _buildFilterSection(context),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
                 _employees.isEmpty && _isLoading
                     ? const SizedBox.shrink()
                     : _buildEmployeesTable(context),
                 
                 if (!_isLoading || _employees.isNotEmpty) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   _buildPagination(context),
                 ],
               ],
@@ -432,19 +432,19 @@ class _EmployeesViewState extends State<EmployeesView> {
     final inactiveColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: containerBg,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isDark ? const Color(0xFF30363D) : Colors.black.withValues(alpha: 0.05),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -478,13 +478,13 @@ class _EmployeesViewState extends State<EmployeesView> {
                 _isDrawerOpen = false; // Close drawer when tab changes
               });
             },
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
                 color: isSelected ? activeBg : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: isSelected
                       ? (isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0))
@@ -505,15 +505,15 @@ class _EmployeesViewState extends State<EmployeesView> {
                 children: [
                   Icon(
                     iconData,
-                    size: 16,
+                    size: 15,
                     color: isSelected ? activeColor : inactiveColor,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Text(
                     label,
                     style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                       color: isSelected ? activeColor : inactiveColor,
                     ),
                   ),
@@ -538,18 +538,21 @@ class _EmployeesViewState extends State<EmployeesView> {
           const SizedBox(width: 8),
           Text(
             '${_selectedIds.length} Selected',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18),
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16),
           ),
           const Spacer(),
           TextButton.icon(
             onPressed: () => _toggleSelectAll(_selectedIds.length != _filteredEmployees.length),
-            icon: Icon(_selectedIds.length == _filteredEmployees.length ? Icons.deselect : Icons.select_all),
-            label: Text(_selectedIds.length == _filteredEmployees.length ? 'Unselect All' : 'Select All'),
+            icon: Icon(_selectedIds.length == _filteredEmployees.length ? Icons.deselect : Icons.select_all, size: 18),
+            label: Text(
+              _selectedIds.length == _filteredEmployees.length ? 'Unselect All' : 'Select All',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           _buildActionButton(
             context,
-            label: 'Delete (${_selectedIds.length})',
+            label: 'Delete Selected',
             icon: Icons.delete_outline,
             isPrimary: false,
             onTap: _bulkDelete,
@@ -568,13 +571,13 @@ class _EmployeesViewState extends State<EmployeesView> {
             Expanded(
               flex: 3,
               child: GlassContainer(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                height: 50,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                height: 42,
                 borderRadius: 12,
                 child: Row(
                   children: [
-                    Icon(Icons.search, color: Theme.of(context).textTheme.bodySmall?.color, size: 20),
-                    const SizedBox(width: 12),
+                    Icon(Icons.search, color: Theme.of(context).textTheme.bodySmall?.color, size: 18),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: TextField(
                         onChanged: (val) {
@@ -585,14 +588,15 @@ class _EmployeesViewState extends State<EmployeesView> {
                           hintText: 'Search employees...',
                           hintStyle: GoogleFonts.poppins(
                             color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.7),
-                            fontSize: 14,
+                            fontSize: 13,
                           ),
                           border: InputBorder.none,
-                          contentPadding: const EdgeInsets.only(bottom: 4),
+                          contentPadding: const EdgeInsets.only(bottom: 6),
+                          isDense: true,
                         ),
                         style: GoogleFonts.poppins(
                           color: Theme.of(context).textTheme.bodyLarge?.color,
-                          fontSize: 14,
+                          fontSize: 13,
                         ),
                       ),
                     ),
@@ -600,11 +604,11 @@ class _EmployeesViewState extends State<EmployeesView> {
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             _buildStatusTabs(context),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
         if (!Provider.of<AuthService>(context, listen: false).user!.isEmployee)
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -617,7 +621,7 @@ class _EmployeesViewState extends State<EmployeesView> {
                 isCompact: isLandscape ? false : true, 
                 onTap: _downloadSampleTemplate,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               _buildActionButton(
                 context, 
                 label: 'Bulk Upload', 
@@ -626,7 +630,7 @@ class _EmployeesViewState extends State<EmployeesView> {
                 isCompact: isLandscape ? false : true, 
                 onTap: _handleBulkUpload,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               _buildActionButton(
                 context, 
                 label: 'Add Employee', 
@@ -658,20 +662,20 @@ class _EmployeesViewState extends State<EmployeesView> {
     return InkWell(
       onTap: onTap,
       child: Container(
-        height: 50,
+        height: 40,
         alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: isPrimary ? primaryColor : (isDark ? const Color(0xFF161B22) : Colors.white),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           border: isPrimary ? null : Border.all(
             color: isDark ? const Color(0xFF30363D) : primaryColor.withValues(alpha: 0.1)
           ),
           boxShadow: isPrimary ? [
             BoxShadow(
-              color: primaryColor.withValues(alpha: 0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              color: primaryColor.withValues(alpha: 0.25),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             )
           ] : null,
         ),
@@ -682,16 +686,16 @@ class _EmployeesViewState extends State<EmployeesView> {
             Icon(
               icon, 
               color: isPrimary ? Colors.white : (isDark ? Colors.white : primaryColor),
-              size: 20
+              size: 18,
             ),
              if (!isCompact) ...[
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Text(
                 label,
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
                   color: isPrimary ? Colors.white : (isDark ? Colors.white : primaryColor),
-                  fontSize: 14,
+                  fontSize: 13,
                 ),
               ),
             ],
@@ -719,9 +723,11 @@ class _EmployeesViewState extends State<EmployeesView> {
           width: double.infinity,
           child: DataTable(
             headingRowColor: WidgetStateProperty.all(Colors.transparent),
-            columnSpacing: 16, 
-            horizontalMargin: 16, 
-            dataRowMaxHeight: 58,
+            headingRowHeight: 40,
+            dataRowMinHeight: 42,
+            dataRowMaxHeight: 48,
+            columnSpacing: 12, 
+            horizontalMargin: 12, 
             showCheckboxColumn: false,
             columns: [
               if (_isSelectionMode)
@@ -800,37 +806,39 @@ class _EmployeesViewState extends State<EmployeesView> {
         // Employee
         DataCell(
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.symmetric(vertical: 2),
             child: Row(
               children: [
                 Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: isDark ? Border.all(color: Colors.blue, width: 2) : null,
+                    border: isDark ? Border.all(color: Colors.blue, width: 1.5) : null,
                   ),
                   child: CircleAvatar(
-                    radius: 16,
+                    radius: 15,
                     backgroundColor: isDark ? const Color(0xFF0D1117) : Theme.of(context).primaryColor.withValues(alpha: 0.1),
                     child: data.profileImage != null && data.profileImage!.isNotEmpty
                         ? ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(15),
                             child: CachedNetworkImage(
                               imageUrl: data.profileImage!,
-                              width: 32,
-                              height: 32,
+                              width: 30,
+                              height: 30,
                               fit: BoxFit.cover,
                               errorWidget: (context, url, error) => Text(
                                 nameInitial,
                                 style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.bold, 
+                                  fontWeight: FontWeight.w600, 
                                   color: isDark ? Colors.white : Theme.of(context).primaryColor,
+                                  fontSize: 12,
                                 ),
                               ),
                               placeholder: (context, url) => Text(
                                 nameInitial,
                                 style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.bold, 
+                                  fontWeight: FontWeight.w600, 
                                   color: isDark ? Colors.white : Theme.of(context).primaryColor,
+                                  fontSize: 12,
                                 ),
                               ),
                             ),
@@ -838,19 +846,20 @@ class _EmployeesViewState extends State<EmployeesView> {
                         : Text(
                             nameInitial,
                             style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.bold, 
+                              fontWeight: FontWeight.w600, 
                               color: isDark ? Colors.white : Theme.of(context).primaryColor,
+                              fontSize: 12,
                             ),
                           ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(data.userName, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: textColor, fontSize: 14)),
-                    Text(data.email, style: GoogleFonts.poppins(fontSize: 12, color: subTextColor)),
+                    Text(data.userName, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: textColor, fontSize: 13)),
+                    Text(data.email, style: GoogleFonts.poppins(fontSize: 11, color: subTextColor)),
                   ],
                 ),
               ],
@@ -863,22 +872,22 @@ class _EmployeesViewState extends State<EmployeesView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(data.designation ?? 'N/A', style: GoogleFonts.poppins(color: textColor, fontWeight: FontWeight.w500, fontSize: 13)),
-              const SizedBox(height: 2),
-              Text(data.department ?? 'N/A', style: GoogleFonts.poppins(fontSize: 11, color: subTextColor)),
+              Text(data.designation ?? 'N/A', style: GoogleFonts.poppins(color: textColor, fontWeight: FontWeight.w500, fontSize: 12)),
+              const SizedBox(height: 1),
+              Text(data.department ?? 'N/A', style: GoogleFonts.poppins(fontSize: 10.5, color: subTextColor)),
             ],
           ),
         ),
         // Phone
         if (isLandscape)
-          DataCell(Text(data.phoneNo ?? 'N/A', style: GoogleFonts.poppins(fontSize: 13, color: subTextColor))),
+          DataCell(Text(data.phoneNo ?? 'N/A', style: GoogleFonts.poppins(fontSize: 12, color: subTextColor))),
         // Shift
         if (isLandscape)
-          DataCell(Text(data.shift ?? 'N/A', style: GoogleFonts.poppins(fontSize: 13, color: subTextColor))),
+          DataCell(Text(data.shift ?? 'N/A', style: GoogleFonts.poppins(fontSize: 12, color: subTextColor))),
         // Geofences
         DataCell(
           data.workLocations.isEmpty
-              ? Text('All Locations', style: GoogleFonts.poppins(fontSize: 12, color: subTextColor))
+              ? Text('All Locations', style: GoogleFonts.poppins(fontSize: 11.5, color: subTextColor))
               : SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
@@ -888,11 +897,11 @@ class _EmployeesViewState extends State<EmployeesView> {
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.blue.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           loc.name,
-                          style: GoogleFonts.poppins(fontSize: 10, color: Colors.blue),
+                          style: GoogleFonts.poppins(fontSize: 10, color: Colors.blue, fontWeight: FontWeight.w500),
                         ),
                       );
                     }).toList()
@@ -942,17 +951,8 @@ class _EmployeesViewState extends State<EmployeesView> {
   }
 
   Widget _buildRightDrawer(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = Theme.of(context).primaryColor;
-    final bgColor = isDark ? const Color(0xFF161B22) : Colors.white;
-    final dividerColor = isDark ? const Color(0xFF30363D) : Colors.grey[200]!;
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final subTextColor = isDark ? const Color(0xFF8D96A0) : Colors.grey[600];
-
     final employee = _selectedEmployeeForDrawer;
     if (employee == null) return const SizedBox.shrink();
-
-    final nameInitial = employee.userName.isNotEmpty ? employee.userName[0].toUpperCase() : '?';
 
     return Stack(
       children: [
@@ -971,382 +971,42 @@ class _EmployeesViewState extends State<EmployeesView> {
         AnimatedPositioned(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
-          right: _isDrawerOpen ? 0 : -450,
+          right: _isDrawerOpen ? 0 : -440,
           top: 0,
           bottom: 0,
-          width: 450,
+          width: 440,
           child: Container(
-            decoration: BoxDecoration(
-              color: bgColor,
-              border: Border(
-                left: BorderSide(color: dividerColor, width: 1),
-              ),
+            decoration: const BoxDecoration(
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 20,
-                  offset: const Offset(-4, 0),
-                )
+                  color: Colors.black26,
+                  blurRadius: 16,
+                  offset: Offset(-4, 0),
+                ),
               ],
             ),
             child: SafeArea(
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Text(
-                          'Employee Profile',
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: textColor,
-                          ),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          onPressed: () {
-                            setState(() {
-                              _isDrawerOpen = false;
-                            });
-                          },
-                          icon: Icon(Icons.close, color: isDark ? Colors.white70 : Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Divider(height: 1, color: dividerColor),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              if (employee.profileImage != null && employee.profileImage!.isNotEmpty) {
-                                EmployeeDetailSheet.showFullscreenAvatar(context, employee.profileImage!, employee.userName);
-                              }
-                            },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: isDark ? const Color(0xFF2F81F7) : primaryColor,
-                                  width: 3,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: primaryColor.withValues(alpha: 0.2),
-                                    blurRadius: 16,
-                                    offset: const Offset(0, 4),
-                                  )
-                                ],
-                              ),
-                              child: CircleAvatar(
-                                radius: 54,
-                                backgroundColor: isDark ? const Color(0xFF161B22) : primaryColor.withValues(alpha: 0.05),
-                                child: employee.profileImage != null && employee.profileImage!.isNotEmpty
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(54),
-                                        child: CachedNetworkImage(
-                                          imageUrl: employee.profileImage!,
-                                          width: 108,
-                                          height: 108,
-                                          fit: BoxFit.cover,
-                                          errorWidget: (context, url, error) => Text(
-                                            nameInitial,
-                                            style: GoogleFonts.poppins(
-                                              fontWeight: FontWeight.bold,
-                                              color: isDark ? Colors.white : primaryColor,
-                                              fontSize: 36,
-                                            ),
-                                          ),
-                                          placeholder: (context, url) => Text(
-                                            nameInitial,
-                                            style: GoogleFonts.poppins(
-                                              fontWeight: FontWeight.bold,
-                                              color: isDark ? Colors.white : primaryColor,
-                                              fontSize: 36,
-                                            ),
-                                          ),
-                                        ),
-                                      )
-                                    : Text(
-                                        nameInitial,
-                                        style: GoogleFonts.poppins(
-                                          fontWeight: FontWeight.bold,
-                                          color: isDark ? Colors.white : primaryColor,
-                                          fontSize: 36,
-                                        ),
-                                      ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            employee.userName,
-                            style: GoogleFonts.poppins(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: textColor,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.email_outlined, size: 14, color: subTextColor),
-                              const SizedBox(width: 6),
-                              Text(
-                                employee.email,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 13,
-                                  color: subTextColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: employee.status == 'Active'
-                                  ? Colors.green.withValues(alpha: 0.1)
-                                  : employee.status == 'Inactive'
-                                      ? Colors.amber.withValues(alpha: 0.1)
-                                      : Colors.red.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Text(
-                              employee.status == 'Deleted' ? 'Trash' : employee.status,
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: employee.status == 'Active'
-                                    ? Colors.green
-                                    : employee.status == 'Inactive'
-                                        ? Colors.amber
-                                        : Colors.red,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 28),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF161B22) : Colors.grey[50],
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: dividerColor),
-                            ),
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              children: [
-                                _buildDrawerDetailRow(context, Icons.work_outline, 'Role', employee.designation ?? 'N/A', isDark),
-                                Divider(height: 24, color: dividerColor),
-                                _buildDrawerDetailRow(context, Icons.business_outlined, 'Department', employee.department ?? 'N/A', isDark),
-                                Divider(height: 24, color: dividerColor),
-                                _buildDrawerDetailRow(context, Icons.phone_outlined, 'Phone', employee.phoneNo ?? 'N/A', isDark),
-                                Divider(height: 24, color: dividerColor),
-                                _buildDrawerDetailRow(context, Icons.access_time, 'Shift', employee.shift ?? 'N/A', isDark),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Allowed Geofences',
-                              style: GoogleFonts.poppins(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: textColor,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: employee.workLocations.isEmpty
-                                ? Text(
-                                    'All Locations (Universal Access)',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 13,
-                                      color: subTextColor,
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  )
-                                : Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: employee.workLocations.map((loc) {
-                                      return Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: loc.isActive ? Colors.blue.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(16),
-                                          border: Border.all(
-                                            color: loc.isActive ? Colors.blue.withValues(alpha: 0.3) : Colors.grey.withValues(alpha: 0.3),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.location_on_outlined, 
-                                              size: 12, 
-                                              color: loc.isActive ? Colors.blue : Colors.grey
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              loc.name,
-                                              style: GoogleFonts.poppins(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w500,
-                                                color: loc.isActive 
-                                                    ? (isDark ? Colors.blue[300] : Colors.blue[700]) 
-                                                    : Colors.grey,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    }).toList(),
-                                  ),
-                          ),
-                          const SizedBox(height: 32),
-                          if (!Provider.of<AuthService>(context, listen: false).user!.isEmployee) ...[
-                            if (employee.status == 'Deleted') ...[
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      onPressed: () => _restoreEmployee(employee),
-                                      icon: const Icon(Icons.restore, size: 18),
-                                      label: const Text('Restore'),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: Colors.green,
-                                        side: const BorderSide(color: Colors.green),
-                                        padding: const EdgeInsets.symmetric(vertical: 14),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: () => _forceDeleteEmployee(employee),
-                                      icon: const Icon(Icons.delete_forever, size: 18, color: Colors.white),
-                                      label: const Text('Force Delete', style: TextStyle(color: Colors.white)),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.red,
-                                        elevation: 0,
-                                        padding: const EdgeInsets.symmetric(vertical: 14),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ] else ...[
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      onPressed: () {
-                                        setState(() {
-                                          _isDrawerOpen = false;
-                                          _editingEmployee = employee;
-                                          _isAddingOrEditing = true;
-                                        });
-                                      },
-                                      icon: const Icon(Icons.edit_outlined, size: 18),
-                                      label: const Text('Edit Profile'),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: primaryColor,
-                                        side: BorderSide(color: primaryColor.withValues(alpha: 0.5)),
-                                        padding: const EdgeInsets.symmetric(vertical: 14),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      onPressed: () => _toggleStatus(employee),
-                                      icon: Icon(employee.isActive ? Icons.block : Icons.check_circle_outline, size: 18),
-                                      label: Text(employee.isActive ? 'Deactivate' : 'Activate'),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: employee.isActive ? Colors.amber : Colors.green,
-                                        side: BorderSide(color: employee.isActive ? Colors.amber : Colors.green),
-                                        padding: const EdgeInsets.symmetric(vertical: 14),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  onPressed: () => _deleteEmployee(employee.userId),
-                                  icon: const Icon(Icons.delete_outline, size: 18, color: Colors.white),
-                                  label: const Text('Move to Trash', style: TextStyle(color: Colors.white)),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFFDA3637),
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+              child: EmployeeDetailSheet(
+                employee: employee,
+                isDrawer: true,
+                onClose: () {
+                  setState(() {
+                    _isDrawerOpen = false;
+                  });
+                },
+                onEdit: () {
+                  setState(() {
+                    _isDrawerOpen = false;
+                    _editingEmployee = employee;
+                    _isAddingOrEditing = true;
+                  });
+                },
+                onDelete: () => _deleteEmployee(employee.userId),
+                onToggleStatus: () => _toggleStatus(employee),
+                onRestore: () => _restoreEmployee(employee),
+                onForceDelete: () => _forceDeleteEmployee(employee),
               ),
             ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDrawerDetailRow(BuildContext context, IconData icon, String label, String value, bool isDark) {
-    return Row(
-      children: [
-        Icon(
-          icon, 
-          size: 20, 
-          color: isDark ? const Color(0xFF2F81F7) : Theme.of(context).primaryColor,
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label, 
-                style: GoogleFonts.poppins(
-                  fontSize: 11, 
-                  color: isDark ? const Color(0xFF8D96A0) : Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white : Colors.black87,
-                ),
-              ),
-            ],
           ),
         ),
       ],
@@ -1357,8 +1017,8 @@ class _EmployeesViewState extends State<EmployeesView> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text('Showing ${_filteredEmployees.length} results', style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey)),
-        const Row(children: [Icon(Icons.chevron_left), Icon(Icons.chevron_right)]),
+        Text('Showing ${_filteredEmployees.length} results', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey)),
+        const Row(children: [Icon(Icons.chevron_left, size: 20), Icon(Icons.chevron_right, size: 20)]),
       ],
     );
   }

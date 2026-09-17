@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_application/features/employees/core/employee_model.dart';
@@ -143,7 +143,7 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
     final isMobile = MediaQuery.of(context).size.width < 600;
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 16 : 32),
+      padding: EdgeInsets.all(isMobile ? 12 : 20),
       child: Form(
         key: _formKey,
         child: Column(
@@ -155,12 +155,12 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
               children: [
                 TextButton.icon(
                   onPressed: widget.onCancel,
-                  icon: Icon(Icons.close, color: Theme.of(context).textTheme.bodyLarge?.color),
+                  icon: Icon(Icons.close, color: Theme.of(context).textTheme.bodyLarge?.color, size: 20),
                   label: Text(
                     'Cancel',
                     style: GoogleFonts.poppins(
                       color: Theme.of(context).textTheme.bodyLarge?.color,
-                      fontSize: 16,
+                      fontSize: 15,
                     ),
                   ),
                 ),
@@ -168,65 +168,66 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
                   onPressed: _isLoading ? null : _saveEmployee,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF5B60F6),
-                    padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24, vertical: isMobile ? 12 : 16),
+                    padding: EdgeInsets.symmetric(horizontal: isMobile ? 14 : 20, vertical: isMobile ? 10 : 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   icon: _isLoading 
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
-                      : const Icon(Icons.save, color: Colors.white, size: 20),
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+                      : const Icon(Icons.save, color: Colors.white, size: 18),
                   label: Text(
                     _isLoading ? 'Saving...' : 'Save Changes',
                     style: GoogleFonts.poppins(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
+                      fontSize: 13.5,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 16),
   
             // Content Container
             Padding(
-              padding: EdgeInsets.symmetric(vertical: isMobile ? 16 : 32),
+              padding: EdgeInsets.symmetric(vertical: isMobile ? 8 : 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                     // Personal Information
                     _buildSectionHeader(context, 'PERSONAL INFORMATION', Icons.person_outline),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 14),
                     
                     if (isMobile) ...[
                       _buildTextField(context, 'Full Name', 'Enter full name', _nameController, isRequired: true),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 14),
                       _buildTextField(context, 'Password', '......', _passwordController, isPassword: true, isRequired: widget.employeeToEdit == null),
                     ] else
                       Row(
                         children: [
                           Expanded(child: _buildTextField(context, 'Full Name', 'Enter full name', _nameController, isRequired: true)),
-                          const SizedBox(width: 24),
+                          const SizedBox(width: 16),
                           Expanded(child: _buildTextField(context, 'Password', '......', _passwordController, isPassword: true, isRequired: widget.employeeToEdit == null)),
                         ],
                       ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 14),
                     if (isMobile) ...[
                       _buildTextField(context, 'Email Address', 'Enter email', _emailController, isRequired: true),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 14),
                       _buildTextField(context, 'Phone Number', 'Enter phone number', _phoneController),
                     ] else
                       Row(
                         children: [
                           Expanded(child: _buildTextField(context, 'Email Address', 'Enter email', _emailController, isRequired: true)),
-                          const SizedBox(width: 24),
+                          const SizedBox(width: 16),
                           Expanded(child: _buildTextField(context, 'Phone Number', 'Enter phone number', _phoneController)),
                         ],
                       ),
   
-                    const SizedBox(height: 48),
+                    const SizedBox(height: 24),
   
                     // Work Details
                     _buildSectionHeader(context, 'WORK DETAILS', Icons.business_center_outlined),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 14),
   
                     if (isMobile) ...[
                       _buildDropdown<int>(
@@ -236,7 +237,7 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
                         _departments.map((e) => DropdownMenuItem(value: e.id, child: Text(e.name))).toList(),
                         (val) => setState(() => _selectedDeptId = val),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 14),
                       _buildDropdown<int>(
                         context, 
                         'Designation / Role', 
@@ -254,7 +255,7 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
                             _departments.map((e) => DropdownMenuItem(value: e.id, child: Text(e.name))).toList(),
                             (val) => setState(() => _selectedDeptId = val),
                           )),
-                          const SizedBox(width: 24),
+                          const SizedBox(width: 16),
                           Expanded(child: _buildDropdown<int>(
                             context, 
                             'Designation / Role', 
@@ -264,7 +265,7 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
                           )),
                         ],
                       ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 14),
                     if (isMobile) ...[
                       _buildDropdown<int>(
                         context, 
@@ -273,7 +274,7 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
                         _shifts.map((e) => DropdownMenuItem(value: e.id, child: Text(e.name))).toList(),
                         (val) => setState(() => _selectedShiftId = val),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 14),
                       _buildDropdown<String>(
                         context, 
                         'User Type', 
@@ -295,7 +296,7 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
                             _shifts.map((e) => DropdownMenuItem(value: e.id, child: Text(e.name))).toList(),
                             (val) => setState(() => _selectedShiftId = val),
                           )),
-                          const SizedBox(width: 24),
+                          const SizedBox(width: 16),
                           Expanded(child: _buildDropdown<String>(
                             context, 
                             'User Type', 
@@ -321,15 +322,15 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
   Widget _buildSectionHeader(BuildContext context, String title, IconData icon) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: Colors.grey),
+        Icon(icon, size: 16, color: Colors.grey),
         const SizedBox(width: 8),
         Text(
           title,
           style: GoogleFonts.poppins(
             fontSize: 12,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
             color: Colors.grey,
-            letterSpacing: 1,
+            letterSpacing: 0.8,
           ),
         ),
       ],
@@ -345,14 +346,13 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
         Text(
           label,
           style: GoogleFonts.poppins(
-            fontSize: 14,
+            fontSize: 13,
             color: Theme.of(context).textTheme.bodyMedium?.color,
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Container(
-          // height: 50, // Remove fixed height to allow error message
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF0D1117) : Colors.white,
             borderRadius: BorderRadius.circular(8),
@@ -366,16 +366,17 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
             validator: isRequired ? (val) => val == null || val.isEmpty ? 'Required' : null : null,
             style: GoogleFonts.poppins(
               color: Theme.of(context).textTheme.bodyLarge?.color,
-              fontSize: 14,
+              fontSize: 13.5,
             ),
             decoration: InputDecoration(
               hintText: placeholder,
               hintStyle: GoogleFonts.poppins(
                 color: Colors.grey,
-                fontSize: 14,
+                fontSize: 13,
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               border: InputBorder.none,
+              isDense: true,
             ),
           ),
         ),
@@ -392,15 +393,15 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
         Text(
           label,
           style: GoogleFonts.poppins(
-            fontSize: 14,
+            fontSize: 13,
             color: Theme.of(context).textTheme.bodyMedium?.color,
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Container(
-          height: 50,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF0D1117) : Colors.white,
             borderRadius: BorderRadius.circular(8),
@@ -412,10 +413,10 @@ class _AddEmployeeViewState extends State<AddEmployeeView> {
             child: DropdownButton<T>(
               value: value,
               isExpanded: true,
-              icon: const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
+              icon: const Icon(Icons.keyboard_arrow_down, color: Colors.grey, size: 20),
               style: GoogleFonts.poppins(
                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                 fontSize: 14,
+                 fontSize: 13.5,
               ),
               dropdownColor: isDark ? const Color(0xFF30363D) : Colors.white,
               items: items,

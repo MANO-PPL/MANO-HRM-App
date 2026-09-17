@@ -28,55 +28,55 @@ class EmployeeActionSheet extends StatelessWidget {
     final textColor = isDark ? Colors.white : Colors.black87;
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 40,
+            width: 36,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey[400],
+              color: isDark ? const Color(0xFF30363D) : Colors.grey[400],
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 10),
           Text(
-            "Actions for $employeeName",
+            "Actions",
             style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
               color: textColor,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 10),
           _buildOption(
             context,
             icon: Icons.edit_outlined,
-            label: "Edit Employee",
-            color: const Color(0xFF6366F1), // Primary Purple
+            label: "Edit",
+            color: const Color(0xFF6366F1),
             onTap: () {
               Navigator.pop(context);
               onEdit();
             },
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           _buildOption(
             context,
             icon: Icons.delete_outline,
-            label: "Delete Employee",
-            color: const Color(0xFFEF4444), // Red
+            label: "Delete",
+            color: const Color(0xFFEF4444),
             onTap: () {
               Navigator.pop(context);
               onDelete();
             },
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 4),
         ],
       ),
     );
@@ -87,28 +87,28 @@ class EmployeeActionSheet extends StatelessWidget {
     
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Row(
           children: [
-            Icon(icon, color: color, size: 22),
-            const SizedBox(width: 16),
+            Icon(icon, color: color, size: 18),
+            const SizedBox(width: 10),
             Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 15,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: isDark ? Colors.white : Colors.black87,
               ),
             ),
             const Spacer(),
-            Icon(Icons.chevron_right, color: color.withValues(alpha: 0.5), size: 18),
+            Icon(Icons.chevron_right, color: color.withValues(alpha: 0.5), size: 16),
           ],
         ),
       ),

@@ -25,32 +25,32 @@ class BulkUploadReportDialog extends StatelessWidget {
     return Dialog(
       backgroundColor: isDark ? const Color(0xFF30363D) : Colors.white,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
-        padding: const EdgeInsets.all(32),
-        constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+        padding: const EdgeInsets.all(20),
+        constraints: const BoxConstraints(maxWidth: 460, maxHeight: 560),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Icon
             Container(
-              width: 80,
-              height: 80,
+              width: 60,
+              height: 60,
               decoration: BoxDecoration(
                 color: Colors.green.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check_circle_outline, color: Colors.green, size: 40),
+              child: const Icon(Icons.check_circle_outline, color: Colors.green, size: 32),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             
             // Title
             Text(
               'Upload Processed!',
               style: GoogleFonts.poppins(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
                 color: textColor,
               ),
             ),
@@ -60,7 +60,7 @@ class BulkUploadReportDialog extends StatelessWidget {
             RichText(
               textAlign: TextAlign.center,
               text: TextSpan(
-                style: GoogleFonts.poppins(color: Colors.grey, fontSize: 14, height: 1.5),
+                style: GoogleFonts.poppins(color: Colors.grey, fontSize: 13.5, height: 1.5),
                 children: [
                   const TextSpan(text: 'Processed: '),
                   TextSpan(text: '$totalProcessed\n', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
@@ -73,42 +73,42 @@ class BulkUploadReportDialog extends StatelessWidget {
             ),
             
             if (errors.isNotEmpty) ...[
-              const SizedBox(height: 32),
+              const SizedBox(height: 20),
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Errors & Warnings',
                   style: GoogleFonts.poppins(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: Colors.red[400],
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Flexible(
                 child: Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: Colors.red.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: Colors.red.withValues(alpha: 0.1)),
                   ),
                   child: ListView.separated(
                     shrinkWrap: true,
                     itemCount: errors.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 8),
+                    separatorBuilder: (context, index) => const SizedBox(height: 6),
                     itemBuilder: (context, index) {
                       final error = errors[index].toString();
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.error_outline, size: 16, color: Colors.red[400]),
+                          Icon(Icons.error_outline, size: 15, color: Colors.red[400]),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               error,
-                              style: GoogleFonts.poppins(fontSize: 13, color: textColor),
+                              style: GoogleFonts.poppins(fontSize: 12, color: textColor),
                             ),
                           ),
                         ],
@@ -119,7 +119,7 @@ class BulkUploadReportDialog extends StatelessWidget {
               ),
             ],
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 20),
             
             // Button
             SizedBox(
@@ -133,8 +133,8 @@ class BulkUploadReportDialog extends StatelessWidget {
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).primaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   elevation: 0,
                 ),
                 child: Text(
