@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:open_filex/open_filex.dart';
@@ -96,7 +96,8 @@ class _ReportsMobileViewState extends State<ReportsMobileView> {
     }
   }
 
-  Future<void> _exportFile() async {
+  Future<void> _exportFile([String? format]) async {
+    final targetFormat = format ?? _selectedFormat;
     setState(() => _isExporting = true);
     try {
       final monthStr = "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}";
@@ -104,7 +105,7 @@ class _ReportsMobileViewState extends State<ReportsMobileView> {
 
       final path = await _reportService.exportReport(
         type: _selectedReportType,
-        format: _selectedFormat,
+        format: targetFormat,
         month: monthStr,
         date: dateStr,
         deptId: _selectedDept == 'All Departments' ? null : _selectedDept,
@@ -153,7 +154,7 @@ class _ReportsMobileViewState extends State<ReportsMobileView> {
         onRefresh: _loadData,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -195,7 +196,7 @@ class _ReportsMobileViewState extends State<ReportsMobileView> {
                 isExporting: _isExporting,
                 isCompact: true,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
 
               // ── Summary Stats Banner ───────────────────────────────────
               if (_previewResult != null) ...[
@@ -203,12 +204,12 @@ class _ReportsMobileViewState extends State<ReportsMobileView> {
                   summary: _previewResult!.summary,
                   isCompact: true,
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
               ],
 
               // ── View Mode Switcher + Search ────────────────────────────
               Container(
-                padding: const EdgeInsets.all(4),
+                padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(10),
@@ -223,7 +224,7 @@ class _ReportsMobileViewState extends State<ReportsMobileView> {
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
 
               // Search Filter Bar
               Container(
@@ -239,16 +240,25 @@ class _ReportsMobileViewState extends State<ReportsMobileView> {
                   onChanged: (v) => setState(() => _searchQuery = v),
                   style: GoogleFonts.poppins(fontSize: 11.5),
                   decoration: InputDecoration(
-                    hintText: "Search employee, ID, department...",
-                    hintStyle: GoogleFonts.poppins(fontSize: 11.5, color: Colors.grey[400]),
-                    prefixIcon: const Icon(Icons.search, size: 16),
+                    hintText: "Search employee or ID...",
+                    hintStyle: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[400]),
+                    prefixIcon: const Icon(Icons.search, size: 15),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.close, size: 14),
+                            onPressed: () => setState(() => _searchQuery = ''),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 28),
+                          )
+                        : null,
                     border: InputBorder.none,
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(vertical: 8),
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
 
               // ── Data View ──────────────────────────────────────────────
               if (_isGenerating)
@@ -267,10 +277,15 @@ class _ReportsMobileViewState extends State<ReportsMobileView> {
                         searchQuery: _searchQuery,
                       )
                     : ReportPreviewTable(
-                        key: const ValueKey('preview_view'),
+                        key: ValueKey('preview_${_selectedReportType}_${_selectedDate.millisecondsSinceEpoch}'),
                         columns: _previewResult!.columns,
                         rows: _previewResult!.rows,
                         searchQuery: _searchQuery,
+                        reportTitle: _selectedReportType,
+                        onExportExcel: () => _exportFile('xlsx'),
+                        onExportCsv: () => _exportFile('csv'),
+                        onExportPdf: () => _exportFile('pdf'),
+                        isExporting: _isExporting,
                       )
               else
                 Center(
@@ -298,12 +313,12 @@ class _ReportsMobileViewState extends State<ReportsMobileView> {
         onTap: () => setState(() => _activeViewTab = index),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 7),
+          padding: const EdgeInsets.symmetric(vertical: 5.5),
           decoration: BoxDecoration(
             color: isSelected
                 ? (isDark ? const Color(0xFF21262D) : Colors.white)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(7),
             boxShadow: isSelected && !isDark
                 ? [
                     BoxShadow(
@@ -319,16 +334,16 @@ class _ReportsMobileViewState extends State<ReportsMobileView> {
             children: [
               Icon(
                 icon,
-                size: 14,
+                size: 13,
                 color: isSelected
                     ? const Color(0xFF6366F1)
                     : (isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 5),
               Text(
                 label,
                 style: GoogleFonts.poppins(
-                  fontSize: 11.5,
+                  fontSize: 11,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   color: isSelected
                       ? (isDark ? Colors.white : const Color(0xFF0F172A))
