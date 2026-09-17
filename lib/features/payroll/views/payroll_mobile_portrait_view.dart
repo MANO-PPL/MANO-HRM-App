@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_application/shared/services/auth_service.dart';
@@ -63,7 +63,7 @@ class _PayrollScreenMobileState extends State<PayrollScreenMobile>
   }
 
   void _onTabChanged() {
-    if (_tabController.index == 1 && _auditLogs.isEmpty && !_isLoadingAudit) {
+    if (_tabController.index == 1 && !_isLoadingAudit) {
       _loadAuditLogs();
     }
   }
@@ -149,11 +149,22 @@ class _PayrollScreenMobileState extends State<PayrollScreenMobile>
   // ─────────────────────────────────────────────────────────────────────────
 
   void _openPayslipDetail(Payslip slip) {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final isEmployee = authService.user?.isEmployee ?? false;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => PayslipDetailScreenMobile(payslip: slip),
+      builder: (context) => PayslipDetailScreenMobile(
+        payslip: slip,
+        payrollService: _payrollService,
+        isAdmin: !isEmployee,
+        onStatusChanged: () async {
+          await _loadData();
+          await _loadAuditLogs();
+        },
+      ),
     );
   }
 
@@ -226,6 +237,7 @@ class _PayrollScreenMobileState extends State<PayrollScreenMobile>
         await _payrollService.unlockEmployee(
           employeeId: slip.employeeId,
           payPeriod: _selectedPeriod,
+          employeeName: slip.employeeName,
         );
         if (mounted) {
           context.showToast(
@@ -237,6 +249,7 @@ class _PayrollScreenMobileState extends State<PayrollScreenMobile>
         await _payrollService.finalizeEmployee(
           employeeId: slip.employeeId,
           payPeriod: _selectedPeriod,
+          employeeName: slip.employeeName,
         );
         if (mounted) {
           context.showToast(
@@ -246,8 +259,7 @@ class _PayrollScreenMobileState extends State<PayrollScreenMobile>
         }
       }
       await _loadData();
-      // Refresh audit logs if on audit tab
-      if (_tabController.index == 1) await _loadAuditLogs();
+      await _loadAuditLogs();
     } catch (e) {
       if (mounted) {
         context.showExceptionToast(e, fallback: 'Action failed. Please try again.');
@@ -293,11 +305,11 @@ class _PayrollScreenMobileState extends State<PayrollScreenMobile>
         children: [
           // ── Pill Styled Full Width Tab Bar (Matching DAR) ───────────
           Container(
-            margin: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-            padding: const EdgeInsets.all(4),
+            margin: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+            padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(
                 color: isDark ? const Color(0xFF30363D) : Colors.grey[300]!,
               ),
@@ -308,7 +320,7 @@ class _PayrollScreenMobileState extends State<PayrollScreenMobile>
               indicatorSize: TabBarIndicatorSize.tab,
               indicator: BoxDecoration(
                 color: isDark ? const Color(0xFF2D3139) : Colors.white,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(7),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.06),
@@ -323,37 +335,37 @@ class _PayrollScreenMobileState extends State<PayrollScreenMobile>
                   ? const Color(0xFF94A3B8)
                   : const Color(0xFF64748B),
               labelStyle: GoogleFonts.poppins(
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
               unselectedLabelStyle: GoogleFonts.poppins(
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
               tabs: [
                 Tab(
-                  height: 38,
+                  height: 34,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: const [
-                      Icon(Icons.receipt_long_outlined, size: 16),
-                      SizedBox(width: 6),
+                      Icon(Icons.receipt_long_outlined, size: 15),
+                      SizedBox(width: 5),
                       Text("Salary Slips"),
                     ],
                   ),
                 ),
                 Tab(
-                  height: 38,
+                  height: 34,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.history_rounded, size: 16),
-                      const SizedBox(width: 6),
+                      const Icon(Icons.history_rounded, size: 15),
+                      const SizedBox(width: 5),
                       const Text("Audit Trail"),
                       if (_auditLogs.isNotEmpty) ...[
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 5),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
                             color: const Color(0xFF5B60F6),
                             borderRadius: BorderRadius.circular(8),
@@ -361,7 +373,7 @@ class _PayrollScreenMobileState extends State<PayrollScreenMobile>
                           child: Text(
                             '${_auditLogs.length}',
                             style: GoogleFonts.poppins(
-                              fontSize: 10,
+                              fontSize: 9,
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                             ),
@@ -480,7 +492,7 @@ class _PayrollScreenMobileState extends State<PayrollScreenMobile>
 
             // Search Bar
             Container(
-              height: 38,
+              height: 36,
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF161B22) : Colors.white,
                 borderRadius: BorderRadius.circular(8),
@@ -488,20 +500,33 @@ class _PayrollScreenMobileState extends State<PayrollScreenMobile>
                   color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
                 ),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               child: TextField(
                 controller: _searchController,
                 onChanged: _onSearchChanged,
                 style: GoogleFonts.poppins(
-                  fontSize: 11,
+                  fontSize: 11.5,
                   color: isDark ? Colors.white : Colors.black87,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Search by name, ID or role...',
+                  hintText: 'Search employee or ID...',
                   hintStyle: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[500]),
                   prefixIcon: const Icon(Icons.search, size: 16, color: Colors.grey),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.close, size: 14),
+                          onPressed: () {
+                            _searchController.clear();
+                            _onSearchChanged('');
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 26),
+                        )
+                      : null,
                   border: InputBorder.none,
                   isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
                 ),
               ),
             ),
@@ -788,8 +813,14 @@ class _PayrollScreenMobileState extends State<PayrollScreenMobile>
                 )
               ],
       ),
-      child: Column(
-        children: [
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () => _openPayslipDetail(slip),
+          child: Column(
+            children: [
           // Top row: Avatar + Name + Net Pay + Lock badge
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
@@ -942,7 +973,9 @@ class _PayrollScreenMobileState extends State<PayrollScreenMobile>
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildLockProgressBadge(int locked, int total, bool isDark) {
@@ -978,7 +1011,7 @@ class _PayrollScreenMobileState extends State<PayrollScreenMobile>
           ),
           const Spacer(),
           Text(
-            allLocked ? 'All payrolls finalized' : 'Tap 🔒 on each slip to lock',
+            allLocked ? 'All payrolls finalized' : 'Tap lock icon on each slip to lock',
             style: GoogleFonts.poppins(
               fontSize: 9,
               color: isDark ? Colors.grey[400] : Colors.grey[600],

@@ -343,6 +343,10 @@ class Payslip {
       NumberFormat.currency(symbol: '₹', decimalDigits: 2).format(grossSalary);
   String get formattedDeductions =>
       NumberFormat.currency(symbol: '₹', decimalDigits: 2).format(lopDeduction);
+  String get formattedOvertimeAmount =>
+      NumberFormat.currency(symbol: '₹', decimalDigits: 2).format(overtimeAmount);
+  String get formattedLopDeduction =>
+      NumberFormat.currency(symbol: '₹', decimalDigits: 2).format(lopDeduction);
 
   double get additionsTotal =>
       adjustments.where((a) => a.type == 'addition').fold(0.0, (s, a) => s + a.amount);

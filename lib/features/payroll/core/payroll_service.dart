@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application/shared/constants/api_constants.dart';
@@ -47,6 +47,26 @@ class PayrollService {
   List<Payslip> _cachedPayslips = [];
   PayrollRun? _currentRun;
   String _currentPayPeriod = '';
+  final List<PayrollAuditLog> _localAuditLogs = [];
+
+  /// Records an audit log locally and keeps it synchronized across sessions
+  void recordAuditLog({
+    required String action,
+    String? employeeName,
+    required String details,
+    String performedByName = 'Admin',
+    DateTime? timestamp,
+  }) {
+    final log = PayrollAuditLog(
+      logId: 'AUDIT-${DateTime.now().millisecondsSinceEpoch}',
+      action: action,
+      performedByName: performedByName,
+      employeeName: employeeName,
+      details: details,
+      createdAt: timestamp ?? DateTime.now(),
+    );
+    _localAuditLogs.insert(0, log);
+  }
 
   String get currentPayPeriod {
     if (_currentPayPeriod.isEmpty) {
@@ -169,6 +189,14 @@ class PayrollService {
     _cachedPayslips = _generateMockPayslips(payPeriod, isProcessed: true);
     final run = _generateMockRun(payPeriod, _cachedPayslips, isProcessed: true);
     _currentRun = run;
+
+    recordAuditLog(
+      action: 'FINALIZE_RUN',
+      employeeName: 'All Employees',
+      details: 'Executed and finalized full payroll run for $payPeriod.',
+      performedByName: 'Admin',
+    );
+
     return run;
   }
 
@@ -181,8 +209,15 @@ class PayrollService {
   Future<void> finalizeEmployee({
     required String employeeId,
     required String payPeriod,
+    String? employeeName,
+    String? performedByName,
   }) async {
     final queryMonth = _labelToQuery(payPeriod);
+    final empName = employeeName ??
+        (_cachedPayslips.any((p) => p.employeeId == employeeId)
+            ? _cachedPayslips.firstWhere((p) => p.employeeId == employeeId).employeeName
+            : 'Employee');
+
     try {
       if (_dio != null) {
         final response = await _dio.post(
@@ -190,6 +225,12 @@ class PayrollService {
           data: {'month': queryMonth},
         );
         if (response.statusCode == 200 || response.statusCode == 201) {
+          recordAuditLog(
+            action: 'LOCK',
+            employeeName: empName,
+            details: 'Finalized and locked monthly payroll calculations for $payPeriod.',
+            performedByName: performedByName ?? 'Admin',
+          );
           // Refresh cache
           await getPayrollDashboard(payPeriod: payPeriod);
           return;
@@ -235,6 +276,12 @@ class PayrollService {
         adjustments: old.adjustments,
       );
     }
+    recordAuditLog(
+      action: 'LOCK',
+      employeeName: empName,
+      details: 'Finalized and locked monthly payroll calculations for $payPeriod.',
+      performedByName: performedByName ?? 'Admin',
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -246,8 +293,15 @@ class PayrollService {
   Future<void> unlockEmployee({
     required String employeeId,
     required String payPeriod,
+    String? employeeName,
+    String? performedByName,
   }) async {
     final queryMonth = _labelToQuery(payPeriod);
+    final empName = employeeName ??
+        (_cachedPayslips.any((p) => p.employeeId == employeeId)
+            ? _cachedPayslips.firstWhere((p) => p.employeeId == employeeId).employeeName
+            : 'Employee');
+
     try {
       if (_dio != null) {
         final response = await _dio.post(
@@ -255,6 +309,12 @@ class PayrollService {
           data: {'month': queryMonth},
         );
         if (response.statusCode == 200 || response.statusCode == 201) {
+          recordAuditLog(
+            action: 'UNLOCK',
+            employeeName: empName,
+            details: 'Unlocked employee monthly payroll, reverting status to Draft.',
+            performedByName: performedByName ?? 'Admin',
+          );
           await getPayrollDashboard(payPeriod: payPeriod);
           return;
         }
@@ -299,6 +359,12 @@ class PayrollService {
         adjustments: old.adjustments,
       );
     }
+    recordAuditLog(
+      action: 'UNLOCK',
+      employeeName: empName,
+      details: 'Unlocked employee monthly payroll, reverting status to Draft.',
+      performedByName: performedByName ?? 'Admin',
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -312,6 +378,7 @@ class PayrollService {
     String? employeeId,
   }) async {
     final queryMonth = _labelToQuery(payPeriod);
+    final List<PayrollAuditLog> apiLogs = [];
     try {
       if (_dio != null) {
         final params = <String, dynamic>{'month': queryMonth};
@@ -325,16 +392,31 @@ class PayrollService {
         if (response.statusCode == 200) {
           final data = response.data;
           final list = (data['data'] as List?) ?? [];
-          return list
-              .map((e) => PayrollAuditLog.fromJson(e as Map<String, dynamic>))
-              .toList();
+          apiLogs.addAll(
+            list.map((e) => PayrollAuditLog.fromJson(e as Map<String, dynamic>)),
+          );
         }
       }
     } catch (e) {
       debugPrint('PayrollService.getAuditLogs error: $e');
     }
-    // Return empty list (no mock audit data)
-    return [];
+
+    // Merge API logs and local audit logs, deduplicating by action+employeeName+details
+    final Map<String, PayrollAuditLog> merged = {};
+    for (final log in apiLogs) {
+      final key = '${log.action}_${log.employeeName}_${log.details}';
+      merged[key] = log;
+    }
+    for (final log in _localAuditLogs) {
+      final key = '${log.action}_${log.employeeName}_${log.details}';
+      if (!merged.containsKey(key)) {
+        merged[key] = log;
+      }
+    }
+
+    final result = merged.values.toList();
+    result.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return result;
   }
 
   // ---------------------------------------------------------------------------
