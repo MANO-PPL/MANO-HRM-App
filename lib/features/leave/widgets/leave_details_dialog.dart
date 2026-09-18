@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +10,7 @@ import 'package:flutter_application/features/leave/core/leave_provider.dart';
 import 'package:flutter_application/shared/constants/api_constants.dart';
 import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
+import 'package:flutter_application/shared/widgets/app_custom_dropdown.dart';
 
 class LeaveDetailsDialog extends StatefulWidget {
   final LeaveRequest request;
@@ -44,20 +45,29 @@ class LeaveDetailsDialog extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.9,
-        ),
-        child: LeaveDetailsDialog(
-          request: request,
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-          onWithdraw: onWithdraw,
-          isReviewMode: isReviewMode,
-          onApprove: onApprove,
-          onReject: onReject,
-        ),
-      ),
+      builder: (context) {
+        final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+        final screenHeight = MediaQuery.of(context).size.height;
+        return AnimatedPadding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutQuad,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: (screenHeight - bottomInset) * 0.9,
+            ),
+            child: LeaveDetailsDialog(
+              request: request,
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              onWithdraw: onWithdraw,
+              isReviewMode: isReviewMode,
+              onApprove: onApprove,
+              onReject: onReject,
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -66,17 +76,26 @@ class LeaveDetailsDialog extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.9,
-        ),
-        child: LeaveDetailsDialog(
-          request: request,
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-          onWithdraw: onWithdraw,
-        ),
-      ),
+      builder: (context) {
+        final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+        final screenHeight = MediaQuery.of(context).size.height;
+        return AnimatedPadding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutQuad,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: (screenHeight - bottomInset) * 0.9,
+            ),
+            child: LeaveDetailsDialog(
+              request: request,
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+              onWithdraw: onWithdraw,
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -566,6 +585,37 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
               Text(reviewedAt, style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey)),
             ],
           ),
+          if (widget.request.payType != null && widget.request.payType!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text("Pay Type: ", style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: widget.request.payType?.toLowerCase() == 'paid'
+                        ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                        : (widget.request.payType?.toLowerCase() == 'partial'
+                            ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
+                            : const Color(0xFFEF4444).withValues(alpha: 0.15)),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    "${widget.request.payType}${widget.request.payPercentage != null && widget.request.payType?.toLowerCase() == 'partial' ? ' (${widget.request.payPercentage}%)' : ''}",
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: widget.request.payType?.toLowerCase() == 'paid'
+                          ? const Color(0xFF10B981)
+                          : (widget.request.payType?.toLowerCase() == 'partial'
+                              ? const Color(0xFFF59E0B)
+                              : const Color(0xFFEF4444)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (widget.request.adminComment != null && widget.request.adminComment!.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
@@ -681,31 +731,25 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
   }
 
   Widget _buildAdminDropdown(BuildContext context, String label, String value, List<String> items, ValueChanged<String?> onChanged) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF161B22) : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey)),
-          DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value,
-              isExpanded: true,
-              isDense: true,
-              dropdownColor: isDark ? const Color(0xFF30363D) : Colors.white,
-              icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-              items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: GoogleFonts.poppins(fontSize: 13, color: isDark ? Colors.white : Colors.black87)))).toList(),
-              onChanged: onChanged,
+    return AppCustomDropdown<String>(
+      labelText: label,
+      hintText: 'Select $label',
+      initialValue: value,
+      isDense: true,
+      items: items
+          .map(
+            (e) => AppDropdownItem<String>(
+              value: e,
+              label: e,
+              icon: e == 'Approved'
+                  ? Icons.check_circle_outline_rounded
+                  : e == 'Rejected'
+                      ? Icons.highlight_off_rounded
+                      : Icons.payments_outlined,
             ),
-          ),
-        ],
-      ),
+          )
+          .toList(),
+      onChanged: onChanged,
     );
   }
 

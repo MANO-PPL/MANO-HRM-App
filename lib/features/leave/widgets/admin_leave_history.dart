@@ -1,8 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_application/features/leave/core/leave_provider.dart';
 import 'package:flutter_application/features/leave/widgets/leave_history_item.dart';
 import 'package:flutter_application/features/leave/widgets/leave_details_dialog.dart';
+import 'package:flutter_application/shared/widgets/app_custom_dropdown.dart';
 
 class AdminLeaveHistory extends StatefulWidget {
   const AdminLeaveHistory({super.key});
@@ -50,32 +51,24 @@ class _AdminLeaveHistoryState extends State<AdminLeaveHistory> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Container(
-                  height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF30363D) : Colors.grey[100],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: isDark ? Colors.white10 : Colors.grey[300]!),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _selectedStatus,
-                      isDense: true,
-                      dropdownColor: isDark ? const Color(0xFF30363D) : Colors.white,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                      items: _statuses.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() => _selectedStatus = val);
-                          _fetchHistory();
-                        }
-                      },
-                    ),
-                  ),
+                child: AppCustomDropdown<String>(
+                  hintText: 'Status',
+                  initialValue: _selectedStatus,
+                  isDense: true,
+                  prefixIcon: Icons.filter_alt_outlined,
+                  items: _statuses.map((s) {
+                    IconData icon = Icons.tune_rounded;
+                    if (s == 'Approved') icon = Icons.check_circle_outline_rounded;
+                    if (s == 'Rejected') icon = Icons.highlight_off_rounded;
+                    if (s == 'Pending') icon = Icons.schedule_rounded;
+                    return AppDropdownItem<String>(value: s, label: s, icon: icon);
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => _selectedStatus = val);
+                      _fetchHistory();
+                    }
+                  },
                 ),
               ),
             ],
