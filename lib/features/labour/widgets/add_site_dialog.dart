@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application/features/labour/core/labour_models.dart';
@@ -79,7 +79,7 @@ class _AddSiteDialogState extends State<AddSiteDialog> {
                             isEdit ? "Edit Construction Site" : "Add New Construction Site",
                             style: GoogleFonts.poppins(
                               fontSize: 14,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w600,
                               color: isDark ? Colors.white : const Color(0xFF0F172A),
                             ),
                             maxLines: 1,
@@ -105,7 +105,7 @@ class _AddSiteDialogState extends State<AddSiteDialog> {
                 "SITE NAME *",
                 style: GoogleFonts.poppins(
                   fontSize: 10,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
                   letterSpacing: 0.5,
                 ),
@@ -142,7 +142,7 @@ class _AddSiteDialogState extends State<AddSiteDialog> {
                 "LOCATION DETAILS",
                 style: GoogleFonts.poppins(
                   fontSize: 10,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
                   letterSpacing: 0.5,
                 ),
@@ -203,7 +203,7 @@ class _AddSiteDialogState extends State<AddSiteDialog> {
                   "COMPLETION DATE",
                   style: GoogleFonts.poppins(
                     fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
                     letterSpacing: 0.5,
                   ),
@@ -288,7 +288,7 @@ class _AddSiteDialogState extends State<AddSiteDialog> {
                       isEdit ? "Save Changes" : "Create Site",
                       style: GoogleFonts.poppins(
                         fontSize: 12,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),
                     ),

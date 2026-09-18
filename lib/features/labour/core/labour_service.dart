@@ -1,4 +1,4 @@
-﻿import 'dart:typed_data';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_application/shared/constants/api_constants.dart';
 import 'package:flutter_application/features/labour/core/labour_models.dart';
@@ -479,6 +479,146 @@ class LabourService {
       throw Exception(_formatErrorMessage(e, 'Failed to save daily schedule'));
     }
   }
-}
 
-// [upd:2026-04-09T17:00:00+05:30]
+  // ==========================================
+  // 7. WAGE REVISION HISTORY
+  // ==========================================
+
+  Future<LabourWageHistoryResponse> getLabourWageHistory(int labourId) async {
+    try {
+      final response = await _dio.get('/labour/labours/$labourId/wage-history');
+      if (response.statusCode == 200 && response.data != null) {
+        return LabourWageHistoryResponse.fromJson(Map<String, dynamic>.from(response.data));
+      }
+      throw Exception('Failed to load wage history');
+    } catch (e) {
+      throw Exception(_formatErrorMessage(e, 'Failed to load wage history'));
+    }
+  }
+
+  Future<bool> addLabourWageRevision(
+    int labourId, {
+    required String effectiveDate,
+    required double dailyWage,
+    required double overtimePayPerHour,
+    String? notes,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/labour/labours/$labourId/wage-history',
+        data: {
+          'effective_date': effectiveDate,
+          'daily_wage': dailyWage,
+          'overtime_pay_per_hour': overtimePayPerHour,
+          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        },
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      throw Exception(_formatErrorMessage(e, 'Failed to add wage revision'));
+    }
+  }
+
+  Future<bool> updateLabourWageRevision(
+    int revisionId, {
+    required String effectiveDate,
+    required double dailyWage,
+    required double overtimePayPerHour,
+    String? notes,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '/labour/wage-history/$revisionId',
+        data: {
+          'effective_date': effectiveDate,
+          'daily_wage': dailyWage,
+          'overtime_pay_per_hour': overtimePayPerHour,
+          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        },
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      throw Exception(_formatErrorMessage(e, 'Failed to update wage revision'));
+    }
+  }
+
+  Future<bool> deleteLabourWageRevision(int revisionId) async {
+    try {
+      final response = await _dio.delete('/labour/wage-history/$revisionId');
+      return response.statusCode == 200;
+    } catch (e) {
+      throw Exception(_formatErrorMessage(e, 'Failed to delete wage revision'));
+    }
+  }
+
+  // ==========================================
+  // 8. ADVANCED FINANCIAL LEDGER & EXPORTS
+  // ==========================================
+
+  Future<Map<String, dynamic>> getDetailedMonthlyLedger(int siteId, String month, {String? tillDate}) async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.labourFinancesLedger,
+        queryParameters: {
+          'site_id': siteId,
+          'month': month,
+          if (tillDate != null) 'till_date': tillDate,
+        },
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        return Map<String, dynamic>.from(response.data);
+      }
+      return {};
+    } catch (e) {
+      throw Exception(_formatErrorMessage(e, 'Failed to load detailed monthly ledger'));
+    }
+  }
+
+  Future<List<LabourAdvanceRecord>> getLabourAdvances(int labourId, {String? month, int? siteId}) async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.labourFinancesAdvances,
+        queryParameters: {
+          'labour_id': labourId,
+          if (month != null) 'month': month,
+          if (siteId != null) 'site_id': siteId,
+        },
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final list = response.data['advances'] as List? ?? [];
+        return list.map((item) => LabourAdvanceRecord.fromJson(Map<String, dynamic>.from(item))).toList();
+      }
+      return [];
+    } catch (e) {
+      throw Exception(_formatErrorMessage(e, 'Failed to fetch labour advances'));
+    }
+  }
+
+  Future<bool> deleteLabourAdvance(int advanceId) async {
+    try {
+      final response = await _dio.delete('${ApiConstants.labourFinancesAdvance}/$advanceId');
+      return response.statusCode == 200;
+    } catch (e) {
+      throw Exception(_formatErrorMessage(e, 'Failed to delete salary advance'));
+    }
+  }
+
+  Future<Uint8List> exportMonthlyWageExcel(int siteId, String month) async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.labourFinancesExport,
+        queryParameters: {
+          'site_id': siteId,
+          'month': month,
+        },
+        options: Options(responseType: ResponseType.bytes),
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        return Uint8List.fromList(response.data);
+      }
+      throw Exception('Failed to download Excel report');
+    } catch (e) {
+      throw Exception(_formatErrorMessage(e, 'Failed to export monthly wage Excel'));
+    }
+  }
+}

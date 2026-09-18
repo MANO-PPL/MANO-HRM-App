@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:open_filex/open_filex.dart';
@@ -96,7 +96,8 @@ class _ReportsTabletPortraitViewState extends State<ReportsTabletPortraitView> {
     }
   }
 
-  Future<void> _exportFile() async {
+  Future<void> _exportFile([String? format]) async {
+    final targetFormat = format ?? _selectedFormat;
     setState(() => _isExporting = true);
     try {
       final monthStr = "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}";
@@ -104,7 +105,7 @@ class _ReportsTabletPortraitViewState extends State<ReportsTabletPortraitView> {
 
       final path = await _reportService.exportReport(
         type: _selectedReportType,
-        format: _selectedFormat,
+        format: targetFormat,
         month: monthStr,
         date: dateStr,
         deptId: _selectedDept == 'All Departments' ? null : _selectedDept,
@@ -270,10 +271,15 @@ class _ReportsTabletPortraitViewState extends State<ReportsTabletPortraitView> {
                         searchQuery: _searchQuery,
                       )
                     : ReportPreviewTable(
-                        key: const ValueKey('preview_view'),
+                        key: ValueKey('preview_${_selectedReportType}_${_selectedDate.millisecondsSinceEpoch}'),
                         columns: _previewResult!.columns,
                         rows: _previewResult!.rows,
                         searchQuery: _searchQuery,
+                        reportTitle: _selectedReportType,
+                        onExportExcel: () => _exportFile('xlsx'),
+                        onExportCsv: () => _exportFile('csv'),
+                        onExportPdf: () => _exportFile('pdf'),
+                        isExporting: _isExporting,
                       )
               else
                 Center(

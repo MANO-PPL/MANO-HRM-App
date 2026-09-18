@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_application/features/labour/core/labour_models.dart';
 import 'package:flutter_application/features/leave/widgets/custom_date_picker_dialog.dart';
@@ -49,7 +49,7 @@ class SkillBadge extends StatelessWidget {
         skill.toUpperCase(),
         style: GoogleFonts.poppins(
           fontSize: 10,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           color: color,
           letterSpacing: 0.4,
         ),
@@ -95,7 +95,7 @@ class SiteStatusBadge extends StatelessWidget {
             status.toUpperCase(),
             style: GoogleFonts.poppins(
               fontSize: 9,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
               color: color,
               letterSpacing: 0.3,
             ),
@@ -158,7 +158,7 @@ class AttendanceStatusChip extends StatelessWidget {
         status.isEmpty ? 'NOT MARKED' : status.toUpperCase(),
         style: GoogleFonts.poppins(
           fontSize: 10,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w600,
           color: fg,
         ),
       ),
@@ -187,7 +187,7 @@ class LabourStatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF161B22) : Colors.white,
         borderRadius: BorderRadius.circular(8),
@@ -198,15 +198,15 @@ class LabourStatCard extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 30,
+            height: 30,
             decoration: BoxDecoration(
               color: iconColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: Icon(icon, color: iconColor, size: 18),
+            child: Icon(icon, color: iconColor, size: 16),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -215,7 +215,7 @@ class LabourStatCard extends StatelessWidget {
                 Text(
                   title.toUpperCase(),
                   style: GoogleFonts.poppins(
-                    fontSize: 10,
+                    fontSize: 9.5,
                     fontWeight: FontWeight.w600,
                     color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
                     letterSpacing: 0.5,
@@ -223,23 +223,24 @@ class LabourStatCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Text(
                   value,
                   style: GoogleFonts.poppins(
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : const Color(0xFF0F172A),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (subtitle != null) ...[
+                if (subtitle != null && subtitle!.isNotEmpty) ...[
                   const SizedBox(height: 1),
                   Text(
                     subtitle!,
                     style: GoogleFonts.poppins(
-                      fontSize: 10,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w400,
                       color: isDark ? const Color(0xFF6E7681) : const Color(0xFF94A3B8),
                     ),
                     maxLines: 1,
@@ -279,7 +280,7 @@ class LabourSiteCard extends StatelessWidget {
       onTap: onSelect,
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF161B22) : Colors.white,
           borderRadius: BorderRadius.circular(8),
@@ -295,15 +296,15 @@ class LabourSiteCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  width: 28,
-                  height: 28,
+                  width: 26,
+                  height: 26,
                   decoration: BoxDecoration(
                     color: const Color(0xFF6366F1).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Icon(Icons.business_rounded, color: Color(0xFF6366F1), size: 15),
+                  child: const Icon(Icons.business_rounded, color: Color(0xFF6366F1), size: 14),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,8 +313,8 @@ class LabourSiteCard extends StatelessWidget {
                       Text(
                         site.siteName,
                         style: GoogleFonts.poppins(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                           color: isDark ? Colors.white : const Color(0xFF0F172A),
                         ),
                         maxLines: 1,
@@ -323,7 +324,8 @@ class LabourSiteCard extends StatelessWidget {
                         Text(
                           site.locationDetails!,
                           style: GoogleFonts.poppins(
-                            fontSize: 9.5,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w400,
                             color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
                           ),
                           maxLines: 1,
@@ -332,71 +334,60 @@ class LabourSiteCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 SiteStatusBadge(status: site.status),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.people_alt_outlined, size: 13, color: Color(0xFF6366F1)),
-                    const SizedBox(width: 4),
-                    Text(
-                      "$assignedWorkers Worker${assignedWorkers == 1 ? '' : 's'}",
-                      style: GoogleFonts.poppins(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF6366F1),
+                Expanded(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.people_alt_outlined, size: 12, color: Color(0xFF6366F1)),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          "$assignedWorkers Worker${assignedWorkers == 1 ? '' : 's'}",
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF6366F1),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.edit_outlined, size: 15, color: isDark ? Colors.grey[400] : Colors.grey[600]),
-                      onPressed: onEdit,
-                      tooltip: "Edit Site",
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                    const SizedBox(width: 6),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 15, color: Color(0xFFEF4444)),
-                      onPressed: onDelete,
-                      tooltip: "Delete Site",
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                    const SizedBox(width: 6),
-                    InkWell(
-                      onTap: onSelect,
-                      borderRadius: BorderRadius.circular(4),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF6366F1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              "Dashboard",
-                              style: GoogleFonts.poppins(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white),
-                            ),
-                            const SizedBox(width: 2),
-                            const Icon(Icons.chevron_right, size: 12, color: Colors.white),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: Icon(Icons.edit_outlined, size: 14, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                  onPressed: onEdit,
+                  tooltip: "Edit Site",
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                ),
+                const SizedBox(width: 2),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 14, color: Color(0xFFEF4444)),
+                  onPressed: onDelete,
+                  tooltip: "Delete Site",
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                ),
+                const SizedBox(width: 2),
+                IconButton(
+                  icon: const Icon(Icons.arrow_forward_ios_rounded, size: 11, color: Color(0xFF6366F1)),
+                  onPressed: onSelect,
+                  tooltip: "Dashboard",
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
                 ),
               ],
             ),
@@ -465,7 +456,7 @@ class CustomDropdown<T> extends StatelessWidget {
             label!,
             style: GoogleFonts.poppins(
               fontSize: 10,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
               letterSpacing: 0.5,
             ),

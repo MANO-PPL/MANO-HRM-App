@@ -230,13 +230,23 @@ class LabourMonthDetails {
   });
 
   factory LabourMonthDetails.fromJson(Map<String, dynamic> json) {
+    int parsedMonth = int.tryParse(json['monthNum']?.toString() ?? '') ??
+        int.tryParse(json['month']?.toString() ?? '') ??
+        DateTime.now().month;
+    if (parsedMonth > 12 && json['month'] != null) {
+      final parts = json['month'].toString().split('-');
+      if (parts.length == 2) {
+        parsedMonth = int.tryParse(parts[1]) ?? DateTime.now().month;
+      }
+    }
+
     return LabourMonthDetails(
       start: json['start']?.toString() ?? '',
       end: json['end']?.toString() ?? '',
       totalDays: int.tryParse(json['totalDays']?.toString() ?? '30') ?? 30,
       elapsedDays: int.tryParse(json['elapsedDays']?.toString() ?? '30') ?? 30,
       year: int.tryParse(json['year']?.toString() ?? '${DateTime.now().year}') ?? DateTime.now().year,
-      month: int.tryParse(json['month']?.toString() ?? '${DateTime.now().month}') ?? DateTime.now().month,
+      month: parsedMonth,
     );
   }
 }
@@ -248,7 +258,7 @@ class LabourMonthlyRow {
   final String wageType;
   final double monthlySalary;
   final int? primarySiteId;
-  /// Map of day string ('1', '2', ... '31') -> status ('P', 'A', 'HD', 'PL', 'WO', 'OT', '')
+  /// Map of day string ('1', '2', ... '31') and date string ('2026-09-01') -> status ('P', 'A', 'HD', 'PL', 'WO', 'OT', '')
   final Map<String, String> days;
   final int totalPresent;
   final int totalHalfDays;
@@ -274,24 +284,99 @@ class LabourMonthlyRow {
   });
 
   factory LabourMonthlyRow.fromJson(Map<String, dynamic> json) {
-    final rawDays = json['days'] as Map<String, dynamic>? ?? {};
-    final mappedDays = rawDays.map((k, v) => MapEntry(k, v?.toString() ?? ''));
+    final Map<String, String> mappedDays = {};
 
-    final pCount = (json['total_present'] != null)
-        ? int.tryParse(json['total_present'].toString()) ?? 0
-        : mappedDays.values.where((v) => v == 'P' || v == 'Present' || v == 'OT').length;
+    // Backend provides 'attendance': { "2026-09-01": { "status": "Present", ... } }
+    // or alternate/legacy 'days': { "1": "P", ... }
+    dynamic rawSource = json['attendance'] ?? json['days'];
+    if (rawSource is Map) {
+      rawSource.forEach((k, v) {
+        final keyStr = k.toString().trim();
+        String statusStr = '';
+        if (v is Map) {
+          statusStr = (v['status'] ?? v['code'] ?? '').toString().trim();
+        } else if (v != null) {
+          statusStr = v.toString().trim();
+        }
 
-    final hCount = (json['total_half_days'] != null)
-        ? int.tryParse(json['total_half_days'].toString()) ?? 0
-        : mappedDays.values.where((v) => v == 'HD' || v == 'Half Day' || v == 'H').length;
+        // Standardize status string to concise code
+        String code = statusStr;
+        final upper = statusStr.toUpperCase().trim();
+        if (upper == 'PRESENT' || upper == 'P') {
+          code = 'P';
+        } else if (upper == 'HALF DAY' || upper == 'HD' || upper == 'H') {
+          code = 'HD';
+        } else if (upper == 'ABSENT' || upper == 'A') {
+          code = 'A';
+        } else if (upper == 'PAID LEAVE' || upper == 'ON LEAVE' || upper == 'PL' || upper == 'L') {
+          code = 'PL';
+        } else if (upper == 'WEEK OFF' || upper == 'WO' || upper == 'SUNDAY' || upper == 'SUN' || upper == 'SATURDAY' || upper == 'SAT') {
+          code = 'WO';
+        } else if (upper == 'OVERTIME' || upper == 'OT') {
+          code = 'OT';
+        }
 
-    final aCount = (json['total_absent'] != null)
-        ? int.tryParse(json['total_absent'].toString()) ?? 0
-        : mappedDays.values.where((v) => v == 'A' || v == 'Absent').length;
+        if (code.isNotEmpty) {
+          // Store under original key (e.g. '2026-09-01' or '1')
+          mappedDays[keyStr] = code;
 
-    final plCount = (json['total_paid_leaves'] != null)
-        ? int.tryParse(json['total_paid_leaves'].toString()) ?? 0
-        : mappedDays.values.where((v) => v == 'PL' || v == 'Paid Leave').length;
+          // Also map day numbers (e.g. '1', '01') if key is formatted as 'YYYY-MM-DD'
+          if (keyStr.contains('-')) {
+            final parts = keyStr.split('T')[0].split('-');
+            if (parts.length == 3) {
+              final dayPart = parts[2];
+              final dayInt = int.tryParse(dayPart);
+              if (dayInt != null) {
+                mappedDays['$dayInt'] = code;
+                mappedDays[dayPart] = code;
+              }
+            }
+          } else {
+            final dayInt = int.tryParse(keyStr);
+            if (dayInt != null) {
+              mappedDays['$dayInt'] = code;
+              mappedDays[keyStr] = code;
+            }
+          }
+        }
+      });
+    }
+
+    // Compute live distinct day counts (1..31)
+    int pCount = 0;
+    int hCount = 0;
+    int aCount = 0;
+    int plCount = 0;
+
+    for (int d = 1; d <= 31; d++) {
+      final st = mappedDays['$d'];
+      if (st == null || st.isEmpty) continue;
+      if (st == 'P' || st == 'OT') {
+        pCount++;
+      } else if (st == 'HD') {
+        hCount++;
+      } else if (st == 'A') {
+        aCount++;
+      } else if (st == 'PL') {
+        plCount++;
+      }
+    }
+
+    final totalP = (json['total_present'] != null)
+        ? int.tryParse(json['total_present'].toString()) ?? pCount
+        : pCount;
+
+    final totalHD = (json['total_half_days'] != null)
+        ? int.tryParse(json['total_half_days'].toString()) ?? hCount
+        : hCount;
+
+    final totalA = (json['total_absent'] != null)
+        ? int.tryParse(json['total_absent'].toString()) ?? aCount
+        : aCount;
+
+    final totalPL = (json['total_paid_leaves'] != null)
+        ? int.tryParse(json['total_paid_leaves'].toString()) ?? plCount
+        : plCount;
 
     final otHours = (json['total_overtime_hours'] != null)
         ? double.tryParse(json['total_overtime_hours'].toString()) ?? 0.0
@@ -299,7 +384,7 @@ class LabourMonthlyRow {
 
     final daysWorked = (json['total_days_worked'] != null)
         ? int.tryParse(json['total_days_worked'].toString()) ?? 0
-        : (pCount + (hCount > 0 ? (hCount * 0.5).round() : 0));
+        : (totalP + (totalHD > 0 ? (totalHD * 0.5).round() : 0));
 
     return LabourMonthlyRow(
       labourId: json['labour_id'] is int
@@ -315,10 +400,10 @@ class LabourMonthlyRow {
           ? int.tryParse(json['primary_site_id'].toString())
           : null,
       days: mappedDays,
-      totalPresent: pCount,
-      totalHalfDays: hCount,
-      totalAbsent: aCount,
-      totalPaidLeaves: plCount,
+      totalPresent: totalP,
+      totalHalfDays: totalHD,
+      totalAbsent: totalA,
+      totalPaidLeaves: totalPL,
       totalOvertimeHours: otHours,
       totalDaysWorked: daysWorked,
     );
@@ -661,4 +746,122 @@ class ParsedLabourRow {
   }
 }
 
-// [upd:2026-04-09T17:00:00+05:30]
+class LabourWageRevision {
+  final int id;
+  final int labourId;
+  final String effectiveDate;
+  final String wageType;
+  final double dailyWage;
+  final double overtimePayPerHour;
+  final String? notes;
+  final String? createdAt;
+
+  LabourWageRevision({
+    required this.id,
+    required this.labourId,
+    required this.effectiveDate,
+    required this.wageType,
+    required this.dailyWage,
+    required this.overtimePayPerHour,
+    this.notes,
+    this.createdAt,
+  });
+
+  factory LabourWageRevision.fromJson(Map<String, dynamic> json) {
+    return LabourWageRevision(
+      id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
+      labourId: json['labour_id'] is int ? json['labour_id'] : int.tryParse(json['labour_id'].toString()) ?? 0,
+      effectiveDate: json['effective_date']?.toString() ?? '',
+      wageType: json['wage_type']?.toString() ?? 'Daily Wage',
+      dailyWage: (json['daily_wage'] != null)
+          ? double.tryParse(json['daily_wage'].toString()) ?? 0.0
+          : 0.0,
+      overtimePayPerHour: (json['overtime_pay_per_hour'] != null)
+          ? double.tryParse(json['overtime_pay_per_hour'].toString()) ?? 0.0
+          : 0.0,
+      notes: json['notes']?.toString(),
+      createdAt: json['created_at']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'labour_id': labourId,
+      'effective_date': effectiveDate,
+      'wage_type': wageType,
+      'daily_wage': dailyWage,
+      'overtime_pay_per_hour': overtimePayPerHour,
+      if (notes != null) 'notes': notes,
+    };
+  }
+}
+
+class LabourWageHistoryResponse {
+  final Map<String, dynamic> worker;
+  final List<LabourWageRevision> history;
+
+  LabourWageHistoryResponse({
+    required this.worker,
+    required this.history,
+  });
+
+  factory LabourWageHistoryResponse.fromJson(Map<String, dynamic> json) {
+    final workerMap = (json['worker'] != null && json['worker'] is Map)
+        ? Map<String, dynamic>.from(json['worker'])
+        : <String, dynamic>{};
+    final list = json['history'] as List? ?? [];
+    return LabourWageHistoryResponse(
+      worker: workerMap,
+      history: list.map((item) => LabourWageRevision.fromJson(Map<String, dynamic>.from(item))).toList(),
+    );
+  }
+}
+
+class LabourAdvanceRecord {
+  final int id;
+  final int labourId;
+  final int? siteId;
+  final String? siteName;
+  final double amount;
+  final String date;
+  final String? notes;
+  final String? createdAt;
+
+  LabourAdvanceRecord({
+    required this.id,
+    required this.labourId,
+    this.siteId,
+    this.siteName,
+    required this.amount,
+    required this.date,
+    this.notes,
+    this.createdAt,
+  });
+
+  factory LabourAdvanceRecord.fromJson(Map<String, dynamic> json) {
+    return LabourAdvanceRecord(
+      id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
+      labourId: json['labour_id'] is int ? json['labour_id'] : int.tryParse(json['labour_id'].toString()) ?? 0,
+      siteId: json['site_id'] != null ? int.tryParse(json['site_id'].toString()) : null,
+      siteName: json['site_name']?.toString(),
+      amount: (json['amount'] != null)
+          ? double.tryParse(json['amount'].toString()) ?? 0.0
+          : 0.0,
+      date: json['date']?.toString() ?? '',
+      notes: json['notes']?.toString(),
+      createdAt: json['created_at']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'labour_id': labourId,
+      if (siteId != null) 'site_id': siteId,
+      'amount': amount,
+      'date': date,
+      if (notes != null) 'notes': notes,
+    };
+  }
+}
