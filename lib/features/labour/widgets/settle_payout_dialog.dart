@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application/features/labour/core/labour_models.dart';
@@ -91,7 +91,7 @@ class _SettlePayoutDialogState extends State<SettlePayoutDialog> {
                                   "Settle Wage Payout",
                                   style: GoogleFonts.poppins(
                                     fontSize: 14,
-                                    fontWeight: FontWeight.bold,
+                                    fontWeight: FontWeight.w600,
                                     color: isDark ? Colors.white : const Color(0xFF0F172A),
                                   ),
                                   maxLines: 1,
@@ -164,7 +164,7 @@ class _SettlePayoutDialogState extends State<SettlePayoutDialog> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text("Total Accrued Credit", style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87)),
-                          Text("₹${s.accruedCredit.toStringAsFixed(0)}", style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF6366F1))),
+                          Text("₹${s.accruedCredit.toStringAsFixed(0)}", style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF6366F1))),
                         ],
                       ),
                       const SizedBox(height: 4),
@@ -172,14 +172,14 @@ class _SettlePayoutDialogState extends State<SettlePayoutDialog> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text("Less Advances Logged", style: GoogleFonts.poppins(fontSize: 11, color: const Color(0xFFEF4444))),
-                          Text("- ₹${s.totalAdvance.toStringAsFixed(0)}", style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFFEF4444))),
+                          Text("- ₹${s.totalAdvance.toStringAsFixed(0)}", style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFEF4444))),
                         ],
                       ),
                       const Divider(height: 12),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text("Net Payable Balance", style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+                          Text("Net Payable Balance", style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87)),
                           Text("₹${s.netPayable.toStringAsFixed(0)}", style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF10B981))),
                         ],
                       ),
@@ -200,7 +200,7 @@ class _SettlePayoutDialogState extends State<SettlePayoutDialog> {
                             "AMOUNT TO PAY (₹) *",
                             style: GoogleFonts.poppins(
                               fontSize: 10,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                               color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
                               letterSpacing: 0.5,
                             ),
@@ -209,10 +209,10 @@ class _SettlePayoutDialogState extends State<SettlePayoutDialog> {
                           TextFormField(
                             controller: _amountController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
+                            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87),
                             decoration: InputDecoration(
                               prefixText: "₹ ",
-                              prefixStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF10B981)),
+                              prefixStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF10B981)),
                               fillColor: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
                               filled: true,
                               border: OutlineInputBorder(
@@ -272,7 +272,7 @@ class _SettlePayoutDialogState extends State<SettlePayoutDialog> {
                   "PAYMENT DATE",
                   style: GoogleFonts.poppins(
                     fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
                     letterSpacing: 0.5,
                   ),
@@ -318,7 +318,7 @@ class _SettlePayoutDialogState extends State<SettlePayoutDialog> {
                   "NOTES / TRANSACTION ID (OPTIONAL)",
                   style: GoogleFonts.poppins(
                     fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
                     letterSpacing: 0.5,
                   ),
@@ -381,7 +381,7 @@ class _SettlePayoutDialogState extends State<SettlePayoutDialog> {
                       },
                       child: Text(
                         "Confirm Payout",
-                        style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
                       ),
                     ),
                   ],

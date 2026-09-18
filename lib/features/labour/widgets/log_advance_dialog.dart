@@ -78,7 +78,7 @@ class _LogAdvanceDialogState extends State<LogAdvanceDialog> {
                                 "Log Salary Advance",
                                 style: GoogleFonts.poppins(
                                   fontSize: 14,
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w600,
                                   color: isDark ? Colors.white : const Color(0xFF0F172A),
                                 ),
                                 maxLines: 1,
@@ -116,7 +116,7 @@ class _LogAdvanceDialogState extends State<LogAdvanceDialog> {
                 "ADVANCE AMOUNT (₹) *",
                 style: GoogleFonts.poppins(
                   fontSize: 10,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
                   letterSpacing: 0.5,
                 ),
@@ -126,12 +126,12 @@ class _LogAdvanceDialogState extends State<LogAdvanceDialog> {
                 controller: _amountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 autofocus: true,
-                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
+                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87),
                 decoration: InputDecoration(
-                  hintText: "Enter amount e.g. 1500",
+                  hintText: "e.g. 500",
                   hintStyle: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.normal, color: Colors.grey[500]),
                   prefixText: "₹ ",
-                  prefixStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFFF59E0B)),
+                  prefixStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFFF59E0B)),
                   fillColor: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
                   filled: true,
                   border: OutlineInputBorder(
@@ -162,7 +162,7 @@ class _LogAdvanceDialogState extends State<LogAdvanceDialog> {
                 "DISBURSEMENT DATE",
                 style: GoogleFonts.poppins(
                   fontSize: 10,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
                   letterSpacing: 0.5,
                 ),
@@ -208,7 +208,7 @@ class _LogAdvanceDialogState extends State<LogAdvanceDialog> {
                 "REASON / REMARKS (OPTIONAL)",
                 style: GoogleFonts.poppins(
                   fontSize: 10,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
                   letterSpacing: 0.5,
                 ),
@@ -270,7 +270,7 @@ class _LogAdvanceDialogState extends State<LogAdvanceDialog> {
                     },
                     child: Text(
                       "Log Advance",
-                      style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
                     ),
                   ),
                 ],
