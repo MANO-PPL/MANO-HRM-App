@@ -1,4 +1,4 @@
-﻿import 'package:file_picker/file_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_application/features/leave/core/leave_provider.dart';
 import 'package:flutter_application/features/leave/widgets/custom_date_picker_dialog.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
+import 'package:flutter_application/shared/widgets/app_custom_dropdown.dart';
 
 class LeaveRequestForm extends StatefulWidget {
   final VoidCallback onSuccess;
@@ -19,19 +20,24 @@ class LeaveRequestForm extends StatefulWidget {
 class _LeaveRequestFormState extends State<LeaveRequestForm> {
   final _formKey = GlobalKey<FormState>();
   
-  String? _selectedLeaveType;
+  int? _selectedRuleId;
+  String? _selectedLeaveTypeName;
   DateTime? _startDate;
   DateTime? _endDate;
   final _reasonController = TextEditingController();
   final List<PlatformFile> _selectedFiles = [];
 
-  final List<String> _leaveTypes = [
-    'Casual Leave',
-    'Sick Leave',
-    'Privilege Leave', 
-    'Emergency Leave',
-    'Unpaid Leave'
-  ];
+
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<LeaveProvider>().fetchMyLeaveBalancesAndPolicies();
+      }
+    });
+  }
 
   Future<void> _pickDate(bool isStart) async {
     final initialDate = isStart 
@@ -91,6 +97,10 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedRuleId == null && (_selectedLeaveTypeName == null || _selectedLeaveTypeName!.isEmpty)) {
+      context.showToast('Please select a leave type.', isWarning: true);
+      return;
+    }
     if (_startDate == null || _endDate == null) {
       context.showToast('Please select start and end dates.', isWarning: true);
       return;
@@ -98,7 +108,7 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
 
     try {
       final requestData = {
-        'leave_type': _selectedLeaveType,
+        'leave_type': (_selectedRuleId ?? _selectedLeaveTypeName)?.toString(),
         'start_date': DateFormat('yyyy-MM-dd').format(_startDate!),
         'end_date': DateFormat('yyyy-MM-dd').format(_endDate!),
         'reason': _reasonController.text.trim(),
@@ -111,9 +121,8 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to submit: $e')),
-        );
+        final cleanMsg = e.toString().replaceFirst('Exception: ', '').trim();
+        context.showToast(cleanMsg.isNotEmpty ? cleanMsg : 'Failed to submit leave request.', isError: true);
       }
     }
   }
@@ -134,15 +143,24 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
     final textMuted = isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B);
     final borderColor = isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0);
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-      decoration: BoxDecoration(
-        color: sheetColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SafeArea(
-        child: SingleChildScrollView(
-          child: Form(
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final maxSheetHeight = (screenHeight - bottomInset) * 0.90;
+
+    return AnimatedPadding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutQuad,
+      child: Container(
+        constraints: BoxConstraints(maxHeight: maxSheetHeight),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        decoration: BoxDecoration(
+          color: sheetColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Form(
             key: _formKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -170,22 +188,83 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
                 ),
                 const SizedBox(height: 24),
                 
-                // Leave Type Dropdown
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedLeaveType,
-                  decoration: _inputDecoration(isDark, 'Leave Type', Icons.category_outlined),
-                  items: _leaveTypes.map((type) {
-                    return DropdownMenuItem(
-                      value: type,
-                      child: Text(type, style: GoogleFonts.poppins(color: textPrimary)),
+                // Leave Type Dropdown (Dynamic from policy)
+                Builder(builder: (context) {
+                  final provider = context.watch<LeaveProvider>();
+                  final policies = provider.myLeavePolicies;
+                  final balances = provider.myLeaveBalances;
+                  final isLoading = provider.isLoadingBalances;
+
+                  // Collect all rules from all policies
+                  final List<Map<String, dynamic>> allRules = [];
+                  for (final policy in policies) {
+                    final rules = (policy['rules'] as List<dynamic>?) ?? [];
+                    for (final rule in rules) {
+                      final ruleMap = Map<String, dynamic>.from(rule as Map);
+                      // Find matching balance
+                      final bal = balances.firstWhere(
+                        (b) => b['rule_id']?.toString() == ruleMap['rule_id']?.toString(),
+                        orElse: () => {},
+                      );
+                      ruleMap['balance_available'] = bal['available'] ?? bal['allocated'];
+                      allRules.add(ruleMap);
+                    }
+                  }
+
+                  if (isLoading) {
+                    return const Center(child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                    ));
+                  }
+
+                  final dropdownItems = allRules.map((rule) {
+                    final name = rule['name']?.toString() ?? '';
+                    final avail = rule['balance_available'];
+                    final subtitle = avail != null ? '$avail days left' : null;
+                    final ruleId = rule['rule_id'] is int
+                        ? rule['rule_id'] as int
+                        : int.tryParse(rule['rule_id']?.toString() ?? '') ?? 0;
+
+                    IconData icon = Icons.event_available_rounded;
+                    final nameLower = name.toLowerCase();
+                    if (nameLower.contains('sick') || nameLower.contains('medical')) {
+                      icon = Icons.local_hospital_outlined;
+                    } else if (nameLower.contains('casual')) {
+                      icon = Icons.beach_access_rounded;
+                    } else if (nameLower.contains('privilege') || nameLower.contains('earned') || nameLower.contains('annual')) {
+                      icon = Icons.verified_user_outlined;
+                    } else if (nameLower.contains('unpaid') || nameLower.contains('loss')) {
+                      icon = Icons.money_off_csred_rounded;
+                    }
+
+                    return AppDropdownItem<int>(
+                      value: ruleId,
+                      label: name,
+                      subtitle: subtitle,
+                      icon: icon,
+                      badge: subtitle,
                     );
-                  }).toList(),
-                  onChanged: (val) => setState(() => _selectedLeaveType = val),
-                  validator: (val) => val == null ? 'Required' : null,
-                  dropdownColor: sheetColor,
-                  style: GoogleFonts.poppins(color: textPrimary, fontSize: 14),
-                  icon: Icon(Icons.keyboard_arrow_down_rounded, color: textMuted),
-                ),
+                  }).toList();
+
+                  return AppCustomDropdown<int>(
+                    labelText: 'Leave Type',
+                    hintText: 'Select a leave type',
+                    prefixIcon: Icons.category_outlined,
+                    initialValue: _selectedRuleId,
+                    items: dropdownItems,
+                    validator: (val) => val == null ? 'Select a leave type' : null,
+                    onChanged: (val) {
+                      setState(() {
+                        _selectedRuleId = val;
+                        _selectedLeaveTypeName = allRules.firstWhere(
+                          (r) => (r['rule_id'] is int ? r['rule_id'] : int.tryParse(r['rule_id']?.toString() ?? '')) == val,
+                          orElse: () => {},
+                        )['name']?.toString();
+                      });
+                    },
+                  );
+                }),
                 const SizedBox(height: 16),
 
                 // Date Selection Cards Row
@@ -503,6 +582,7 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
           ),
         ),
       ),
+    ),
     );
   }
 
