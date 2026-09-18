@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 class LeaveAttachment {
   final int id;
   final int leaveId;
@@ -59,6 +57,10 @@ class LeaveRequest {
   final String? userEmail; // For admin view
   final String? userPhone; // For admin view
   final String? userAvatar; // For avatar display
+  final String? policyName;
+  final String? leaveCode;
+  final bool isActive;
+  final bool isDeleted;
   final List<LeaveAttachment> attachments;
 
   LeaveRequest({
@@ -80,48 +82,46 @@ class LeaveRequest {
     this.userEmail,
     this.userPhone,
     this.userAvatar,
+    this.policyName,
+    this.leaveCode,
+    this.isActive = true,
+    this.isDeleted = false,
     this.attachments = const [],
   });
+
+  int get durationDays {
+    final diff = endDate.difference(startDate).inDays + 1;
+    return diff > 0 ? diff : 1;
+  }
 
   factory LeaveRequest.fromJson(Map<String, dynamic> json) {
     String cleanString(String? input) {
       if (input == null) return '';
-      // Remove starting/ending quotes and spaces if strictly wrapped like " \"Value\" "
-      // The user example was: " \"Sick Leave\"," -> We need to be careful.
-      // Looking at the example: " \"Sick Leave\"," might be a parsing artifact or actual data.
-      // Let's trim outer spaces, then check for quotes.
       String cleaned = input.trim();
-      
-      // If it looks like a JSON string representation inside a string field, unquote it.
       if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
         cleaned = cleaned.substring(1, cleaned.length - 1);
       }
-       // Handle escaped quotes inside
       cleaned = cleaned.replaceAll('\\"', '"');
-      
-      // Remove trailing comma if present (from the weird user output example)
       if (cleaned.endsWith(',')) {
         cleaned = cleaned.substring(0, cleaned.length - 1);
       }
       return cleaned.trim();
     }
 
-    // Add logging for raw JSON in model
-    debugPrint('LeaveRequest.fromJson: Raw JSON: $json');
-
     final idValue = json['id'] ?? json['lr_id'] ?? 0;
-    final lrIdValue = json['lr_id'] ?? json['id'] ?? 0;
     final statusValue = cleanString(json['status'] ?? 'pending').toLowerCase();
-    
-    // Diagnostic logging - more descriptive
-    debugPrint('LeaveRequest: Map -> ID=$idValue, LR_ID=$lrIdValue, Status=$statusValue');
-    if (idValue == 17 || lrIdValue == 17) {
-      debugPrint('PROTECTED LOG [ID 17]: ${json.toString()}');
+
+    bool parseBool(dynamic val, bool defaultVal) {
+      if (val == null) return defaultVal;
+      if (val is bool) return val;
+      if (val == 1 || val == '1' || val.toString().toLowerCase() == 'true') return true;
+      if (val == 0 || val == '0' || val.toString().toLowerCase() == 'false') return false;
+      return defaultVal;
     }
 
     return LeaveRequest(
       id: idValue is int ? idValue : int.tryParse(idValue.toString()) ?? 0,
-      adminComment: json['admin_comment']?.toString() == "0" ? null : json['admin_comment'], 
+      adminComment: json['admin_comment']?.toString() == "0" ? null : json['admin_comment']?.toString(), 
       leaveType: cleanString(json['leave_type']),
       reason: cleanString(json['reason']),
       startDate: DateTime.parse(json['start_date'] ?? DateTime.now().toIso8601String()).toLocal(),
@@ -130,14 +130,18 @@ class LeaveRequest {
       appliedAt: DateTime.parse(json['applied_at'] ?? DateTime.now().toIso8601String()).toLocal(),
       reviewedBy: json['reviewed_by'],
       reviewedAt: json['reviewed_at'] != null ? DateTime.parse(json['reviewed_at']).toLocal() : null,
-      orgId: json['org_id'] ?? 0,
-      userId: json['user_id'] ?? 0,
+      orgId: json['org_id'] is int ? json['org_id'] : int.tryParse(json['org_id']?.toString() ?? '0') ?? 0,
+      userId: json['user_id'] is int ? json['user_id'] : int.tryParse(json['user_id']?.toString() ?? '0') ?? 0,
       payPercentage: json['pay_percentage'],
       payType: json['pay_type'],
       userName: json['user_name'],
       userEmail: json['email'],
       userPhone: json['phone_no'],
-      userAvatar: json['profile_image'] ?? json['profile_image_url'] ?? json['profile_pic'] ?? json['avatar_url'],
+      userAvatar: json['profile_image_url'] ?? json['profile_image'] ?? json['profile_pic'] ?? json['avatar_url'],
+      policyName: json['policy_name'],
+      leaveCode: json['leave_code'],
+      isActive: parseBool(json['is_active'], true),
+      isDeleted: parseBool(json['is_deleted'], false),
       attachments: (json['attachments'] as List<dynamic>?)
               ?.map((e) => LeaveAttachment.fromJson(e))
               .toList() ??
@@ -165,6 +169,10 @@ class LeaveRequest {
       'email': userEmail,
       'phone_no': userPhone,
       'profile_image': userAvatar,
+      'policy_name': policyName,
+      'leave_code': leaveCode,
+      'is_active': isActive ? 1 : 0,
+      'is_deleted': isDeleted ? 1 : 0,
       'attachments': attachments.map((e) => e.toJson()).toList(),
     };
   }
@@ -188,6 +196,10 @@ class LeaveRequest {
     String? userEmail,
     String? userPhone,
     String? userAvatar,
+    String? policyName,
+    String? leaveCode,
+    bool? isActive,
+    bool? isDeleted,
     List<LeaveAttachment>? attachments,
   }) {
     return LeaveRequest(
@@ -209,6 +221,10 @@ class LeaveRequest {
       userEmail: userEmail ?? this.userEmail,
       userPhone: userPhone ?? this.userPhone,
       userAvatar: userAvatar ?? this.userAvatar,
+      policyName: policyName ?? this.policyName,
+      leaveCode: leaveCode ?? this.leaveCode,
+      isActive: isActive ?? this.isActive,
+      isDeleted: isDeleted ?? this.isDeleted,
       attachments: attachments ?? this.attachments,
     );
   }

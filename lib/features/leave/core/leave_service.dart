@@ -1,8 +1,9 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_application/shared/constants/api_constants.dart';
 import 'package:flutter_application/features/leave/core/leave_request_model.dart';
+import 'package:flutter_application/shared/utils/error_helper.dart';
 
 class LeaveService {
   final Dio _dio;
@@ -26,19 +27,27 @@ class LeaveService {
 
   // 2. Submit Leave Request
   Future<void> submitLeaveRequest(Map<String, dynamic> requestData) async {
-      dynamic data = requestData;
-      
-      // Check for file attachments and convert to FormData
-      if (requestData.containsKey('attachments') && requestData['attachments'] != null) {
-        final List<dynamic> attachments = requestData['attachments'] is List ? requestData['attachments'] : [requestData['attachments']];
-        
-        final map = Map<String, dynamic>.from(requestData);
-        map.remove('attachments');
+    try {
+      final map = <String, dynamic>{
+        'leave_type': requestData['leave_type']?.toString() ?? '',
+        'start_date': requestData['start_date']?.toString() ?? '',
+        'end_date': requestData['end_date']?.toString() ?? '',
+        'reason': requestData['reason']?.toString() ?? '',
+      };
+      if (requestData['rule_id'] != null) {
+        map['rule_id'] = requestData['rule_id'].toString();
+      }
 
-        final formData = FormData.fromMap(map);
-        
+      final formData = FormData.fromMap(map);
+
+      if (requestData.containsKey('attachments') && requestData['attachments'] != null) {
+        final List<dynamic> attachments = requestData['attachments'] is List
+            ? requestData['attachments']
+            : [requestData['attachments']];
+
         for (var attachment in attachments) {
-          final isFile = attachment is PlatformFile || attachment.runtimeType.toString().contains('PlatformFile');
+          final isFile = attachment is PlatformFile ||
+              attachment.runtimeType.toString().contains('PlatformFile');
           if (isFile) {
             final dynamic file = attachment;
             if (file.bytes != null) {
@@ -54,10 +63,32 @@ class LeaveService {
             }
           }
         }
-        data = formData;
       }
 
-      await _dio.post(ApiConstants.leavesRequest, data: data);
+      final response = await _dio.post(
+        ApiConstants.leavesRequest,
+        data: formData,
+        options: Options(
+          contentType: 'multipart/form-data',
+        ),
+      );
+
+      if (response.data is Map && (response.data['ok'] == false || response.data['success'] == false)) {
+        final msg = response.data['message'] ?? response.data['error'];
+        throw Exception(msg?.toString() ?? 'Failed to submit leave request');
+      }
+    } on DioException catch (e) {
+      final serverMsg = e.response?.data is Map
+          ? (e.response?.data['message'] ?? e.response?.data['error'])?.toString()
+          : null;
+      if (serverMsg != null && serverMsg.trim().isNotEmpty) {
+        throw Exception(serverMsg.trim());
+      }
+      throw Exception(friendlyError(e, fallback: 'Failed to submit leave request'));
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception(e.toString());
+    }
   }
 
   // 3. Withdraw Request
@@ -127,6 +158,130 @@ class LeaveService {
          throw Exception('Failed to update request status: ${e.response?.data ?? e.message}');
       }
       throw Exception('Failed to update request status: $e');
+    }
+  }
+
+  // 7. Get My Leave Balances
+  Future<List<Map<String, dynamic>>> getMyLeaveBalances({int? year}) async {
+    try {
+      final params = <String, dynamic>{};
+      if (year != null) params['year'] = year;
+      final response = await _dio.get(ApiConstants.leavesMyBalances, queryParameters: params.isNotEmpty ? params : null);
+      if (response.statusCode == 200 && (response.data['ok'] == true || response.data['success'] == true)) {
+        final List<dynamic> raw = response.data['balances'] ?? [];
+        return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('LeaveService.getMyLeaveBalances error: $e');
+      return [];
+    }
+  }
+
+  // 8. Admin - Get Specific Employee's Leave Balance
+  Future<List<Map<String, dynamic>>> getEmployeeLeaveBalance(int userId, {int? year}) async {
+    try {
+      final params = <String, dynamic>{};
+      if (year != null) params['year'] = year;
+      final response = await _dio.get(
+        '${ApiConstants.leavesEmployeeBalance}/$userId',
+        queryParameters: params.isNotEmpty ? params : null,
+      );
+      if (response.statusCode == 200 && (response.data['ok'] == true || response.data['success'] == true)) {
+        final List<dynamic> raw = response.data['balances'] ?? [];
+        return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('LeaveService.getEmployeeLeaveBalance error: $e');
+      return [];
+    }
+  }
+
+  // 9. Admin - Get All Employees Leave Balances
+  Future<List<Map<String, dynamic>>> getAllEmployeesLeaveBalances({int? year, int? ruleId}) async {
+    try {
+      final params = <String, dynamic>{};
+      if (year != null) params['year'] = year;
+      if (ruleId != null) params['rule_id'] = ruleId;
+      final response = await _dio.get(
+        ApiConstants.leavesBalancesAll,
+        queryParameters: params.isNotEmpty ? params : null,
+      );
+      if (response.statusCode == 200 && (response.data['ok'] == true || response.data['success'] == true)) {
+        final List<dynamic> raw = response.data['balances'] ?? [];
+        return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('LeaveService.getAllEmployeesLeaveBalances error: $e');
+      return [];
+    }
+  }
+
+  // 10. Get Leave Policies (with rules)
+  Future<List<Map<String, dynamic>>> getMyLeavePolicies() async {
+    try {
+      final response = await _dio.get(ApiConstants.leavesPolicies);
+      if (response.statusCode == 200 && (response.data['ok'] == true || response.data['success'] == true)) {
+        final List<dynamic> raw = response.data['policies'] ?? [];
+        return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('LeaveService.getMyLeavePolicies error: $e');
+      return [];
+    }
+  }
+
+  // 11. Admin - Assign Policy to Employees
+  Future<bool> assignPolicyToEmployees(int policyId, {required List<int> userIds, required int year}) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.leavesPolicies}/$policyId/assign',
+        data: {
+          'user_ids': userIds,
+          'year': year,
+        },
+      );
+      return response.statusCode == 200 && (response.data['ok'] == true || response.data['success'] == true);
+    } catch (e) {
+      debugPrint('LeaveService.assignPolicyToEmployees error: $e');
+      rethrow;
+    }
+  }
+
+  // 12. Admin - Delete/Unassign Leave Balance
+  Future<bool> deleteLeaveBalance(int balanceId) async {
+    try {
+      final response = await _dio.delete('${ApiConstants.leavesEmployeeBalance}/$balanceId');
+      return response.statusCode == 200 && (response.data['ok'] == true || response.data['success'] == true);
+    } catch (e) {
+      debugPrint('LeaveService.deleteLeaveBalance error: $e');
+      rethrow;
+    }
+  }
+
+  // 13. Admin - Update/Adjust Employee Leave Balance (matching web AdjustBalanceDrawer)
+  Future<bool> updateLeaveBalance(
+    int balanceId, {
+    required double allocated,
+    double carriedForward = 0,
+    double used = 0,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.leavesEmployeeBalance}/$balanceId',
+        data: {
+          'allocated': allocated,
+          'carried_forward': carriedForward,
+          'used': used,
+        },
+      );
+      return response.statusCode == 200 && (response.data['ok'] == true || response.data['success'] == true);
+    } catch (e) {
+      debugPrint('LeaveService.updateLeaveBalance error: $e');
+      rethrow;
     }
   }
 }
