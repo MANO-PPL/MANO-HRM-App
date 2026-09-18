@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application/features/labour/core/labour_models.dart';
@@ -118,7 +118,7 @@ class _DailyScheduleDialogState extends State<DailyScheduleDialog> {
                               "Daily Multi-Site Schedule Planner",
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w600,
                                 color: isDark ? Colors.white : const Color(0xFF0F172A),
                               ),
                               maxLines: 1,
@@ -196,7 +196,7 @@ class _DailyScheduleDialogState extends State<DailyScheduleDialog> {
                           DateFormat('EEEE, dd MMMM yyyy').format(_selectedDate),
                           style: GoogleFonts.poppins(
                             fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
                             color: isDark ? Colors.white : const Color(0xFF0F172A),
                           ),
                         ),
@@ -296,7 +296,7 @@ class _DailyScheduleDialogState extends State<DailyScheduleDialog> {
                                           site.siteName,
                                           style: GoogleFonts.poppins(
                                             fontSize: 12,
-                                            fontWeight: FontWeight.bold,
+                                            fontWeight: FontWeight.w600,
                                             color: isDark ? Colors.white : const Color(0xFF0F172A),
                                           ),
                                         ),
@@ -349,7 +349,7 @@ class _DailyScheduleDialogState extends State<DailyScheduleDialog> {
                       onPressed: _isSaving ? null : _saveSchedule,
                       child: _isSaving
                           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : Text("Save Daily Schedule", style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                          : Text("Save Daily Schedule", style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
                     ),
                   ],
                 ),

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_application/features/labour/core/labour_models.dart';
 import 'package:flutter_application/features/labour/widgets/labour_common_widgets.dart';
@@ -8,6 +8,7 @@ class AddWorkerDialog extends StatefulWidget {
   final List<LabourSite> availableSites;
   final Function(Map<String, dynamic> data) onSave;
   final bool isBottomSheet;
+  final VoidCallback? onOpenWageHistory;
 
   const AddWorkerDialog({
     super.key,
@@ -15,6 +16,7 @@ class AddWorkerDialog extends StatefulWidget {
     required this.availableSites,
     required this.onSave,
     this.isBottomSheet = false,
+    this.onOpenWageHistory,
   });
 
   @override
@@ -110,7 +112,7 @@ class _AddWorkerDialogState extends State<AddWorkerDialog> {
                               isEdit ? "Edit Worker Profile" : "Register New Labour Worker",
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w600,
                                 color: isDark ? Colors.white : const Color(0xFF0F172A),
                               ),
                               maxLines: 1,
@@ -136,7 +138,7 @@ class _AddWorkerDialogState extends State<AddWorkerDialog> {
                   "WORKER FULL NAME *",
                   style: GoogleFonts.poppins(
                     fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
                     letterSpacing: 0.5,
                   ),
@@ -180,7 +182,7 @@ class _AddWorkerDialogState extends State<AddWorkerDialog> {
                             "PHONE NUMBER",
                             style: GoogleFonts.poppins(
                               fontSize: 10,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                               color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
                               letterSpacing: 0.5,
                             ),
@@ -262,14 +264,31 @@ class _AddWorkerDialogState extends State<AddWorkerDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            "DAILY WAGE (₹) *",
-                            style: GoogleFonts.poppins(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
-                              letterSpacing: 0.5,
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                "DAILY WAGE (₹) *",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              if (widget.onOpenWageHistory != null)
+                                InkWell(
+                                  onTap: widget.onOpenWageHistory,
+                                  child: Text(
+                                    "View Wage History",
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF6366F1),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                           const SizedBox(height: 6),
                           TextFormField(
@@ -280,7 +299,7 @@ class _AddWorkerDialogState extends State<AddWorkerDialog> {
                               hintText: "e.g. 600",
                               hintStyle: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[500]),
                               prefixText: "₹ ",
-                              prefixStyle: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF6366F1)),
+                              prefixStyle: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF6366F1)),
                               fillColor: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
                               filled: true,
                               border: OutlineInputBorder(
@@ -315,7 +334,7 @@ class _AddWorkerDialogState extends State<AddWorkerDialog> {
                             "OVERTIME PAY / HR (₹)",
                             style: GoogleFonts.poppins(
                               fontSize: 10,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                               color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
                               letterSpacing: 0.5,
                             ),
@@ -329,7 +348,7 @@ class _AddWorkerDialogState extends State<AddWorkerDialog> {
                               hintText: "e.g. 100",
                               hintStyle: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[500]),
                               prefixText: "₹ ",
-                              prefixStyle: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF6366F1)),
+                              prefixStyle: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF6366F1)),
                               fillColor: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
                               filled: true,
                               border: OutlineInputBorder(
@@ -423,7 +442,7 @@ class _AddWorkerDialogState extends State<AddWorkerDialog> {
                         isEdit ? "Save Profile" : "Register Worker",
                         style: GoogleFonts.poppins(
                           fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w600,
                           color: Colors.white,
                         ),
                       ),

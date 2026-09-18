@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
@@ -157,7 +157,7 @@ class _BulkUploadDialogState extends State<BulkUploadDialog> {
                               "Bulk Import Workers from Excel / CSV",
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w600,
                                 color: isDark ? Colors.white : const Color(0xFF0F172A),
                               ),
                               maxLines: 1,
@@ -205,7 +205,7 @@ class _BulkUploadDialogState extends State<BulkUploadDialog> {
                         : const Icon(Icons.file_upload_outlined, color: Colors.white, size: 18),
                     label: Text(
                       _selectedFileName ?? "Choose Excel / CSV File",
-                      style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -269,7 +269,7 @@ class _BulkUploadDialogState extends State<BulkUploadDialog> {
                     ),
                     child: Text(
                       "$validCount Valid Rows",
-                      style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF10B981)),
+                      style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF10B981)),
                     ),
                   ),
                   if (errorCount > 0) ...[
@@ -282,7 +282,7 @@ class _BulkUploadDialogState extends State<BulkUploadDialog> {
                       ),
                       child: Text(
                         "$errorCount Invalid Rows (Skipped)",
-                        style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFFEF4444)),
+                        style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFEF4444)),
                       ),
                     ),
                   ],
@@ -342,7 +342,7 @@ class _BulkUploadDialogState extends State<BulkUploadDialog> {
                                   r.isValid ? "VALID" : "ERROR",
                                   style: GoogleFonts.poppins(
                                     fontSize: 9,
-                                    fontWeight: FontWeight.bold,
+                                    fontWeight: FontWeight.w600,
                                     color: r.isValid ? const Color(0xFF10B981) : const Color(0xFFEF4444),
                                   ),
                                 ),
@@ -356,7 +356,7 @@ class _BulkUploadDialogState extends State<BulkUploadDialog> {
                                       r.name.isNotEmpty ? r.name : "(Empty Name)",
                                       style: GoogleFonts.poppins(
                                         fontSize: 12,
-                                        fontWeight: FontWeight.bold,
+                                        fontWeight: FontWeight.w600,
                                         color: isDark ? Colors.white : const Color(0xFF0F172A),
                                       ),
                                     ),
@@ -377,7 +377,7 @@ class _BulkUploadDialogState extends State<BulkUploadDialog> {
                               const SizedBox(width: 8),
                               Text(
                                 "₹${r.monthlySalary}/day",
-                                style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF10B981)),
+                                style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF10B981)),
                               ),
                             ],
                           ),
@@ -408,7 +408,7 @@ class _BulkUploadDialogState extends State<BulkUploadDialog> {
                       : const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
                   label: Text(
                     "Import $validCount Valid Workers",
-                    style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
                   ),
                 ),
               ],

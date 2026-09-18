@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_application/features/labour/core/labour_models.dart';
 import 'package:flutter_application/features/labour/widgets/labour_common_widgets.dart';
@@ -120,7 +120,7 @@ class _BulkTransferDialogState extends State<BulkTransferDialog> {
                               "Bulk Worker Site Transfer",
                               style: GoogleFonts.poppins(
                                 fontSize: 15,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w600,
                                 color: isDark ? Colors.white : const Color(0xFF0F172A),
                               ),
                               maxLines: 1,
@@ -282,7 +282,7 @@ class _BulkTransferDialogState extends State<BulkTransferDialog> {
                     "SELECT ALL WORKERS (${filtered.length} AVAILABLE)",
                     style: GoogleFonts.poppins(
                       fontSize: 10,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: isDark ? const Color(0xFF8B949E) : const Color(0xFF475569),
                       letterSpacing: 0.5,
                     ),
@@ -296,7 +296,7 @@ class _BulkTransferDialogState extends State<BulkTransferDialog> {
                     ),
                     child: Text(
                       "${_selectedIds.length} Selected",
-                      style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF6366F1)),
+                      style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF6366F1)),
                     ),
                   ),
                 ],
@@ -428,7 +428,7 @@ class _BulkTransferDialogState extends State<BulkTransferDialog> {
                       icon: const Icon(Icons.check, color: Colors.white, size: 16),
                       label: Text(
                         "Execute Transfer (${_selectedIds.length})",
-                        style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
                       ),
                     ),
                   ],

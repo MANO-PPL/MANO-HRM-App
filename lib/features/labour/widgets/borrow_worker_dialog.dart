@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_application/features/labour/core/labour_models.dart';
 import 'package:flutter_application/features/labour/widgets/labour_common_widgets.dart';
@@ -89,7 +89,7 @@ class _BorrowWorkerDialogState extends State<BorrowWorkerDialog> {
                               "Borrow Worker to Current Roster",
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w600,
                                 color: isDark ? Colors.white : const Color(0xFF0F172A),
                               ),
                               maxLines: 1,
@@ -209,7 +209,7 @@ class _BorrowWorkerDialogState extends State<BorrowWorkerDialog> {
                                 child: Center(
                                   child: Text(
                                     w.name.isNotEmpty ? w.name[0].toUpperCase() : 'W',
-                                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: const Color(0xFF6366F1)),
+                                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: const Color(0xFF6366F1)),
                                   ),
                                 ),
                               ),
@@ -222,7 +222,7 @@ class _BorrowWorkerDialogState extends State<BorrowWorkerDialog> {
                                       w.name,
                                       style: GoogleFonts.poppins(
                                         fontSize: 12,
-                                        fontWeight: FontWeight.bold,
+                                        fontWeight: FontWeight.w600,
                                         color: isDark ? Colors.white : const Color(0xFF0F172A),
                                       ),
                                     ),
@@ -260,7 +260,7 @@ class _BorrowWorkerDialogState extends State<BorrowWorkerDialog> {
                                 },
                                 child: Text(
                                   "+ Add",
-                                  style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                                  style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
                                 ),
                               ),
                             ],

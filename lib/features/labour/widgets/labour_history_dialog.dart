@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_application/features/labour/core/labour_models.dart';
 import 'package:flutter_application/features/labour/core/labour_service.dart';
@@ -105,7 +105,7 @@ class _LabourHistoryDialogState extends State<LabourHistoryDialog> with SingleTi
                                     w.name,
                                     style: GoogleFonts.poppins(
                                       fontSize: 16,
-                                      fontWeight: FontWeight.bold,
+                                      fontWeight: FontWeight.w600,
                                       color: isDark ? Colors.white : const Color(0xFF0F172A),
                                     ),
                                     maxLines: 1,
@@ -233,7 +233,7 @@ class _LabourHistoryDialogState extends State<LabourHistoryDialog> with SingleTi
                   ),
                   labelColor: Colors.white,
                   unselectedLabelColor: isDark ? Colors.grey[400] : Colors.grey[600],
-                  labelStyle: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold),
+                  labelStyle: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600),
                   unselectedLabelStyle: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500),
                   dividerColor: Colors.transparent,
                   indicatorSize: TabBarIndicatorSize.tab,
@@ -354,7 +354,7 @@ class _LabourHistoryDialogState extends State<LabourHistoryDialog> with SingleTi
                   value,
                   style: GoogleFonts.poppins(
                     fontSize: 13,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                     color: isDark ? Colors.white : const Color(0xFF0F172A),
                   ),
                   maxLines: 1,
@@ -400,7 +400,7 @@ class _LabourHistoryDialogState extends State<LabourHistoryDialog> with SingleTi
                       t.siteName,
                       style: GoogleFonts.poppins(
                         fontSize: 13,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                         color: isDark ? Colors.white : const Color(0xFF0F172A),
                       ),
                       maxLines: 1,
@@ -409,7 +409,7 @@ class _LabourHistoryDialogState extends State<LabourHistoryDialog> with SingleTi
                   ),
                   Text(
                     "₹${t.totalEarned.toStringAsFixed(0)} Earned",
-                    style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF10B981)),
+                    style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF10B981)),
                   ),
                 ],
               ),
@@ -472,7 +472,7 @@ class _LabourHistoryDialogState extends State<LabourHistoryDialog> with SingleTi
                       children: [
                         Text(
                           p.month != null ? "Month: ${p.month}" : (p.paymentDate ?? 'Payout Record'),
-                          style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF0F172A)),
+                          style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? Colors.white : const Color(0xFF0F172A)),
                         ),
                         const SizedBox(width: 8),
                         Container(
@@ -483,7 +483,7 @@ class _LabourHistoryDialogState extends State<LabourHistoryDialog> with SingleTi
                           ),
                           child: Text(
                             p.status.toUpperCase(),
-                            style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF10B981)),
+                            style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFF10B981)),
                           ),
                         ),
                       ],
@@ -508,7 +508,7 @@ class _LabourHistoryDialogState extends State<LabourHistoryDialog> with SingleTi
                 children: [
                   Text(
                     "₹${p.paidAmount.toStringAsFixed(0)}",
-                    style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF10B981)),
+                    style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF10B981)),
                   ),
                   Text(
                     "Credit: ₹${p.accruedCredit.toStringAsFixed(0)} | Adv: ₹${p.advancesTaken.toStringAsFixed(0)}",
