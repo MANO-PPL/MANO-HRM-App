@@ -16,6 +16,7 @@ class AttendanceRecord {
   final int lateMinutes;
   final String? lateReason;
   final String status; // 'PRESENT', 'ABSENT', etc.
+  final List<CheckpointItem> checkpoints;
 
   AttendanceRecord({
     required this.attendanceId,
@@ -33,6 +34,7 @@ class AttendanceRecord {
     this.lateMinutes = 0,
     this.lateReason,
     required this.status,
+    this.checkpoints = const [],
   });
 
   factory AttendanceRecord.fromJson(Map<String, dynamic> json) {
@@ -64,6 +66,10 @@ class AttendanceRecord {
       lateMinutes: json['late_minutes'] ?? 0,
       lateReason: json['late_reason'],
       status: json['status'] ?? 'Draft',
+      checkpoints: ((json['checkpoints'] ?? json['raw_checkpoints']) as List<dynamic>?)
+              ?.map((e) => CheckpointItem.fromJson(Map<String, dynamic>.from(e as Map)))
+              .toList() ??
+          const [],
     );
   }
 
@@ -74,12 +80,12 @@ class AttendanceRecord {
     if (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('data:')) {
       return str;
     }
-    final cleanPath = str.startsWith('/') ? str : '/$str';
+    final cleanKey = str.startsWith('/') ? str.substring(1) : str;
     String base = ApiConstants.baseUrl;
     if (base.endsWith('/api')) {
-      base = base.substring(0, base.length - 4);
+      return '$base/attendance/image?key=${Uri.encodeComponent(cleanKey)}';
     }
-    return '$base$cleanPath';
+    return '$base/api/attendance/image?key=${Uri.encodeComponent(cleanKey)}';
   }
   
   static double? _toDouble(dynamic val) {
@@ -152,6 +158,61 @@ class AttendanceRecord {
       'late_minutes': lateMinutes,
       'late_reason': lateReason,
       'status': status,
+      'checkpoints': checkpoints.map((e) => e.toJson()).toList(),
+    };
+  }
+}
+
+class CheckpointItem {
+  final int? punchId;
+  final String? time;
+  final double? latitude;
+  final double? longitude;
+  final double? accuracy;
+  final String? note;
+  final String? imageUrl;
+  final String? address;
+
+  CheckpointItem({
+    this.punchId,
+    this.time,
+    this.latitude,
+    this.longitude,
+    this.accuracy,
+    this.note,
+    this.imageUrl,
+    this.address,
+  });
+
+  factory CheckpointItem.fromJson(Map<String, dynamic> json) {
+    return CheckpointItem(
+      punchId: json['punch_id'] is int ? json['punch_id'] : int.tryParse(json['punch_id']?.toString() ?? ''),
+      time: json['time']?.toString() ?? 
+            json['local_time']?.toString() ?? 
+            json['punch_time']?.toString() ?? 
+            json['timestamp']?.toString() ?? 
+            json['created_at']?.toString(),
+      latitude: (json['latitude'] is num) ? (json['latitude'] as num).toDouble() : double.tryParse(json['latitude']?.toString() ?? ''),
+      longitude: (json['longitude'] is num) ? (json['longitude'] as num).toDouble() : double.tryParse(json['longitude']?.toString() ?? ''),
+      accuracy: (json['accuracy'] is num) ? (json['accuracy'] as num).toDouble() : double.tryParse(json['accuracy']?.toString() ?? ''),
+      note: json['note']?.toString(),
+      imageUrl: AttendanceRecord._parseImageUrl(
+        json['image_url'] ?? json['image'] ?? json['image_key'] ?? json['image_path'] ?? json['photo']
+      ),
+      address: json['address']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'punch_id': punchId,
+      'time': time,
+      'latitude': latitude,
+      'longitude': longitude,
+      'accuracy': accuracy,
+      'note': note,
+      'image_url': imageUrl,
+      'address': address,
     };
   }
 }

@@ -1,4 +1,5 @@
-﻿import 'dart:io';
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
@@ -41,7 +42,7 @@ class AttendanceService {
     try {
       final response = await _dio.get(ApiConstants.policyShifts);
       if (response.statusCode == 200 && response.data != null) {
-        final list = response.data['data'];
+        final list = response.data['shifts'] ?? response.data['data'];
         if (list is List && list.isNotEmpty) {
           final item = list.first;
           if (item is Map<String, dynamic>) {
@@ -52,7 +53,21 @@ class AttendanceService {
     } catch (e) {
       debugPrint('getMyShiftPolicy fallback failed: $e');
     }
-    return null;
+    // Return default open shift if neither endpoint provided an explicit shift
+    return Shift(
+      name: "Open Shift",
+      startTime: "09:00",
+      endTime: "18:00",
+      gracePeriodMins: 0,
+      isOvertimeEnabled: false,
+      overtimeThresholdHours: 8.0,
+      policyRules: {
+        'entry_requirements': {'selfie': true, 'geofence': false},
+        'exit_requirements': {'selfie': false, 'geofence': false},
+        'checkpoint_requirements': {'enabled': true, 'selfie': false},
+        'correction_deadline': 2,
+      },
+    );
   }
 
 
@@ -118,27 +133,26 @@ class AttendanceService {
         fileName = '${_basenameWithoutExtension(imageFile.path)}.jpg';
       }
 
-      String? utcTimestamp;
-      if (timestamp != null) {
-        try {
-          utcTimestamp = DateTime.parse(timestamp).toUtc().toIso8601String();
-        } catch (_) {
-          utcTimestamp = timestamp;
-        }
-      }
+      // Use local timestamp (not UTC) so backend can store correct local time
+      final String localTimestamp = timestamp ?? DateTime.now().toIso8601String();
+      // Device timezone offset string
+      String deviceTimezone = 'Asia/Kolkata'; // safe default
+      try {
+        final offset = DateTime.now().timeZoneOffset;
+        final h = offset.inHours.abs().toString().padLeft(2, '0');
+        final m = (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
+        deviceTimezone = '${offset.isNegative ? '-' : '+'}$h:$m';
+      } catch (_) {}
 
       FormData formData = FormData.fromMap({
-        "latitude": latitude.toStringAsFixed(4),
-        "longitude": longitude.toStringAsFixed(4),
+        "latitude": latitude.toString(),
+        "longitude": longitude.toString(),
         "accuracy": accuracy.toStringAsFixed(2),
         if (lateReason != null) "late_reason": lateReason,
-        if (utcTimestamp != null) ...{
-          "timestamp": utcTimestamp,
-          "created_at": utcTimestamp,
-          "time": utcTimestamp,
-          "date": utcTimestamp,
-          "time_in": utcTimestamp,
-        },
+        "local_time": localTimestamp,
+        "localTime": localTimestamp,
+        "timestamp": localTimestamp,
+        "timezone": deviceTimezone,
         if (fixedFile != null && fileName != null)
           "image": await MultipartFile.fromFile(
             fixedFile.path,
@@ -188,26 +202,24 @@ class AttendanceService {
         fileName = '${_basenameWithoutExtension(imageFile.path)}.jpg';
       }
 
-      String? utcTimestamp;
-      if (timestamp != null) {
-        try {
-          utcTimestamp = DateTime.parse(timestamp).toUtc().toIso8601String();
-        } catch (_) {
-          utcTimestamp = timestamp;
-        }
-      }
+      // Use local timestamp (not UTC) so backend can store correct local time
+      final String localTimestamp = timestamp ?? DateTime.now().toIso8601String();
+      String deviceTimezone = 'Asia/Kolkata';
+      try {
+        final offset = DateTime.now().timeZoneOffset;
+        final h = offset.inHours.abs().toString().padLeft(2, '0');
+        final m = (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
+        deviceTimezone = '${offset.isNegative ? '-' : '+'}$h:$m';
+      } catch (_) {}
 
       FormData formData = FormData.fromMap({
-        "latitude": latitude.toStringAsFixed(4),
-        "longitude": longitude.toStringAsFixed(4),
+        "latitude": latitude.toString(),
+        "longitude": longitude.toString(),
         "accuracy": accuracy.toStringAsFixed(2),
-        if (utcTimestamp != null) ...{
-          "timestamp": utcTimestamp,
-          "created_at": utcTimestamp,
-          "time": utcTimestamp,
-          "date": utcTimestamp,
-          "time_out": utcTimestamp,
-        },
+        "local_time": localTimestamp,
+        "localTime": localTimestamp,
+        "timestamp": localTimestamp,
+        "timezone": deviceTimezone,
         if (fixedFile != null && fileName != null)
           "image": await MultipartFile.fromFile(
             fixedFile.path,
@@ -233,6 +245,55 @@ class AttendanceService {
     }
   }
 
+  // 3.5 Mark Checkpoint (Location Ping)
+  Future<Map<String, dynamic>> markCheckpoint({
+    required double latitude,
+    required double longitude,
+    double? accuracy,
+    String? note,
+    File? imageFile,
+  }) async {
+    try {
+      final String localTimestamp = DateTime.now().toIso8601String();
+      String deviceTimezone = 'Asia/Kolkata';
+      try {
+        final offset = DateTime.now().timeZoneOffset;
+        final h = offset.inHours.abs().toString().padLeft(2, '0');
+        final m = (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
+        deviceTimezone = '${offset.isNegative ? '-' : '+'}$h:$m';
+      } catch (_) {}
+
+      File? fixedFile;
+      String? fileName;
+      if (imageFile != null) {
+        fixedFile = await _fixOrientationAndCompress(imageFile);
+        fileName = '${_basenameWithoutExtension(imageFile.path)}.jpg';
+      }
+
+      FormData formData = FormData.fromMap({
+        "latitude": latitude.toString(),
+        "longitude": longitude.toString(),
+        if (accuracy != null) "accuracy": accuracy.toStringAsFixed(2),
+        if (note != null && note.isNotEmpty) "note": note,
+        "local_time": localTimestamp,
+        "localTime": localTimestamp,
+        "timestamp": localTimestamp,
+        "timezone": deviceTimezone,
+        if (fixedFile != null && fileName != null)
+          "image": await MultipartFile.fromFile(
+            fixedFile.path,
+            filename: fileName,
+            contentType: MediaType('image', 'jpeg'),
+          ),
+      });
+
+      final response = await _dio.post(ApiConstants.attendancePing, data: formData);
+      return response.data ?? {};
+    } catch (e) {
+      throw _parseError(e);
+    }
+  }
+
   // Fix EXIF orientation and compress before upload.
   // - Reads EXIF orientation and physically rotates pixels to match
   // - Caps longest side at 1280px (well under any nginx limit)
@@ -243,11 +304,6 @@ class AttendanceService {
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS)) {
         final originalSize = await imageFile.length();
         debugPrint('_fixOrientationAndCompress: input=$originalSize bytes path=${imageFile.path}');
-
-        if (originalSize < 300 * 1024) {
-          debugPrint('_fixOrientationAndCompress: size is under 300KB, skipping extra compression.');
-          return imageFile;
-        }
 
         final tmpDir = await getTemporaryDirectory();
         final outPath = '${tmpDir.path}${Platform.pathSeparator}${_basenameWithoutExtension(imageFile.path)}_fixed.jpg';
@@ -316,7 +372,7 @@ class AttendanceService {
 
       final Map<String, dynamic> payload = {
         "request_date": requestDate,
-        "correction_type": correctionType,
+        "correction_type": "punch",
         "reason": reason,
         "original_data": originalData ?? [],
         "proposed_data": proposedData,
@@ -326,34 +382,26 @@ class AttendanceService {
 
       dynamic data = payload;
 
-      // Handle Attachments via FormData
+      // Handle Attachments via FormData matching backend upload.single("attachment")
       if (attachments != null && attachments.isNotEmpty) {
         final formData = FormData.fromMap({
           "request_date": requestDate,
-          "correction_type": correctionType,
+          "correction_type": "punch",
           "reason": reason,
+          "proposed_data": jsonEncode(proposedData),
+          "original_data": jsonEncode(originalData ?? []),
           if (latitude != null) "latitude": latitude,
           if (longitude != null) "longitude": longitude,
         });
-        // Add sessions as indexed fields
-        for (var i = 0; i < proposedData.length; i++) {
-          formData.fields.add(MapEntry('proposed_data[$i][time_in]', proposedData[i]['time_in'] ?? ''));
-          formData.fields.add(MapEntry('proposed_data[$i][time_out]', proposedData[i]['time_out'] ?? ''));
-        }
-        // Add original sessions as indexed fields
-        final origData = originalData ?? [];
-        for (var i = 0; i < origData.length; i++) {
-          formData.fields.add(MapEntry('original_data[$i][time_in]', origData[i]['time_in'] ?? ''));
-          formData.fields.add(MapEntry('original_data[$i][time_out]', origData[i]['time_out'] ?? ''));
-        }
-        // Add files
-        for (var attachment in attachments) {
-          if (attachment.path != null) {
-            formData.files.add(MapEntry(
-              'attachments[]',
-              await MultipartFile.fromFile(attachment.path!, filename: attachment.name),
-            ));
-          }
+
+        // Backend expects upload.single("attachment")
+        final firstAttachment = attachments.first;
+        if (firstAttachment != null && firstAttachment.path != null) {
+          final String fileName = firstAttachment.name ?? firstAttachment.path!.split(Platform.pathSeparator).last;
+          formData.files.add(MapEntry(
+            'attachment',
+            await MultipartFile.fromFile(firstAttachment.path!, filename: fileName),
+          ));
         }
         data = formData;
       }
@@ -465,7 +513,7 @@ class AttendanceService {
     try {
       final response = await _dio.get(
         ApiConstants.attendanceRecordExport,
-        queryParameters: {'month': month},
+        queryParameters: {'month': month, 'format': 'xlsx'},
         options: Options(responseType: ResponseType.bytes),
       );
       return Uint8List.fromList(response.data);

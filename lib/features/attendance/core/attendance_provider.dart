@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -22,7 +23,15 @@ class AttendanceProvider with ChangeNotifier {
   // Current State
   List<AttendanceRecord> _currentRecords = [];
   bool _isLoading = false;
+  bool _isRangeLoading = false;
   String? _error;
+
+  // In-flight fetch deduplication to prevent parallel duplicate API calls
+  final Map<String, Future<void>> _inFlightFetches = {};
+
+  // Timers for realtime sync
+  Timer? _syncTimer1;
+  Timer? _syncTimer2;
 
   // Shift Policy (cached)
   Shift? _shiftPolicy;
@@ -67,6 +76,8 @@ class AttendanceProvider with ChangeNotifier {
 
   @override
   void dispose() {
+    _syncTimer1?.cancel();
+    _syncTimer2?.cancel();
     _authService.removeListener(_onAuthChanged);
     super.dispose();
   }
@@ -77,6 +88,7 @@ class AttendanceProvider with ChangeNotifier {
   List<AttendanceRecord> get records => _currentRecords;
 
   bool get isLoading => _isLoading;
+  bool get isRangeLoading => _isRangeLoading;
   String? get error => _error;
 
   // ── Shift Policy ──────────────────────────────────────────────────────────
@@ -88,8 +100,11 @@ class AttendanceProvider with ChangeNotifier {
 
   Future<void> fetchShiftPolicy() async {
     try {
-      _shiftPolicy = await _attendanceService.getMyShiftPolicy();
-      notifyListeners();
+      final policy = await _attendanceService.getMyShiftPolicy();
+      if (_shiftPolicy != policy) {
+        _shiftPolicy = policy;
+        notifyListeners();
+      }
     } catch (e) {
       debugPrint('AttendanceProvider: Could not fetch shift policy: $e');
     }
@@ -170,7 +185,7 @@ class AttendanceProvider with ChangeNotifier {
   // ── Records ───────────────────────────────────────────────────────────────
 
   // Fetch Records for a specific date
-  Future<void> fetchRecords(DateTime date, {bool forceRefresh = false}) async {
+  Future<void> fetchRecords(DateTime date, {bool forceRefresh = false, bool silentRefresh = false}) async {
     final dateStr = DateFormat('yyyy-MM-dd').format(date);
     final userId = _authService.user?.employeeId ?? 'anon';
     final cacheKey = '${userId}_$dateStr';
@@ -178,13 +193,36 @@ class AttendanceProvider with ChangeNotifier {
 
     // 1. Return from memory cache if available and not forcing refresh
     if (!forceRefresh && _recordsCache.containsKey(cacheKey)) {
-      _currentRecords = _recordsCache[cacheKey]!;
-      // Shift notifications are NOT scheduled from cache-hit path to avoid
-      // redundant calls (they are scheduled after a fresh API fetch).
-      notifyListeners();
+      final cached = _recordsCache[cacheKey]!;
+      if (_currentRecords != cached) {
+        _currentRecords = cached;
+        notifyListeners();
+      }
       return;
     }
 
+    // Deduplicate in-flight fetches for the exact same key
+    if (!forceRefresh && _inFlightFetches.containsKey(cacheKey)) {
+      return _inFlightFetches[cacheKey]!;
+    }
+
+    final fetchFuture = _executeFetchRecords(date, dateStr, cacheKey, forceRefresh, silentRefresh);
+    _inFlightFetches[cacheKey] = fetchFuture;
+
+    try {
+      await fetchFuture;
+    } finally {
+      _inFlightFetches.remove(cacheKey);
+    }
+  }
+
+  Future<void> _executeFetchRecords(
+    DateTime date,
+    String dateStr,
+    String cacheKey,
+    bool forceRefresh,
+    bool silentRefresh,
+  ) async {
     // Try to load from persistent cache first if memory cache is empty
     if (!_recordsCache.containsKey(cacheKey)) {
       try {
@@ -204,8 +242,10 @@ class AttendanceProvider with ChangeNotifier {
 
     // 2. Fetch from API
     try {
-      _isLoading = true;
-      notifyListeners();
+      if (!silentRefresh) {
+        _isLoading = true;
+        notifyListeners();
+      }
 
       final uid = _authService.user?.employeeId;
       final data = await _attendanceService.getMyRecords(
@@ -241,7 +281,9 @@ class AttendanceProvider with ChangeNotifier {
         _currentRecords = [];
       }
     } finally {
-      _isLoading = false;
+      if (!silentRefresh) {
+        _isLoading = false;
+      }
       notifyListeners();
       if (forceRefresh) {
         checkMissedPunch();
@@ -262,7 +304,7 @@ class AttendanceProvider with ChangeNotifier {
     }
 
     try {
-      _isLoading = true;
+      _isRangeLoading = true;
       notifyListeners();
 
       final data = await _attendanceService.getMyRecords(
@@ -278,7 +320,7 @@ class AttendanceProvider with ChangeNotifier {
       _error = e.toString();
       return [];
     } finally {
-      _isLoading = false;
+      _isRangeLoading = false;
       notifyListeners();
     }
   }
@@ -303,19 +345,18 @@ class AttendanceProvider with ChangeNotifier {
   // Polls the server after a punch to fetch geocoded address and image URL in real time.
   // Suppresses shift-notification scheduling during the poll window to prevent
   // 3× redundant schedule/cancel cycles from firing in rapid succession.
+  // Uses silentRefresh to prevent flickering the UI or showing full-page spinners.
   void startRealtimeSync(DateTime date) {
+    _syncTimer1?.cancel();
+    _syncTimer2?.cancel();
     _suppressShiftNotifications = true;
-    invalidateCache(date);
-    fetchRecords(date, forceRefresh: true);
 
-    Timer(const Duration(seconds: 2), () {
-      invalidateCache(date);
-      fetchRecords(date, forceRefresh: true);
+    _syncTimer1 = Timer(const Duration(milliseconds: 2500), () {
+      fetchRecords(date, forceRefresh: true, silentRefresh: true);
     });
 
-    Timer(const Duration(seconds: 5), () {
-      invalidateCache(date);
-      fetchRecords(date, forceRefresh: true);
+    _syncTimer2 = Timer(const Duration(milliseconds: 5500), () {
+      fetchRecords(date, forceRefresh: true, silentRefresh: true);
       // Re-enable scheduling after the last poll; fire once cleanly
       _suppressShiftNotifications = false;
       _scheduleShiftEndNotification();
@@ -448,6 +489,30 @@ class AttendanceProvider with ChangeNotifier {
     }
   }
 
+
+  // Checkpoint / Location Ping
+  Future<Map<String, dynamic>> markCheckpoint({
+    required double latitude,
+    required double longitude,
+    double? accuracy,
+    String? note,
+    File? imageFile,
+  }) async {
+    try {
+      final result = await _attendanceService.markCheckpoint(
+        latitude: latitude,
+        longitude: longitude,
+        accuracy: accuracy,
+        note: note,
+        imageFile: imageFile,
+      );
+      // Force refresh today's records so the new checkpoint appears in Today's Logs immediately
+      await fetchRecords(DateTime.now(), forceRefresh: true, silentRefresh: true);
+      return result;
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
 
 // commit-marker: 2026-02-17T11:00:00+05:30
