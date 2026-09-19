@@ -1,13 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
-import 'package:flutter_application/features/attendance/core/attendance_provider.dart';
 import 'package:flutter_application/features/attendance/widgets/mark_attendance_mobile.dart';
 import 'package:flutter_application/features/attendance/widgets/attendance_history_mobile.dart';
 import 'package:flutter_application/features/attendance/widgets/attendance_analytics_mobile.dart';
 import 'package:flutter_application/features/attendance/widgets/attendance_admin_view.dart';
 import 'package:flutter_application/features/attendance/widgets/attendance_header_widget.dart';
-import 'package:flutter_application/shared/widgets/loading_screen.dart';
 
 class MobileMyAttendanceContent extends StatefulWidget {
   const MobileMyAttendanceContent({super.key});
@@ -16,55 +13,115 @@ class MobileMyAttendanceContent extends StatefulWidget {
   State<MobileMyAttendanceContent> createState() => _MobileMyAttendanceContentState();
 }
 
-class _MobileMyAttendanceContentState extends State<MobileMyAttendanceContent> {
+class _MobileMyAttendanceContentState extends State<MobileMyAttendanceContent>
+    with SingleTickerProviderStateMixin {
+  TabController? _tabController;
+  int _currentIndex = 0;
+  bool _hasVisitedMyAttendance = false;
+
+  TabController get _effectiveTabController {
+    if (_tabController == null) {
+      _tabController = TabController(length: 2, vsync: this);
+      _tabController!.addListener(_handleTabChange);
+    }
+    return _tabController!;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _initTabController();
+  }
+
+  void _initTabController() {
+    if (_tabController == null) {
+      _tabController = TabController(length: 2, vsync: this);
+      _tabController!.addListener(_handleTabChange);
+    }
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+    _initTabController();
+  }
+
+  void _handleTabChange() {
+    final controller = _tabController;
+    if (controller == null) return;
+    if (_currentIndex != controller.index) {
+      setState(() {
+        _currentIndex = controller.index;
+        if (_currentIndex == 1) {
+          _hasVisitedMyAttendance = true;
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController?.removeListener(_handleTabChange);
+    _tabController?.dispose();
+    _tabController = null;
+    super.dispose();
+  }
+
+  void _onTabSelected(int index) {
+    if (_effectiveTabController.index != index) {
+      _effectiveTabController.animateTo(index);
+    }
+    if (_currentIndex != index) {
+      setState(() {
+        _currentIndex = index;
+        if (index == 1) {
+          _hasVisitedMyAttendance = true;
+        }
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Consumer<AttendanceProvider>(
-      builder: (context, provider, child) {
-        return LoadingScreen(
-          isLoading: provider.isLoading && provider.records.isEmpty,
-          message: "Loading attendance records...",
-          child: Container(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.transparent
-                : const Color(0xFFF8F9FA),
-            child: DefaultTabController(
-              length: 2,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  children: [
-                    const AttendanceHeaderWidget(showTabBar: false),
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 480),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                          child: AttendanceTabBar(maxWidth: 480),
-                        ),
-                      ),
-                    ),
-                    Builder(
-                      builder: (context) {
-                        final tabController = DefaultTabController.of(context);
-
-                        return _TabContentBuilder(
-                          controller: tabController,
-                          builder: (context, index) {
-                            return index == 0
-                                ? const MarkAttendanceMobile()
-                                : _MyAttendanceReportsTab();
-                          },
-                        );
-                      },
-                    ),
-                  ],
+    return Container(
+      color: Theme.of(context).brightness == Brightness.dark
+          ? Colors.transparent
+          : const Color(0xFFF8F9FA),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          children: [
+            const AttendanceHeaderWidget(showTabBar: false),
+            Transform.translate(
+              offset: const Offset(0, -8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: AttendanceTabBar(
+                  controller: _effectiveTabController,
+                  onTap: _onTabSelected,
                 ),
               ),
             ),
-          ),
-        );
-      },
+            Visibility(
+              visible: _currentIndex == 0,
+              maintainState: true,
+              maintainAnimation: false,
+              maintainSize: false,
+              maintainSemantics: false,
+              child: const MarkAttendanceMobile(),
+            ),
+            if (_hasVisitedMyAttendance || _currentIndex == 1)
+              Visibility(
+                visible: _currentIndex == 1,
+                maintainState: true,
+                maintainAnimation: false,
+                maintainSize: false,
+                maintainSemantics: false,
+                child: _MyAttendanceReportsTab(),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -84,16 +141,16 @@ class _MyAttendanceReportsTabState extends State<_MyAttendanceReportsTab> {
       children: [
         // Sub-tabs
         Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
                 _buildSubTab('History', 0, Icons.history),
-                const SizedBox(width: 24),
+                const SizedBox(width: 14),
                 _buildSubTab('Analytics', 1, Icons.analytics_outlined),
-                const SizedBox(width: 24),
-                _buildSubTab('Corrections', 2, Icons.edit_calendar_outlined),
+                const SizedBox(width: 14),
+                _buildSubTab('Correction Requests', 2, Icons.edit_calendar_outlined),
               ],
             ),
           ),
@@ -104,7 +161,7 @@ class _MyAttendanceReportsTabState extends State<_MyAttendanceReportsTab> {
           : _selectedIndex == 1
             ? const AttendanceAnalyticsMobile(shrinkWrap: true, physics: NeverScrollableScrollPhysics())
             : const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
+                padding: EdgeInsets.symmetric(horizontal: 10),
                 child: AdminCorrectionRequests(
                   isPersonalView: true,
                   shrinkWrap: true,
@@ -127,86 +184,36 @@ class _MyAttendanceReportsTabState extends State<_MyAttendanceReportsTab> {
 
     return InkWell(
       onTap: () => setState(() => _selectedIndex = index),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: activeColor),
-              const SizedBox(width: 8),
-              Text(
-                label, 
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600, 
-                  fontSize: 12,
-                  color: activeColor
-                )
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Container(
-            height: 2,
-            width: 80,
-            color: isSelected ? selectedColor : Colors.transparent,
-          ),
-        ],
+      child: IntrinsicWidth(
+        child: Column(
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 14, color: activeColor),
+                const SizedBox(width: 6),
+                Text(
+                  label, 
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600, 
+                    fontSize: 11.5,
+                    color: activeColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Container(
+              height: 2,
+              color: isSelected ? selectedColor : Colors.transparent,
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _TabContentBuilder extends StatefulWidget {
-  final TabController controller;
-  final Widget Function(BuildContext context, int index) builder;
-
-  const _TabContentBuilder({
-    required this.controller,
-    required this.builder,
-  });
-
-  @override
-  State<_TabContentBuilder> createState() => _TabContentBuilderState();
-}
-
-class _TabContentBuilderState extends State<_TabContentBuilder> {
-  late int _currentIndex;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentIndex = widget.controller.index;
-    widget.controller.addListener(_handleTabChange);
-  }
-
-  @override
-  void didUpdateWidget(_TabContentBuilder oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.controller != oldWidget.controller) {
-      oldWidget.controller.removeListener(_handleTabChange);
-      _currentIndex = widget.controller.index;
-      widget.controller.addListener(_handleTabChange);
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.controller.removeListener(_handleTabChange);
-    super.dispose();
-  }
-
-  void _handleTabChange() {
-    if (widget.controller.index != _currentIndex) {
-      setState(() {
-        _currentIndex = widget.controller.index;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return widget.builder(context, _currentIndex);
-  }
-}
 
 // commit-marker: 2026-02-17T11:00:00+05:30
 

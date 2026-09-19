@@ -11,8 +11,15 @@ import 'package:flutter_application/shared/widgets/toast_helper.dart';
 
 class AttendanceHeaderWidget extends StatefulWidget {
   final bool showTabBar;
+  final TabController? tabController;
+  final void Function(int)? onTabChanged;
 
-  const AttendanceHeaderWidget({super.key, this.showTabBar = true});
+  const AttendanceHeaderWidget({
+    super.key,
+    this.showTabBar = true,
+    this.tabController,
+    this.onTabChanged,
+  });
 
   @override
   State<AttendanceHeaderWidget> createState() => _AttendanceHeaderWidgetState();
@@ -306,7 +313,11 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> with Wi
         ? Colors.white.withValues(alpha: 0.1)
         : Colors.white.withValues(alpha: 0.18);
 
-    Widget tabBarWidget = AttendanceTabBar(maxWidth: 480);
+    Widget tabBarWidget = AttendanceTabBar(
+      maxWidth: 480,
+      controller: widget.tabController,
+      onTap: widget.onTabChanged,
+    );
 
     if (isLandscape) {
       // Landscape Layout (side-by-side greeting & time card)
@@ -345,7 +356,7 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> with Wi
                             '$greeting, $firstName!',
                             style: GoogleFonts.poppins(
                               fontSize: 24,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w600,
                               color: Colors.white,
                             ),
                           ),
@@ -397,7 +408,7 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> with Wi
                                     'CURRENT TIME',
                                     style: GoogleFonts.poppins(
                                       fontSize: 9,
-                                      fontWeight: FontWeight.w800,
+                                      fontWeight: FontWeight.w500,
                                       color: Colors.white.withValues(alpha: 0.5),
                                       letterSpacing: 1.2,
                                     ),
@@ -427,7 +438,7 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> with Wi
                                   'LOCATION',
                                   style: GoogleFonts.poppins(
                                     fontSize: 9,
-                                    fontWeight: FontWeight.w800,
+                                    fontWeight: FontWeight.w500,
                                     color: Colors.white.withValues(alpha: 0.5),
                                     letterSpacing: 1.2,
                                   ),
@@ -460,7 +471,7 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> with Wi
       // Mobile Portrait Layout - Made more compact for smaller mobile devices
       return Container(
         width: double.infinity,
-        padding: EdgeInsets.fromLTRB(16, 12, 16, widget.showTabBar ? 48 : 12),
+        padding: EdgeInsets.fromLTRB(12, 10, 12, widget.showTabBar ? 38 : 10),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -470,8 +481,8 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> with Wi
                 : [const Color(0xFF4F46E5), const Color(0xFF3730A3)],
           ),
           borderRadius: const BorderRadius.only(
-            bottomLeft: Radius.circular(20),
-            bottomRight: Radius.circular(20),
+            bottomLeft: Radius.circular(16),
+            bottomRight: Radius.circular(16),
           ),
         ),
         child: Stack(
@@ -483,8 +494,8 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> with Wi
                 Text(
                   '$greeting, $firstName!',
                   style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
                 ),
@@ -492,19 +503,19 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> with Wi
                 Text(
                   dateStr,
                   style: GoogleFonts.poppins(
-                    fontSize: 12,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w500,
                     color: Colors.white.withValues(alpha: 0.7),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 // Clock & Location Card
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                   decoration: BoxDecoration(
                     color: cardBgColor,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: cardBorderColor, width: 1.5),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: cardBorderColor, width: 1.2),
                   ),
                   child: Row(
                     children: [
@@ -512,16 +523,16 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> with Wi
                         child: Row(
                           children: [
                             Container(
-                              width: 38,
-                              height: 38,
+                              width: 32,
+                              height: 32,
                               decoration: BoxDecoration(
                                 color: isDark ? const Color(0xFF232644) : Colors.white.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Icon(
                                 Icons.access_time_rounded,
                                 color: Colors.white,
-                                size: 20,
+                                size: 17,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -534,7 +545,7 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> with Wi
                                     'CURRENT TIME',
                                     style: GoogleFonts.poppins(
                                       fontSize: 8,
-                                      fontWeight: FontWeight.w800,
+                                      fontWeight: FontWeight.w500,
                                       color: Colors.white.withValues(alpha: 0.5),
                                       letterSpacing: 1.0,
                                     ),
@@ -568,7 +579,7 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> with Wi
                               'LOCATION',
                               style: GoogleFonts.poppins(
                                 fontSize: 8,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w500,
                                 color: Colors.white.withValues(alpha: 0.5),
                                 letterSpacing: 1.0,
                               ),
@@ -601,7 +612,7 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> with Wi
       // Tablet Portrait Layout
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
+        padding: EdgeInsets.fromLTRB(24, 20, 24, widget.showTabBar ? 48 : 16),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -625,7 +636,7 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> with Wi
                   '$greeting, $firstName!',
                   style: GoogleFonts.poppins(
                     fontSize: 26,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
                 ),
@@ -675,7 +686,7 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> with Wi
                                     'CURRENT TIME',
                                     style: GoogleFonts.poppins(
                                       fontSize: 10,
-                                      fontWeight: FontWeight.w800,
+                                      fontWeight: FontWeight.w500,
                                       color: Colors.white.withValues(alpha: 0.5),
                                       letterSpacing: 1.2,
                                     ),
@@ -709,7 +720,7 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> with Wi
                               'LOCATION',
                               style: GoogleFonts.poppins(
                                 fontSize: 10,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w500,
                                 color: Colors.white.withValues(alpha: 0.5),
                                 letterSpacing: 1.2,
                               ),
@@ -722,7 +733,7 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> with Wi
                     ],
                   ),
                 ),
-                const SizedBox(height: 36),
+                if (widget.showTabBar) const SizedBox(height: 36),
               ],
             ),
 
@@ -743,33 +754,44 @@ class _AttendanceHeaderWidgetState extends State<AttendanceHeaderWidget> with Wi
 /// Reusable tab-bar widget so callers can render it outside the header
 class AttendanceTabBar extends StatelessWidget {
   final double? maxWidth;
-  const AttendanceTabBar({super.key, this.maxWidth});
+  final TabController? controller;
+  final void Function(int)? onTap;
+
+  const AttendanceTabBar({
+    super.key,
+    this.maxWidth,
+    this.controller,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final child = Container(
-      padding: const EdgeInsets.all(4),
+      width: maxWidth ?? double.infinity,
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isDark ? const Color(0xFF30363D) : Colors.black.withValues(alpha: 0.05),
+          color: isDark ? const Color(0xFF30363D) : Colors.black.withValues(alpha: 0.06),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: TabBar(
+        controller: controller,
+        onTap: onTap,
         indicatorSize: TabBarIndicatorSize.tab,
         indicator: BoxDecoration(
           color: isDark ? const Color(0xFF2D3139) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
             width: 1,
@@ -778,7 +800,7 @@ class AttendanceTabBar extends StatelessWidget {
               ? []
               : [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -788,38 +810,38 @@ class AttendanceTabBar extends StatelessWidget {
         labelColor: isDark ? Colors.white : const Color(0xFF4F46E5),
         unselectedLabelColor: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
         labelStyle: GoogleFonts.poppins(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
         ),
         unselectedLabelStyle: GoogleFonts.poppins(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
         ),
         tabs: [
           Tab(
-            height: 38,
+            height: 36,
             child: FittedBox(
               fit: BoxFit.scaleDown,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.person_outline_rounded, size: 18),
-                  const SizedBox(width: 8),
-                  Text(MediaQuery.of(context).size.width < 600 ? "Attendance" : "Mark Attendance"),
+                  const Icon(Icons.person_outline_rounded, size: 16),
+                  const SizedBox(width: 6),
+                  Text(MediaQuery.of(context).size.width < 380 ? "Attendance" : "Mark Attendance"),
                 ],
               ),
             ),
           ),
           Tab(
-            height: 38,
+            height: 36,
             child: FittedBox(
               fit: BoxFit.scaleDown,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.history_rounded, size: 18),
-                  const SizedBox(width: 8),
-                  const Text("My Attendance"),
+                children: const [
+                  Icon(Icons.history_rounded, size: 16),
+                  SizedBox(width: 6),
+                  Text("My Attendance"),
                 ],
               ),
             ),

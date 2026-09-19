@@ -42,7 +42,7 @@ class MonthlyReportHeaderMobile extends StatelessWidget {
                      Text(
                        'Monthly Report', 
                        style: GoogleFonts.poppins(
-                         fontWeight: FontWeight.bold, 
+                         fontWeight: FontWeight.w600, 
                          fontSize: 16,
                          color: Theme.of(context).textTheme.bodyLarge?.color,
                        )
