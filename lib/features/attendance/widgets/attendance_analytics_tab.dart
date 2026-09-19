@@ -1,4 +1,4 @@
-﻿import 'package:fl_chart/fl_chart.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -70,11 +70,12 @@ class _AttendanceAnalyticsTabState extends State<AttendanceAnalyticsTab> {
 
     try {
       final bytes = await attendanceService.exportMyReport(monthStr);
-      final directory = await getApplicationDocumentsDirectory();
-      final String fileName = 'Attendance_${monthStr}_${authService.user?.name ?? "User"}.xlsx';
+      final directory = await getTemporaryDirectory();
+      final String safeName = (authService.user?.name ?? 'User').replaceAll(RegExp(r'\s+'), '_');
+      final String fileName = 'Attendance_${monthStr}_$safeName.xlsx';
       final String filePath = '${directory.path}/$fileName';
       final File file = File(filePath);
-      await file.writeAsBytes(bytes);
+      await file.writeAsBytes(bytes, flush: true);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -187,7 +188,7 @@ class _AttendanceAnalyticsTabState extends State<AttendanceAnalyticsTab> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Total Attendance Report', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text('Total Attendance Report', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
                   const Icon(Icons.more_vert, size: 20, color: Colors.grey),
                 ],
               ),
@@ -231,7 +232,7 @@ class _AttendanceAnalyticsTabState extends State<AttendanceAnalyticsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Attendance Status', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text('Attendance Status', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
           const SizedBox(height: 32),
           SizedBox(
             height: 250,
@@ -296,7 +297,7 @@ class _AttendanceAnalyticsTabState extends State<AttendanceAnalyticsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Weekly Activity', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text('Weekly Activity', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
           const SizedBox(height: 32),
           SizedBox(
             height: 250,

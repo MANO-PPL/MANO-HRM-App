@@ -70,7 +70,7 @@ class _LateArrivalDialogState extends State<LateArrivalDialog> {
                   "Late Arrival",
                   style: GoogleFonts.poppins(
                     fontSize: 22,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                     color: Theme.of(context).textTheme.bodyLarge?.color,
                   ),
                 ),

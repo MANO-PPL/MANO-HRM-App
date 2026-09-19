@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -11,6 +11,8 @@ import 'package:flutter_application/features/attendance/core/attendance_provider
 import 'package:flutter_application/features/attendance/core/attendance_service.dart';
 import 'package:flutter_application/features/attendance/core/attendance_record.dart';
 import 'package:flutter_application/features/attendance/widgets/attendance_mobile_common_widgets.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_application/shared/widgets/interactive_image_viewer.dart';
 
 class AttendanceHistoryMobile extends StatefulWidget {
   final bool shrinkWrap;
@@ -71,11 +73,12 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
 
     try {
       final bytes = await attendanceService.exportMyReport(monthStr);
-      final directory = await getApplicationDocumentsDirectory();
-      final String fileName = 'Attendance_${monthStr}_${authService.user?.name ?? "User"}.xlsx';
+      final directory = await getTemporaryDirectory();
+      final String safeName = (authService.user?.name ?? 'User').replaceAll(RegExp(r'\s+'), '_');
+      final String fileName = 'Attendance_${monthStr}_$safeName.xlsx';
       final String filePath = '${directory.path}/$fileName';
       final File file = File(filePath);
-      await file.writeAsBytes(bytes);
+      await file.writeAsBytes(bytes, flush: true);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -173,13 +176,13 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-          Text(
+        Text(
           title, 
           style: GoogleFonts.poppins(
             fontSize: 14, 
-            fontWeight: FontWeight.bold, 
+            fontWeight: FontWeight.w600, 
             color: Theme.of(context).textTheme.bodyLarge?.color?.withValues(alpha: 0.7) ?? Colors.grey[600]
-          )
+          ),
         ),
         const SizedBox(height: 16),
         ...children.map((c) => Padding(padding: const EdgeInsets.only(bottom: 12), child: c)),
@@ -222,66 +225,157 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
       borderRadius: 16,
       child: Column(
         children: [
-           Row(
-             crossAxisAlignment: CrossAxisAlignment.start,
-             children: [
-                // Date Box
-                Container(
-                  width: 44,
-                  height: 44,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text('$day', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF5B60F6))),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Date Box
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(width: 12),
-                
-                // Details
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                child: Text('$day', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF5B60F6))),
+              ),
+              const SizedBox(width: 12),
+              
+              // Details
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dateStr, 
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600, 
+                        fontSize: 12,
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      location, 
+                      style: GoogleFonts.poppins(
+                        fontSize: 10, 
+                        color: Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(color: statusColor?.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
+                      child: Text(status, style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.w600, color: statusText)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          // Times Row (Space Between)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildTimeColumn(context, 'IN', displayIn, imageUrl: record.timeInImage),
+              _buildTimeColumn(context, 'OUT', displayOut, imageUrl: record.timeOutImage),
+              _buildTimeColumn(context, 'HRS', hrs),
+            ],
+          ),
+          _buildCheckpointsRow(record),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCheckpointsRow(AttendanceRecord record) {
+    if (record.checkpoints.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.location_on_rounded, size: 12, color: Color(0xFFD97706)),
+              const SizedBox(width: 4),
+              Text(
+                'CHECKPOINTS (${record.checkpoints.length})',
+                style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFD97706),
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: record.checkpoints.asMap().entries.map((e) {
+              final idx = e.key;
+              final cp = e.value;
+              final cpUrl = cp.imageUrl;
+              final hasImg = cpUrl != null && cpUrl.trim().isNotEmpty;
+              return InkWell(
+                onTap: hasImg
+                    ? () => InteractiveImageViewerDialog.show(context, cpUrl.trim(), title: "Checkpoint #${idx + 1} Selfie")
+                    : null,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.25)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        dateStr, 
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600, 
-                          fontSize: 12,
-                          color: Theme.of(context).textTheme.bodyLarge?.color
-                        )
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        location, 
-                        style: GoogleFonts.poppins(
-                          fontSize: 10, 
-                          color: Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey
+                      if (hasImg) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: CachedNetworkImage(
+                            imageUrl: cpUrl.trim(),
+                            width: 22,
+                            height: 22,
+                            fit: BoxFit.cover,
+                            placeholder: (ctx, url) => const SizedBox(
+                              width: 10,
+                              height: 10,
+                              child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFFD97706)),
+                            ),
+                            errorWidget: (ctx, url, error) => Image.network(
+                              cpUrl.trim(),
+                              width: 22,
+                              height: 22,
+                              fit: BoxFit.cover,
+                              errorBuilder: (c, err, st) => const Icon(Icons.camera_alt, size: 14, color: Color(0xFFD97706)),
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(color: statusColor?.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
-                        child: Text(status, style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.bold, color: statusText)),
+                        const SizedBox(width: 6),
+                      ],
+                      Text(
+                        '#${idx + 1}${hasImg ? ' • View' : ''}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFFD97706),
+                        ),
                       ),
                     ],
                   ),
                 ),
-             ],
-           ),
-           const SizedBox(height: 12),
-           const Divider(height: 1),
-           const SizedBox(height: 12),
-           // Times Row (Space Between)
-           Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                 _buildTimeColumn(context, 'IN', displayIn, imageUrl: record.timeInImage),
-                 _buildTimeColumn(context, 'OUT', displayOut, imageUrl: record.timeOutImage),
-                 _buildTimeColumn(context, 'HRS', hrs),
-              ],
-           )
+              );
+            }).toList(),
+          ),
         ],
       ),
     );
@@ -298,25 +392,35 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
           style: GoogleFonts.poppins(
             fontSize: 9, 
             color: Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey, 
-            fontWeight: FontWeight.w600
-          )
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: 2),
-        if (imageUrl != null && !isUndefined)
+        if (imageUrl != null && imageUrl.trim().isNotEmpty && !isUndefined)
           InkWell(
-            onTap: () => _showImagePreview(context, imageUrl, "$label Image"),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  value, 
-                  style: GoogleFonts.poppins(
-                    decoration: TextDecoration.underline,
-                  )
-                ),
-                const SizedBox(width: 4),
-                Icon(Icons.remove_red_eye_outlined, size: 12, color: Theme.of(context).primaryColor),
-              ],
+            onTap: () => InteractiveImageViewerDialog.show(context, imageUrl.trim(), title: "$label Selfie"),
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    value, 
+                    style: GoogleFonts.poppins(
+                      fontSize: 12, 
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.remove_red_eye_rounded, size: 12, color: Theme.of(context).primaryColor),
+                ],
+              ),
             ),
           )
         else
@@ -325,80 +429,10 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
             style: GoogleFonts.poppins(
               fontSize: 12, 
               fontWeight: FontWeight.w500,
-              color: Theme.of(context).textTheme.bodyLarge?.color
-            )
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+            ),
           ),
       ],
     );
   }
-
-  void _showImagePreview(BuildContext context, String imageUrl, String title) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
-        alignment: Alignment.bottomCenter,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF161B22) : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(title, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14)),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  )
-                ],
-              ),
-              const SizedBox(height: 16),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  imageUrl,
-                  height: 450, // Allow sufficient height for portrait
-                  width: double.infinity,
-                  fit: BoxFit.contain, // Show full image without cropping
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    height: 200,
-                    color: Colors.grey[200],
-                    alignment: Alignment.center,
-                    child: Column(
-                       mainAxisAlignment: MainAxisAlignment.center,
-                       children: [
-                         const Icon(Icons.broken_image, color: Colors.grey, size: 40),
-                         const SizedBox(height: 8),
-                         Text("Image not available", style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
-                         // Debug helper
-                         // Text(imageUrl, style: const TextStyle(fontSize: 8)),
-                       ],
-                    ),
-                  ),
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      height: 200,
-                      alignment: Alignment.center,
-                      child: const CircularProgressIndicator(),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
-
-// [upd:2026-04-16T11:30:00+05:30]

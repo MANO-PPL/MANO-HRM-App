@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -11,6 +11,7 @@ import 'package:flutter_application/features/attendance/core/attendance_provider
 import 'package:flutter_application/features/attendance/core/attendance_service.dart';
 import 'package:flutter_application/features/attendance/core/attendance_record.dart';
 import 'package:flutter_application/features/attendance/widgets/attendance_common_widgets.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_application/shared/widgets/interactive_image_viewer.dart';
 
 class AttendanceHistoryTab extends StatefulWidget {
@@ -74,11 +75,12 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
 
     try {
       final bytes = await attendanceService.exportMyReport(monthStr);
-      final directory = await getApplicationDocumentsDirectory();
-      final String fileName = 'Attendance_${monthStr}_${authService.user?.name ?? "User"}.xlsx';
+      final directory = await getTemporaryDirectory();
+      final String safeName = (authService.user?.name ?? 'User').replaceAll(RegExp(r'\s+'), '_');
+      final String fileName = 'Attendance_${monthStr}_$safeName.xlsx';
       final String filePath = '${directory.path}/$fileName';
       final File file = File(filePath);
-      await file.writeAsBytes(bytes);
+      await file.writeAsBytes(bytes, flush: true);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -179,7 +181,7 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[600])),
+        Text(title, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey[600])),
         const SizedBox(height: 16),
         ...records.map((record) => Padding(
           padding: const EdgeInsets.only(bottom: 12), 
@@ -218,17 +220,16 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
     final location = record.timeInAddress ?? 'Unknown Location';
 
     return GlassContainer(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       borderRadius: 16,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isCompact = constraints.maxWidth < 460;
-          
-          if (isCompact) {
+          if (constraints.maxWidth < 450) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Date Box
                     Container(
@@ -239,7 +240,7 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
                         color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text('$day', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF5B60F6))),
+                      child: Text('$day', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600, color: const Color(0xFF5B60F6))),
                     ),
                     const SizedBox(width: 16),
                     
@@ -250,7 +251,7 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
                         children: [
                           Text(
                             dateStr, 
-                            style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14),
+                            style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14),
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 4),
@@ -259,7 +260,7 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(color: statusColor?.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
-                                child: Text(status, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: statusText)),
+                                child: Text(status, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: statusText)),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
@@ -287,84 +288,182 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
                     _buildTimeColumn('HRS', hrs),
                   ],
                 ),
+                _buildCheckpointsRow(record),
               ],
             );
           } else {
-            return Row(
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Date Box
-                Container(
-                  width: 50,
-                  height: 50,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text('$day', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF5B60F6))),
-                ),
-                const SizedBox(width: 16),
-                
-                // Details
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              dateStr, 
-                              style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(color: statusColor?.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
-                            child: Text(status, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: statusText)),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              location, 
-                              style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                
-                // Times
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisSize: MainAxisSize.min,
+                Row(
                   children: [
-                    Row(
+                    // Date Box
+                    Container(
+                      width: 50,
+                      height: 50,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text('$day', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600, color: const Color(0xFF5B60F6))),
+                    ),
+                    const SizedBox(width: 16),
+                    
+                    // Details
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  dateStr, 
+                                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(color: statusColor?.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
+                                child: Text(status, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: statusText)),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  location, 
+                                  style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    
+                    // Times
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _buildTimeColumn('IN', displayIn, imageUrl: record.timeInImage),
-                        const SizedBox(width: 8),
-                        _buildTimeColumn('OUT', displayOut, imageUrl: record.timeOutImage),
-                        const SizedBox(width: 8),
-                        _buildTimeColumn('HRS', hrs),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildTimeColumn('IN', displayIn, imageUrl: record.timeInImage),
+                            const SizedBox(width: 8),
+                            _buildTimeColumn('OUT', displayOut, imageUrl: record.timeOutImage),
+                            const SizedBox(width: 8),
+                            _buildTimeColumn('HRS', hrs),
+                          ],
+                        )
                       ],
-                    )
+                    ),
                   ],
-                )
+                ),
+                _buildCheckpointsRow(record),
               ],
             );
           }
         },
+      ),
+    );
+  }
+
+  Widget _buildCheckpointsRow(AttendanceRecord record) {
+    if (record.checkpoints.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.location_on_rounded, size: 12, color: Color(0xFFD97706)),
+              const SizedBox(width: 4),
+              Text(
+                'CHECKPOINTS (${record.checkpoints.length})',
+                style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFD97706),
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: record.checkpoints.asMap().entries.map((e) {
+              final idx = e.key;
+              final cp = e.value;
+              final cpUrl = cp.imageUrl;
+              final hasImg = cpUrl != null && cpUrl.trim().isNotEmpty;
+              return InkWell(
+                onTap: hasImg
+                    ? () => InteractiveImageViewerDialog.show(context, cpUrl.trim(), title: "Checkpoint #${idx + 1} Selfie")
+                    : null,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.25)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (hasImg) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: CachedNetworkImage(
+                            imageUrl: cpUrl.trim(),
+                            width: 22,
+                            height: 22,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => const SizedBox(
+                              width: 10,
+                              height: 10,
+                              child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFFD97706)),
+                            ),
+                            errorWidget: (context, url, error) => Image.network(
+                              cpUrl.trim(),
+                              width: 22,
+                              height: 22,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.camera_alt, size: 14, color: Color(0xFFD97706)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      Text(
+                        '#${idx + 1}${hasImg ? ' • View' : ''}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFFD97706),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }
@@ -376,24 +475,31 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
       children: [
         Text(label, style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
-        if (imageUrl != null && !isUndefined)
+        if (imageUrl != null && imageUrl.trim().isNotEmpty && !isUndefined)
           InkWell(
-            onTap: () => InteractiveImageViewerDialog.show(context, imageUrl, title: "$label Image"),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  value,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    decoration: TextDecoration.underline,
-                    color: Theme.of(context).primaryColor,
+            onTap: () => InteractiveImageViewerDialog.show(context, imageUrl.trim(), title: "$label Selfie"),
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    value,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).primaryColor,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 2),
-                Icon(Icons.remove_red_eye_outlined, size: 12, color: Theme.of(context).primaryColor),
-              ],
+                  const SizedBox(width: 4),
+                  Icon(Icons.remove_red_eye_rounded, size: 12, color: Theme.of(context).primaryColor),
+                ],
+              ),
             ),
           )
         else
