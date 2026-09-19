@@ -1,4 +1,4 @@
-﻿import 'dart:ui';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -20,6 +20,7 @@ import 'package:flutter_application/features/attendance/core/attendance_record.d
 import 'package:flutter_application/features/attendance/core/live_attendance_item.dart';
 import 'package:flutter_application/features/attendance/core/attendance_provider.dart';
 import 'package:flutter_application/features/live_attendance/widgets/correction_requests_tablet_portrait_view.dart';
+import 'package:flutter_application/shared/widgets/interactive_image_viewer.dart';
 
 class LiveAttendanceView extends StatefulWidget {
   const LiveAttendanceView({super.key});
@@ -49,7 +50,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
   LiveAttendanceItem? _selectedMapItem;
   AttendanceRecord? _selectedMapRecord;
   bool _isMapCheckIn = true;
-  String _activeMapTheme = 'voyager';
+  String _activeMapTheme = 'streets';
   bool _isMapThemeMenuOpen = false;
 
   // Cache
@@ -232,7 +233,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
         ),
         unselectedLabelStyle: GoogleFonts.poppins(
           fontSize: 14,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
         ),
         tabs: [
           Tab(
@@ -257,12 +258,12 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.red,
+                      color: Colors.red, 
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       '$pendingCount',
-                      style: GoogleFonts.poppins(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.poppins(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -438,7 +439,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
                     "Not Checked In",
                     style: GoogleFonts.poppins(
                       fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                       color: Colors.grey[400],
                       letterSpacing: 1.2,
                     ),
@@ -518,7 +519,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
         value: presentCount.toDouble(),
         title: '$presentCount',
         radius: 40,
-        titleStyle: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+        titleStyle: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
       ));
     }
     if (activeCount > 0) {
@@ -527,7 +528,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
         value: activeCount.toDouble(),
         title: '$activeCount',
         radius: 40,
-        titleStyle: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+        titleStyle: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
       ));
     }
     if (lateCount > 0) {
@@ -536,7 +537,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
         value: lateCount.toDouble(),
         title: '$lateCount',
         radius: 40,
-        titleStyle: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+        titleStyle: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
       ));
     }
     if (absentCount > 0) {
@@ -545,7 +546,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
         value: absentCount.toDouble(),
         title: '$absentCount',
         radius: 40,
-        titleStyle: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+        titleStyle: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
       ));
     }
 
@@ -555,7 +556,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
         value: 1,
         title: '0',
         radius: 40,
-        titleStyle: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+        titleStyle: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
       ));
     }
 
@@ -565,7 +566,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Attendance Distribution", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text("Attendance Distribution", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
           const SizedBox(height: 20),
           SizedBox(
             height: 180,
@@ -654,7 +655,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Staff Activity Velocity", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text("Staff Activity Velocity", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
           const SizedBox(height: 20),
           SizedBox(
             height: 180,
@@ -783,7 +784,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Department Health Stack", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text("Department Health Stack", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
           const SizedBox(height: 20),
           SizedBox(
             height: 180,
@@ -890,7 +891,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Session Intensity Distribution", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text("Session Intensity Distribution", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
           const SizedBox(height: 20),
           SizedBox(
             height: 180,
@@ -997,7 +998,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
                 Icon(Icons.view_timeline, size: 18, color: Theme.of(context).primaryColor),
                 const SizedBox(width: 10),
                 Text('Session Gantt Chart',
-                    style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
+                    style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1006,7 +1007,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text('${activeItems.length} employees',
-                      style: GoogleFonts.poppins(fontSize: 11, color: const Color(0xFF10B981), fontWeight: FontWeight.bold)),
+                      style: GoogleFonts.poppins(fontSize: 11, color: const Color(0xFF10B981), fontWeight: FontWeight.w600)),
                 ),
               ],
             ),
@@ -1103,7 +1104,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
                       item.name.isNotEmpty ? item.name[0].toUpperCase() : '?',
                       style: GoogleFonts.poppins(
                         fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                         color: Theme.of(context).primaryColor,
                       ),
                     ),
@@ -1205,11 +1206,11 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
   // ── flutter_map (OpenStreetMap / CARTO) ─────────────────────────
 
   static const Map<String, Map<String, String>> _mapThemes = {
-    'dark':    {'name': 'Night Mode',  'url': 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'},
-    'light':   {'name': 'Light Mode',  'url': 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'},
-    'voyager': {'name': 'Day Mode',    'url': 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'},
-    'satellite':{'name': 'Satellite',  'url': 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'},
-    'streets': {'name': 'Streets',     'url': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'},
+    'streets':   {'name': 'Streets',    'url': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'},
+    'voyager':   {'name': 'Day Mode',   'url': 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png'},
+    'light':     {'name': 'Light Mode', 'url': 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'},
+    'dark':      {'name': 'Night Mode', 'url': 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'},
+    'satellite': {'name': 'Satellite',  'url': 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'},
   };
 
   List<_MapMarkerData> _buildFlutterMapMarkers() {
@@ -1288,7 +1289,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
             child: Center(
               child: Text(
                 md.employee.name.isNotEmpty ? md.employee.name[0].toUpperCase() : '?',
-                style: GoogleFonts.poppins(color: color, fontWeight: FontWeight.bold, fontSize: 16),
+                style: GoogleFonts.poppins(color: color, fontWeight: FontWeight.w600, fontSize: 16),
               ),
             ),
           ),
@@ -1319,7 +1320,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
               children: [
                 TileLayer(
                   urlTemplate: tileUrl,
-                  subdomains: _activeMapTheme == 'satellite' ? const [] : const ['a', 'b', 'c'],
+                  subdomains: tileUrl.contains('{s}') ? const ['a', 'b', 'c'] : const [],
                   userAgentPackageName: 'com.example.flutter_application',
                   retinaMode: RetinaMode.isHighDensity(context),
                 ),
@@ -1385,7 +1386,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
                 const SizedBox(width: 6),
                 Text(
                   _mapThemes[_activeMapTheme]!['name']!,
-                  style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold,
+                  style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600,
                       color: isDark ? Colors.white : Colors.black87),
                 ),
                 const SizedBox(width: 6),
@@ -1478,7 +1479,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
                 backgroundColor: color.withValues(alpha: 0.1),
                 child: Text(
                   item.name.isNotEmpty ? item.name[0].toUpperCase() : '?',
-                  style: GoogleFonts.poppins(color: color, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.poppins(color: color, fontWeight: FontWeight.w600),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1486,7 +1487,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(item.name, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text(item.name, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14)),
                     Text(item.designation, style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey)),
                   ],
                 ),
@@ -1523,7 +1524,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
                       ),
                       child: Text(
                         label,
-                        style: GoogleFonts.poppins(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.poppins(color: color, fontSize: 10, fontWeight: FontWeight.w600),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -1555,8 +1556,21 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
                         imageUrl: image,
                         height: 120,
                         fit: BoxFit.cover,
-                        placeholder: (c, u) => Container(color: Colors.grey[800], child: const Center(child: CircularProgressIndicator())),
-                        errorWidget: (c, u, e) => Container(color: Colors.grey[800], child: const Icon(Icons.broken_image, color: Colors.grey)),
+                        placeholder: (c, u) => Container(
+                          color: Colors.grey[900],
+                          child: const Center(
+                            child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF6366F1))),
+                          ),
+                        ),
+                        errorWidget: (c, u, e) => Image.network(
+                          image,
+                          height: 120,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: Colors.grey[900],
+                            child: const Center(child: Icon(Icons.broken_image_rounded, color: Colors.white38)),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -1570,53 +1584,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
   }
 
   void _showPhotoViewer(BuildContext context, String imageUrl, String name) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            InteractiveViewer(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: CachedNetworkImage(
-                  imageUrl: imageUrl,
-                  fit: BoxFit.contain,
-                  placeholder: (c, u) => const SizedBox(width: 80, height: 80, child: CircularProgressIndicator()),
-                  errorWidget: (c, u, e) => const Icon(Icons.broken_image, size: 48, color: Colors.red),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 16,
-              right: 16,
-              child: CircleAvatar(
-                backgroundColor: Colors.black.withValues(alpha: 0.5),
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  name,
-                  style: GoogleFonts.poppins(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    InteractiveImageViewerDialog.show(context, imageUrl.trim(), title: "$name Selfie");
   }
 
   void _showEmployeeDetailsDialog(BuildContext context, LiveAttendanceItem item) {
@@ -1646,7 +1614,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
                         backgroundColor: Colors.blue.withValues(alpha: 0.1),
                         child: Text(
                           item.name.isNotEmpty ? item.name[0].toUpperCase() : '?',
-                          style: GoogleFonts.poppins(color: Colors.blue, fontSize: 20, fontWeight: FontWeight.bold),
+                          style: GoogleFonts.poppins(color: Colors.blue, fontSize: 20, fontWeight: FontWeight.w600),
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -1656,7 +1624,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
                           children: [
                             Text(
                               item.name,
-                              style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
+                              style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600),
                             ),
                             Text(
                               "${item.designation} • ${item.department}",
@@ -1687,7 +1655,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
                   
                   Text(
                     "Sessions Activity",
-                    style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold),
+                    style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 12),
                   
@@ -1721,7 +1689,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
                                     children: [
                                       Text(
                                         "Session #${index + 1}",
-                                        style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blue),
+                                        style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 12, color: Colors.blue),
                                       ),
                                       const SizedBox(height: 12),
                                       Row(
@@ -1776,8 +1744,21 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
                                                         imageUrl: session.timeInImage!,
                                                         height: 80,
                                                         fit: BoxFit.cover,
-                                                        placeholder: (c, u) => Container(color: Colors.grey[800], child: const Center(child: CircularProgressIndicator())),
-                                                        errorWidget: (c, u, e) => Container(color: Colors.grey[800], child: const Icon(Icons.broken_image, color: Colors.grey)),
+                                                        placeholder: (c, u) => Container(
+                                                          color: Colors.grey[900],
+                                                          child: const Center(
+                                                            child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF6366F1))),
+                                                          ),
+                                                        ),
+                                                        errorWidget: (c, u, e) => Image.network(
+                                                          session.timeInImage!,
+                                                          height: 80,
+                                                          fit: BoxFit.cover,
+                                                          errorBuilder: (context, error, stackTrace) => Container(
+                                                            color: Colors.grey[900],
+                                                            child: const Center(child: Icon(Icons.broken_image_rounded, color: Colors.white38)),
+                                                          ),
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
@@ -1800,8 +1781,21 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
                                                         imageUrl: session.timeOutImage!,
                                                         height: 80,
                                                         fit: BoxFit.cover,
-                                                        placeholder: (c, u) => Container(color: Colors.grey[800], child: const Center(child: CircularProgressIndicator())),
-                                                        errorWidget: (c, u, e) => Container(color: Colors.grey[800], child: const Icon(Icons.broken_image, color: Colors.grey)),
+                                                        placeholder: (c, u) => Container(
+                                                          color: Colors.grey[900],
+                                                          child: const Center(
+                                                            child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF6366F1))),
+                                                          ),
+                                                        ),
+                                                        errorWidget: (c, u, e) => Image.network(
+                                                          session.timeOutImage!,
+                                                          height: 80,
+                                                          fit: BoxFit.cover,
+                                                          errorBuilder: (context, error, stackTrace) => Container(
+                                                            color: Colors.grey[900],
+                                                            child: const Center(child: Icon(Icons.broken_image_rounded, color: Colors.white38)),
+                                                          ),
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
@@ -1837,7 +1831,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
           value,
           style: GoogleFonts.poppins(
             fontSize: 13,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
             color: color ?? Colors.white,
           ),
         ),
@@ -2056,7 +2050,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
                   backgroundColor: color.withValues(alpha: 0.1),
                   child: Text(
                     item.name.isNotEmpty ? item.name[0].toUpperCase() : '?', 
-                    style: GoogleFonts.poppins(color: color, fontWeight: FontWeight.bold, fontSize: 12),
+                    style: GoogleFonts.poppins(color: color, fontWeight: FontWeight.w600, fontSize: 12),
                   ),
                 ),
                 const SizedBox(width: 12),

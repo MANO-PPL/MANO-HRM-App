@@ -1,25 +1,18 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:csv/csv.dart';
-import 'dart:convert';
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
-import 'package:flutter_application/shared/widgets/glass_container.dart';
-import 'package:flutter_application/shared/widgets/toast_helper.dart';
-import 'package:flutter_application/shared/services/auth_service.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_application/features/leave/core/leave_provider.dart';
-import 'package:flutter_application/features/holidays/core/holiday_service.dart';
-import 'package:flutter_application/features/leave/widgets/holiday_details_dialog.dart';
+import 'package:flutter_application/features/leave/core/leave_request_model.dart';
+import 'package:flutter_application/features/leave/widgets/employee_leave_plan_card.dart';
 import 'package:flutter_application/features/leave/widgets/leave_history_item.dart';
-import 'package:flutter_application/features/leave/widgets/leave_request_form.dart';
-import 'package:flutter_application/features/leave/widgets/admin_leave_view.dart';
-import 'package:flutter_application/features/holidays/widgets/holiday_form_dialog.dart'; // Import Form Dialog
+import 'package:flutter_application/features/leave/widgets/apply_leave_sheet.dart';
+import 'package:flutter_application/features/leave/widgets/admin_leave_list_item.dart';
+import 'package:flutter_application/features/leave/widgets/admin_leave_detail_view.dart';
+import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/shared/widgets/custom_dialog.dart';
-import 'package:flutter_application/features/holidays/core/holiday_model.dart'; // Import Holiday Model
-import 'package:flutter_application/shared/widgets/loading_screen.dart';
+import 'package:flutter_application/shared/widgets/toast_helper.dart';
+import 'package:flutter_application/shared/widgets/app_custom_dropdown.dart';
 
 class LeaveMobileView extends StatefulWidget {
   const LeaveMobileView({super.key});
@@ -28,954 +21,702 @@ class LeaveMobileView extends StatefulWidget {
   State<LeaveMobileView> createState() => _LeaveMobileViewState();
 }
 
-class _LeaveMobileViewState extends State<LeaveMobileView>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  late HolidayService _holidayService;
-
-  bool _isLoadingHolidays = false;
-  List<dynamic> _holidays = [];
-  bool _isAdmin = false;
+class _LeaveMobileViewState extends State<LeaveMobileView> {
+  final _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-
-    // Check role safely in post frame callback or init
-    // We defer tab controller init until we know the role,
-    // but better to just use a higher length and hide one, or re-init.
-    // Simpler: Check auth service directly here (it's synchronous for the user object usually)
-    // But safely, we do it in post frame or just read it.
-
-    final authService = Provider.of<AuthService>(context, listen: false);
-    _isAdmin = authService.user?.isAdmin ?? false;
-
-    _tabController = TabController(length: _isAdmin ? 3 : 2, vsync: this);
-    _tabController.addListener(() {
-      if (mounted) setState(() {});
-    });
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final dio = authService.dio;
-      _holidayService = HolidayService(dio);
-
-      _fetchHolidays();
-      // Fetch leaves via provider
-      context.read<LeaveProvider>().fetchMyLeaves();
+      if (mounted) {
+        context.read<LeaveProvider>().fetchLeaves();
+      }
     });
   }
 
-  Future<void> _fetchHolidays() async {
-    if (!mounted) return;
-    setState(() => _isLoadingHolidays = true);
-    try {
-      final data = await _holidayService.getHolidays();
-      if (mounted) setState(() => _holidays = data);
-    } catch (e) {
-      // Handle error
-    } finally {
-      if (mounted) setState(() => _isLoadingHolidays = false);
-    }
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
-  void _showApplyLeaveSheet() {
+  void _showAdminReviewSheet(LeaveRequest request) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => LeaveRequestForm(
-        onSuccess: () {
-          Navigator.pop(context);
-          context.showToast("Leave requested successfully.", isSuccess: true);
-          // Refresh my leaves
-          context.read<LeaveProvider>().fetchMyLeaves();
-        },
-      ),
-    );
-  }
-
-  Future<void> _withdrawRequest(int id) async {
-    debugPrint("LeaveMobileView: Attempting to withdraw request with ID: $id");
-    try {
-      final confirm = await CustomDialog.show(
-        context: context,
-        title: "Withdraw Request",
-        message:
-            "Are you sure you want to withdraw this leave request? This action cannot be undone.",
-        positiveButtonText: "Withdraw",
-        negativeButtonText: "Cancel",
-        isDestructive: true,
-        icon: Icons.warning_amber_rounded,
-        iconColor: Colors.red,
-        onPositivePressed: () {}, // Handled by show() returning true
-      );
-
-      if (confirm == true && mounted) {
-        await context.read<LeaveProvider>().withdrawRequest(id);
-        if (mounted) {
-          context.showToast(
-            "Leave request withdrawn successfully.",
-            isSuccess: true,
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Withdraw Failed: $e")));
-      }
-    }
-  }
-
-  // Admin Actions
-  void _showAddDialog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => HolidayFormDialog(
-        onSubmit: (data) async {
-          try {
-            await _holidayService.addHoliday(data);
-            if (!ctx.mounted) return;
-            Navigator.pop(ctx);
-            _fetchHolidays();
-            if (mounted) {
-              context.showToast("Holiday added successfully.", isSuccess: true);
-            }
-          } catch (e) {
-            if (mounted) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text("Error: $e")));
-            }
-          }
-        },
-      ),
-    );
-  }
-
-  void _showEditDialog(Holiday holiday) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => HolidayFormDialog(
-        initialData: holiday,
-        onSubmit: (data) async {
-          try {
-            await _holidayService.updateHoliday(holiday.id, data);
-            if (!ctx.mounted) return;
-            Navigator.pop(ctx);
-            _fetchHolidays();
-            if (mounted) {
-              context.showToast(
-                "Holiday updated successfully.",
-                isSuccess: true,
-              );
-            }
-          } catch (e) {
-            if (mounted) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text("Error: $e")));
-            }
-          }
-        },
-      ),
-    );
-  }
-
-  Future<void> _deleteHoliday(int id) async {
-    try {
-      await _holidayService.deleteHolidays([id]);
-      if (!mounted) return;
-      _fetchHolidays();
-      if (mounted) {
-        context.showToast("Holiday deleted successfully.", isSuccess: true);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Delete failed: $e")));
-      }
-    }
-  }
-
-  void _showDeleteConfirm(int id) {
-    CustomDialog.show(
-      context: context,
-      title: "Delete Holiday?",
-      message: "Are you sure you want to delete this holiday?",
-      positiveButtonText: "Delete",
-      isDestructive: true,
-      onPositivePressed: () {
-        _deleteHoliday(id);
-      },
-      negativeButtonText: "Cancel",
-      onNegativePressed: () {},
-      icon: Icons.delete_outline,
-      iconColor: Colors.red,
-    );
-  }
-
-  Future<void> _importCSV() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['csv'],
-      );
-
-      if (result != null && result.files.single.path != null) {
-        final file = File(result.files.single.path!);
-        final input = file.openRead();
-        final fields = await input
-            .transform(utf8.decoder)
-            .transform(const CsvToListConverter())
-            .toList();
-
-        if (fields.isEmpty) return;
-
-        // Expect contents: Name, Date, Type
-        // Skip header if first row looks like header
-        int startRow = 0;
-        if (fields[0].isNotEmpty &&
-            fields[0][0].toString().toLowerCase().contains('name')) {
-          startRow = 1;
-        }
-
-        final List<Map<String, dynamic>> batch = [];
-        for (int i = startRow; i < fields.length; i++) {
-          final row = fields[i];
-          if (row.length < 2) continue; // Skip invalid rows
-
-          // Safe row access
-          final name = row[0].toString();
-          // Date Parsing: Try to handle YYYY-MM-DD
-          final date = row[1].toString();
-          final type = row.length > 2 ? row[2].toString() : 'Public';
-
-          if (name.isNotEmpty && date.isNotEmpty) {
-            batch.add({
-              "holiday_name": name,
-              "holiday_date": date,
-              "holiday_type": type,
-            });
-          }
-        }
-
-        if (batch.isNotEmpty) {
-          if (!mounted) return;
-          setState(() => _isLoadingHolidays = true);
-          await _holidayService.addBulkHolidays(batch);
-          if (!mounted) return;
-          _fetchHolidays();
-          if (mounted) {
-            context.showToast(
-              "Imported ${batch.length} holidays successfully.",
-              isSuccess: true,
-            );
-          }
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("No valid data found in CSV")),
-            );
-          }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Import Failed: $e")));
-      }
-    } finally {
-      if (mounted) setState(() => _isLoadingHolidays = false);
-    }
-  }
-
-  Future<void> _downloadHolidayTemplate(BuildContext context) async {
-    try {
-      String path;
-      if (Platform.isAndroid) {
-        path = '/storage/emulated/0/Download/holidays_template.csv';
-      } else {
-        final dir =
-            await getDownloadsDirectory() ??
-            await getApplicationDocumentsDirectory();
-        path = '${dir.path}/holidays_template.csv';
-      }
-
-      final file = File(path);
-      await file.writeAsString(
-        "Name,Date,Type\n"
-        "New Year's Day,2026-01-01,Public\n"
-        "Good Friday,2026-04-03,Public\n"
-        "Independence Day,2026-08-15,Public",
-      );
-
-      if (!context.mounted) return;
-      context.showToast('Template saved to $path', isSuccess: true);
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to save template: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  void _showBulkImportBottomSheet(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Container(
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
-                ),
-                border: Border.all(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : Colors.black.withValues(alpha: 0.05),
-                  width: 1,
-                ),
-              ),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 40,
-                          height: 4,
-                          margin: const EdgeInsets.only(bottom: 24),
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.white24 : Colors.black12,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                      Text(
-                        "Bulk Import Holidays",
-                        style: GoogleFonts.poppins(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: isDark
-                              ? Colors.white
-                              : const Color(0xFF0F172A),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        "Upload a CSV file containing the list of holidays. Format should match the template below.",
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          color: isDark
-                              ? const Color(0xFF94A3B8)
-                              : const Color(0xFF64748B),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        "Dummy CSV Reference",
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white70 : Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF0F172A)
-                              : const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isDark ? Colors.white10 : Colors.grey[200]!,
-                          ),
-                        ),
-                        child: Table(
-                          columnWidths: const {
-                            0: FlexColumnWidth(2),
-                            1: FlexColumnWidth(2),
-                            2: FlexColumnWidth(1),
-                          },
-                          border: TableBorder.symmetric(
-                            inside: BorderSide(
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.05)
-                                  : Colors.grey[200]!,
-                            ),
-                          ),
-                          children: [
-                            TableRow(
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.02)
-                                    : Colors.grey[50]!,
-                              ),
-                              children: [
-                                _buildTableCell(
-                                  "Name",
-                                  isHeader: true,
-                                  isDark: isDark,
-                                ),
-                                _buildTableCell(
-                                  "Date",
-                                  isHeader: true,
-                                  isDark: isDark,
-                                ),
-                                _buildTableCell(
-                                  "Type",
-                                  isHeader: true,
-                                  isDark: isDark,
-                                ),
-                              ],
-                            ),
-                            TableRow(
-                              children: [
-                                _buildTableCell(
-                                  "New Year's Day",
-                                  isHeader: false,
-                                  isDark: isDark,
-                                ),
-                                _buildTableCell(
-                                  "2026-01-01",
-                                  isHeader: false,
-                                  isDark: isDark,
-                                ),
-                                _buildTableCell(
-                                  "Public",
-                                  isHeader: false,
-                                  isDark: isDark,
-                                ),
-                              ],
-                            ),
-                            TableRow(
-                              children: [
-                                _buildTableCell(
-                                  "Good Friday",
-                                  isHeader: false,
-                                  isDark: isDark,
-                                ),
-                                _buildTableCell(
-                                  "2026-04-03",
-                                  isHeader: false,
-                                  isDark: isDark,
-                                ),
-                                _buildTableCell(
-                                  "Public",
-                                  isHeader: false,
-                                  isDark: isDark,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      InkWell(
-                        onTap: () async {
-                          await _downloadHolidayTemplate(context);
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 12,
-                            horizontal: 16,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: isDark
-                                  ? Colors.white24
-                                  : Colors.grey[300]!,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.download_outlined,
-                                color: isDark
-                                    ? const Color(0xFF818CF8)
-                                    : const Color(0xFF4F46E5),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      "Download CSV Template",
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
-                                        color: isDark
-                                            ? Colors.white
-                                            : const Color(0xFF0F172A),
-                                      ),
-                                    ),
-                                    Text(
-                                      "Download sample holiday CSV file",
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 11,
-                                        color: isDark
-                                            ? Colors.white54
-                                            : Colors.grey[500],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _importCSV();
-                          },
-                          icon: const Icon(Icons.upload_file_outlined),
-                          label: Text(
-                            "Select & Import CSV",
-                            style: GoogleFonts.poppins(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF6366F1),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 0,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                  ),
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.9,
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF161B22) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 6),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-            );
-          },
+              Expanded(
+                child: AdminLeaveDetailView(
+                  request: request,
+                  onStatusUpdated: () {
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+            ],
+          ),
         );
       },
-    );
-  }
-
-  Widget _buildTableCell(
-    String text, {
-    required bool isHeader,
-    required bool isDark,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Text(
-        text,
-        style: GoogleFonts.poppins(
-          fontSize: 12,
-          fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
-          color: isHeader
-              ? (isDark ? Colors.white70 : Colors.black87)
-              : (isDark ? Colors.white54 : Colors.grey[800]),
-        ),
-      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    bool showFab = false;
-    // Admin: Show "Add Holiday" on Tab 0 (Holidays)
-    if (_isAdmin && _tabController.index == 0) {
-      showFab = true;
-    }
-    // Admin/Employee: Show "Apply Leave" on Tab 1 (My Leaves)
-    else if (_tabController.index == 1) {
-      showFab = true;
-    }
+    final authService = context.watch<AuthService>();
+    final isAdmin = authService.user?.isAdmin ?? false;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      floatingActionButton: showFab
-          ? FloatingActionButton(
-              onPressed: () {
-                if (_isAdmin && _tabController.index == 0) {
-                  _showAddDialog();
-                } else {
-                  _showApplyLeaveSheet();
-                }
-              },
-              backgroundColor: Theme.of(context).primaryColor,
-              elevation: 4,
-              child: Icon(
-                (_isAdmin && _tabController.index == 0)
-                    ? Icons.add
-                    : Icons.add, // Both are add, but actions differ
-                color: Colors.white,
-              ),
-            )
-          : null,
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  _buildTabs(context),
-                  if (_isAdmin && (!mounted || _tabController.index == 0))
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 4,
-                      ),
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton.icon(
-                          onPressed: () => _showBulkImportBottomSheet(context),
-                          icon: const Icon(Icons.upload_file, size: 18),
-                          label: const Text("Bulk Import"),
-                          style: TextButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ];
-        },
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildHolidaysList(context),
-            _buildLeaveList(context),
-            if (_isAdmin) AdminLeaveView(),
-          ],
-        ),
+      backgroundColor: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
+      body: SafeArea(
+        child: isAdmin ? _buildAdminView(context, isDark) : _buildEmployeeView(context, isDark),
       ),
     );
   }
 
-  Widget _buildHolidaysList(BuildContext context) {
-    Widget content;
-    if (_holidays.isEmpty) {
-      content = Center(
-        child: Text(
-          "No holidays found",
-          style: GoogleFonts.poppins(color: Colors.grey),
-        ),
-      );
-    } else {
-      content = ListView.builder(
-        padding: const EdgeInsets.only(left: 16, right: 16, top: 0, bottom: 80),
-        itemCount: _holidays.length,
-        itemBuilder: (context, index) {
-          final holiday = _holidays[index];
-          final dt = DateTime.parse(holiday.date);
-          final isDark = Theme.of(context).brightness == Brightness.dark;
+  // ==========================================================================
+  // ADMIN VIEW
+  // ==========================================================================
 
-          return InkWell(
-            onTap: () => HolidayDetailsDialog.showMobile(
-              context,
-              holiday: holiday,
-              isAdmin: _isAdmin,
-              onEdit: () => _showEditDialog(holiday),
-              onDelete: () => _showDeleteConfirm(holiday.id),
-            ),
-            child: GlassContainer(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? const Color(0xFF30363D)
-                          : Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
+  Widget _buildAdminView(BuildContext context, bool isDark) {
+    final provider = context.watch<LeaveProvider>();
+    final filtered = provider.adminFilteredLeaves;
+    final isLoading = provider.isLoadingAdminHistory;
+
+    final filterOptions = [
+      {'id': 'all', 'label': 'All'},
+      {'id': 'pending', 'label': 'Pending'},
+      {'id': 'approved', 'label': 'Approved'},
+      {'id': 'rejected', 'label': 'Rejected'},
+    ];
+
+    return Column(
+      children: [
+        // Search Bar & Apply Leave Button
+        Padding(
+          padding: const EdgeInsets.fromLTRB(10, 4, 10, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 36,
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (val) => provider.setSearchQuery(val),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: 'Search leave...',
+                      hintStyle: GoogleFonts.inter(fontSize: 11.5, color: Colors.grey),
+                      prefixIcon: const Icon(Icons.search_rounded, size: 16, color: Colors.grey),
+                      prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded, size: 14),
+                              onPressed: () {
+                                _searchController.clear();
+                                provider.setSearchQuery('');
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 28),
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: isDark ? const Color(0xFF161B22) : Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+                        ),
+                      ),
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          DateFormat('d').format(dt),
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: isDark
-                                ? const Color(0xFF818CF8)
-                                : Theme.of(context).primaryColor,
-                          ),
-                        ),
-                        Text(
-                          DateFormat('MMM').format(dt).toUpperCase(),
-                          style: GoogleFonts.poppins(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: isDark
-                                ? const Color(0xFF818CF8)
-                                : Theme.of(context).primaryColor,
-                          ),
-                        ),
-                      ],
+                    style: GoogleFonts.inter(fontSize: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 36,
+                child: ElevatedButton.icon(
+                  onPressed: () => ApplyLeaveSheet.show(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4F46E5),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          holiday.name,
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
+                  icon: const Icon(Icons.add_rounded, size: 15),
+                  label: Text(
+                    'Apply Leave',
+                    style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        // Status Filter Chips
+        SizedBox(
+          height: 32,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            scrollDirection: Axis.horizontal,
+            itemCount: filterOptions.length,
+            separatorBuilder: (_, index) => const SizedBox(width: 6),
+            itemBuilder: (context, index) {
+              final opt = filterOptions[index];
+              final isSelected = provider.statusFilter == opt['id'];
+
+              return ChoiceChip(
+                label: Text(opt['label']!),
+                selected: isSelected,
+                onSelected: (_) => provider.setStatusFilter(opt['id']!),
+                selectedColor: const Color(0xFF4F46E5),
+                backgroundColor: isDark ? const Color(0xFF161B22) : Colors.white,
+                labelStyle: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected
+                      ? Colors.white
+                      : (isDark ? Colors.white70 : Colors.grey.shade700),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                    color: isSelected
+                        ? const Color(0xFF4F46E5)
+                        : (isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0)),
+                  ),
+                ),
+                showCheckmark: false,
+              );
+            },
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        // Requests List
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () => provider.fetchAdminHistory(forceRefresh: true),
+            child: isLoading && provider.adminHistory.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : filtered.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.inbox_outlined,
+                              size: 48,
+                              color: isDark ? Colors.white24 : Colors.grey.shade300,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'No leave requests found.',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                color: isDark ? Colors.white38 : Colors.grey.shade500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final req = filtered[index];
+                          return AdminLeaveListItem(
+                            request: req,
+                            isSelected: false,
+                            onTap: () {
+                              provider.selectAdminLeave(req);
+                              _showAdminReviewSheet(req);
+                            },
+                          );
+                        },
+                      ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==========================================================================
+  // EMPLOYEE VIEW
+  // ==========================================================================
+
+  Widget _buildEmployeeView(BuildContext context, bool isDark) {
+    final provider = context.watch<LeaveProvider>();
+    final filteredLeaves = provider.filteredMyLeaves;
+    final balances = provider.myLeaveBalances;
+    final policies = provider.myLeavePolicies;
+    final isLoading = provider.isLoadingMyLeaves;
+
+    final monthNames = List.generate(
+      12,
+      (i) => DateFormat('MMMM').format(DateTime(2026, i + 1)),
+    );
+
+    return RefreshIndicator(
+      onRefresh: () => provider.fetchLeaves(forceRefresh: true),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 30),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Action Bar Card
+            Container(
+              margin: const EdgeInsets.fromLTRB(10, 4, 10, 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF161B22) : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'My Leave',
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF21262D) : const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(5),
+                                ),
+                                child: Text(
+                                  '${filteredLeaves.length} Requests',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? Colors.white70 : Colors.grey.shade700,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF6366F1).withValues(alpha: isDark ? 0.2 : 0.1),
+                                  borderRadius: BorderRadius.circular(5),
+                                  border: Border.all(
+                                    color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Text(
+                                  '${provider.totalApprovedDays} Days Approved',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF6366F1),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+
+                      ElevatedButton.icon(
+                        onPressed: () => ApplyLeaveSheet.show(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF4F46E5),
+                          foregroundColor: Colors.white,
+                          elevation: 1,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        Text(
-                          DateFormat('EEEE').format(dt),
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
+                        icon: const Icon(Icons.add_rounded, size: 15),
+                        label: Text(
+                          'Apply',
+                          style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold),
                         ),
-                      ],
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // Month & Year Filter Selectors
+                  Row(
+                    children: [
+                      // Month Selector
+                      Expanded(
+                        child: AppCustomDropdown<int>(
+                          hintText: 'Month',
+                          initialValue: provider.selectedMonth,
+                          isDense: true,
+                          prefixIcon: Icons.calendar_month_outlined,
+                          items: List.generate(12, (idx) {
+                            return AppDropdownItem<int>(
+                              value: idx,
+                              label: monthNames[idx],
+                              icon: Icons.calendar_today_rounded,
+                            );
+                          }),
+                          onChanged: (val) {
+                            if (val != null) provider.setSelectedMonth(val);
+                          },
+                        ),
+                      ),
+
+                      const SizedBox(width: 8),
+
+                      // Year Selector
+                      SizedBox(
+                        width: 100,
+                        child: AppCustomDropdown<int>(
+                          hintText: 'Year',
+                          initialValue: provider.selectedYear,
+                          isDense: true,
+                          prefixIcon: Icons.calendar_today_rounded,
+                          items: List.generate(5, (idx) {
+                            final yr = DateTime.now().year - 2 + idx;
+                            return AppDropdownItem<int>(
+                              value: yr,
+                              label: yr.toString(),
+                              icon: Icons.event_rounded,
+                            );
+                          }),
+                          onChanged: (val) {
+                            if (val != null) provider.setSelectedYear(val);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // SECTION 1: Leave Plan & Balances
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF6366F1),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'My Leave Plan & Balances',
+                        style: GoogleFonts.inter(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'Year ${provider.selectedYear}',
+                    style: GoogleFonts.inter(
+                      fontSize: 10.5,
+                      color: isDark ? Colors.white38 : Colors.grey.shade500,
                     ),
                   ),
                 ],
               ),
             ),
-          );
-        },
-      );
-    }
 
-    return LoadingScreen(
-      isLoading: _isLoadingHolidays,
-      message: "Loading holidays...",
-      child: content,
-    );
-  }
-
-  Widget _buildTabs(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isNarrow = MediaQuery.of(context).size.width < 360;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-      child: Container(
-        height: 48,
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isDark
-                ? const Color(0xFF30363D)
-                : Colors.black.withValues(alpha: 0.05),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: TabBar(
-          controller: _tabController,
-          onTap: (index) => setState(() {}),
-          labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-          indicatorSize: TabBarIndicatorSize.tab,
-          indicator: BoxDecoration(
-            color: isDark ? const Color(0xFF2D3139) : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
-              width: 1,
-            ),
-            boxShadow: isDark
-                ? []
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-          ),
-          dividerColor: Colors.transparent,
-          labelColor: isDark ? Colors.white : const Color(0xFF4F46E5),
-          unselectedLabelColor: isDark
-              ? const Color(0xFF94A3B8)
-              : const Color(0xFF64748B),
-          labelStyle: GoogleFonts.poppins(
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-          ),
-          unselectedLabelStyle: GoogleFonts.poppins(
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-          ),
-          tabs: [
-            Tab(
-              height: 38,
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.beach_access, size: 16),
-                    const SizedBox(width: 4),
-                    Text(isNarrow ? 'Hols' : 'Holidays'),
-                  ],
+            if (balances.isEmpty && policies.isEmpty) ...[
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 10),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF161B22) : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+                  ),
                 ),
-              ),
-            ),
-            Tab(
-              height: 38,
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.event_note, size: 16),
-                    const SizedBox(width: 4),
-                    Text(isNarrow ? 'Leaves' : 'My Leaves'),
-                  ],
-                ),
-              ),
-            ),
-            if (_isAdmin)
-              Tab(
-                height: 38,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                child: Center(
+                  child: Column(
                     children: [
-                      const Icon(Icons.admin_panel_settings, size: 16),
-                      const SizedBox(width: 4),
-                      Text(isNarrow ? 'Reqs' : 'Requests'),
+                      Icon(Icons.shield_outlined, size: 32, color: Colors.grey.shade400),
+                      const SizedBox(height: 6),
+                      Text(
+                        'No leave plan assigned yet',
+                        style: GoogleFonts.inter(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white70 : Colors.grey.shade700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Contact your HR team to get a leave policy assigned.',
+                        style: GoogleFonts.inter(
+                          fontSize: 10.5,
+                          color: isDark ? Colors.white38 : Colors.grey.shade500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ],
                   ),
                 ),
               ),
-          ],
-        ),
-      ),
-    );
-  }
+            ] else ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Policy Name & Description Header Badge (Matching Web)
+                    if (policies.isNotEmpty) ...[
+                      ...policies.where((p) => p['is_active'] != false).map((pol) {
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF161B22) : Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF6366F1).withValues(alpha: isDark ? 0.2 : 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Icon(
+                                  Icons.shield_outlined,
+                                  size: 14,
+                                  color: Color(0xFF6366F1),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      pol['name']?.toString() ?? 'Leave Policy',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    if (pol['description'] != null && pol['description'].toString().isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        pol['description'].toString(),
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10.5,
+                                          color: isDark ? Colors.white54 : Colors.grey.shade600,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
 
-  Widget _buildLeaveList(BuildContext context) {
-    return Consumer<LeaveProvider>(
-      builder: (context, provider, _) {
-        Widget content;
-        if (provider.myLeavesError != null) {
-          final raw = provider.myLeavesError!.toLowerCase();
-          final isConnectionIssue =
-              raw.contains('failed host lookup') ||
-              raw.contains('connection error') ||
-              raw.contains('socketexception') ||
-              raw.contains('network');
-          final message = isConnectionIssue
-              ? "Unable to load leave history. Please check your internet connection and try again."
-              : "Unable to load leave history right now. Please try again.";
-          content = Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+                    // Plan Rule Cards
+                    ...List.generate(
+                      balances.isNotEmpty ? balances.length : 1,
+                      (idx) {
+                        final bal = balances.isNotEmpty ? balances[idx] : null;
+                        final rule = {
+                          'name': bal?['leave_type'] ?? 'General Leave',
+                          'code': bal?['leave_code'] ?? 'GL',
+                          'accural_type': 'Standard Accrual',
+                        };
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: EmployeeLeavePlanCard(
+                            rule: rule,
+                            balance: bal,
+                            index: idx,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 12),
+
+            // SECTION 2: My Leave Requests
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
+              child: Row(
                 children: [
-                  Icon(
-                    Icons.info_outline,
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? const Color(0xFF8B949E)
-                        : const Color(0xFF64748B),
-                    size: 28,
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF6366F1),
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(width: 8),
                   Text(
-                    message,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? const Color(0xFF8B949E)
-                          : const Color(0xFF64748B),
+                    'My Leave Requests',
+                    style: GoogleFonts.inter(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
                     ),
                   ),
                 ],
               ),
             ),
-          );
-        } else if (provider.myLeaves.isEmpty) {
-          content = Center(
-            child: Text(
-              "No leave requests found",
-              style: GoogleFonts.poppins(color: Colors.grey),
-            ),
-          );
-        } else {
-          content = RefreshIndicator(
-            onRefresh: () => provider.fetchMyLeaves(forceRefresh: true),
-            child: ListView.builder(
-              padding: const EdgeInsets.only(
-                top: 8,
-                bottom: 80,
-              ), // bottom padding for FAB
-              itemCount: provider.myLeaves.length,
-              itemBuilder: (context, index) {
-                final request = provider.myLeaves[index];
-                return LeaveHistoryItem(
-                  request: request,
-                  onDelete: () => _withdrawRequest(request.id),
-                );
-              },
-            ),
-          );
-        }
 
-        return LoadingScreen(
-          isLoading: provider.isLoadingMyLeaves,
-          message: "Loading leaves...",
-          child: content,
-        );
-      },
+            if (isLoading && provider.myLeaves.isEmpty) ...[
+              const Center(child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(),
+              )),
+            ] else if (filteredLeaves.isEmpty) ...[
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 10),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF161B22) : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+                  ),
+                ),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.event_busy_outlined, size: 32, color: Colors.grey.shade400),
+                      const SizedBox(height: 8),
+                      Text(
+                        'No requests this month',
+                        style: GoogleFonts.inter(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white70 : Colors.grey.shade700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'No leave requests found for ${monthNames[provider.selectedMonth]} ${provider.selectedYear}.',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: isDark ? Colors.white38 : Colors.grey.shade500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ] else ...[
+              ...filteredLeaves.map((leave) {
+                return LeaveHistoryItem(
+                  request: leave,
+                  onDelete: leave.status == 'pending'
+                      ? () async {
+                          final confirm = await CustomDialog.show(
+                            context: context,
+                            title: 'Withdraw Request?',
+                            message: 'Are you sure you want to withdraw this leave request?',
+                            positiveButtonText: 'Withdraw',
+                            onPositivePressed: () {},
+                            isDestructive: true,
+                          );
+                          if (confirm == true && context.mounted) {
+                            await context.read<LeaveProvider>().withdrawRequest(leave.id);
+                            if (context.mounted) {
+                              context.showToast('Request withdrawn successfully.', isSuccess: true);
+                            }
+                          }
+                        }
+                      : null,
+                );
+              }),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
-
-// commit-marker: 2026-02-20T09:15:00+05:30
-
-// [mod:2026-02-20T14:00:00+05:30]
-
-// [rev:2026-08-25T15:30:00+05:30]

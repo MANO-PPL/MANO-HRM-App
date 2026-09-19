@@ -21,6 +21,8 @@ import 'package:flutter_application/features/attendance/core/attendance_record.d
 import 'package:flutter_application/features/attendance/core/live_attendance_item.dart';
 import 'package:flutter_application/features/attendance/core/attendance_provider.dart';
 import 'package:flutter_application/features/live_attendance/widgets/correction_requests_mobile_portrait_view.dart';
+import 'package:flutter_application/features/live_attendance/widgets/ai_summary_bottom_sheet.dart';
+import 'package:flutter_application/shared/widgets/interactive_image_viewer.dart';
 
 class MobileLiveAttendanceContent extends StatefulWidget {
   const MobileLiveAttendanceContent({super.key});
@@ -45,12 +47,15 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
   String _searchText = '';
   String _selectedDepartment = 'All Departments';
   List<String> _departments = ['All Departments'];
+  String _selectedShift = 'All Shifts';
+  List<String> _shifts = ['All Shifts'];
+  String _selectedStatusFilter = 'ALL'; // 'ALL', 'PRESENT', 'LATE', 'ABSENT', 'ON_LEAVE'
 
   // Map state
   LiveAttendanceItem? _selectedMapItem;
   AttendanceRecord? _selectedMapRecord;
   bool _isMapCheckIn = true;
-  String _activeMapTheme = 'voyager'; // 'dark', 'light', 'voyager', 'satellite', 'streets'
+  String _activeMapTheme = 'streets'; // 'streets', 'voyager', 'light', 'dark', 'satellite'
   bool _isMapThemeMenuOpen = false;
 
   // Cache
@@ -101,7 +106,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
         name.isNotEmpty ? name[0].toUpperCase() : '?',
         style: GoogleFonts.poppins(
           fontSize: fontSize ?? 12,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w600,
           color: color,
         ),
       ),
@@ -174,8 +179,16 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
   }
 
   void _updateStateWithItems(List<LiveAttendanceItem> items) {
-    final depts = items.map((i) => i.department).toSet().toList();
+    final depts = items.map((i) => i.department).where((d) => d.isNotEmpty).toSet().toList();
     depts.sort();
+
+    final shifts = items
+        .map((i) => i.user.shift)
+        .whereType<String>()
+        .where((s) => s.isNotEmpty)
+        .toSet()
+        .toList();
+    shifts.sort();
 
     setState(() {
       _items = items;
@@ -184,6 +197,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
       _absent = items.where((i) => i.status == "Absent").length;
       _late = items.where((i) => i.isLate).length;
       _departments = ['All Departments', ...depts];
+      _shifts = ['All Shifts', ...shifts];
     });
   }
 
@@ -199,7 +213,32 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
       final nameMatches = item.name.toLowerCase().contains(_searchText.toLowerCase()) ||
           item.designation.toLowerCase().contains(_searchText.toLowerCase());
       final deptMatches = _selectedDepartment == 'All Departments' || item.department == _selectedDepartment;
-      return nameMatches && deptMatches;
+      
+      final userShift = item.user.shift ?? '';
+      final shiftMatches = _selectedShift == 'All Shifts' ||
+          userShift == _selectedShift ||
+          (item.user.shiftId != null && item.user.shiftId.toString() == _selectedShift);
+
+      bool statusMatches = true;
+      if (_selectedStatusFilter != 'ALL') {
+        final statusLower = item.statusLabel.toLowerCase();
+        switch (_selectedStatusFilter) {
+          case 'PRESENT':
+            statusMatches = statusLower.contains('present') || statusLower.contains('active');
+            break;
+          case 'LATE':
+            statusMatches = item.isLate || statusLower.contains('late');
+            break;
+          case 'ABSENT':
+            statusMatches = statusLower.contains('absent');
+            break;
+          case 'ON_LEAVE':
+            statusMatches = statusLower.contains('leave');
+            break;
+        }
+      }
+
+      return nameMatches && deptMatches && shiftMatches && statusMatches;
     }).toList();
   }
 
@@ -220,7 +259,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 480),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  padding: const EdgeInsets.fromLTRB(10, 6, 10, 2),
                   child: _buildTabs(context),
                 ),
               ),
@@ -246,10 +285,10 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
     final pendingCount = context.watch<AttendanceProvider>().pendingCorrectionCount;
 
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: isDark ? const Color(0xFF30363D) : Colors.black.withValues(alpha: 0.05),
           width: 1,
@@ -257,8 +296,8 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -267,7 +306,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
         indicatorSize: TabBarIndicatorSize.tab,
         indicator: BoxDecoration(
           color: isDark ? const Color(0xFF2D3139) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(7),
           border: Border.all(
             color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
             width: 1,
@@ -286,49 +325,49 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
         labelColor: isDark ? Colors.white : const Color(0xFF4F46E5),
         unselectedLabelColor: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
         labelStyle: GoogleFonts.poppins(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
         ),
         unselectedLabelStyle: GoogleFonts.poppins(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
         ),
         tabs: [
           Tab(
-            height: 38,
+            height: 34,
             child: FittedBox(
               fit: BoxFit.scaleDown,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.dashboard_rounded, size: 18),
-                  const SizedBox(width: 8),
+                  const Icon(Icons.dashboard_rounded, size: 15),
+                  const SizedBox(width: 6),
                   Text(MediaQuery.of(context).size.width < 600 ? "Dashboard" : "Live Dashboard"),
                 ],
               ),
             ),
           ), 
           Tab(
-            height: 38,
+            height: 34,
             child: FittedBox(
               fit: BoxFit.scaleDown,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.pending_actions_rounded, size: 18),
-                  const SizedBox(width: 8),
+                  const Icon(Icons.pending_actions_rounded, size: 15),
+                  const SizedBox(width: 6),
                   Text(MediaQuery.of(context).size.width < 600 ? "Requests" : "Correction Requests"),
                   if (pendingCount > 0) ...[
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 5),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
                       decoration: BoxDecoration(
                         color: Colors.red, 
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
                         '$pendingCount',
-                        style: GoogleFonts.poppins(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.poppins(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ],
@@ -346,26 +385,26 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
       isLoading: _isLoading,
       message: "Syncing live feeds...",
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
         physics: const BouncingScrollPhysics(), 
         children: [
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           // Date Selector
           _buildDateSelector(context),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
 
           // 1. KPIs (2x2 Grid)
           _buildKPIGrid(),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
 
           // 2. Sub-Tabs Switcher (Overview, Analytics, Timeline, Map View)
           _buildSubTabsSwitcher(context),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
 
           // 3. Filters (Search & Dropdown) - Only show for Overview tab
           if (_activeSubTab == 'Overview') ...[
             _buildFilters(context),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
           ],
 
           // 4. Dynamic sub-tab content
@@ -376,9 +415,12 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
   }
 
   Widget _buildDateSelector(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
+        // Date Selector
         InkWell(
           onTap: () async {
             await showDialog(
@@ -398,11 +440,12 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             borderRadius: 10,
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   Icons.calendar_today, 
                   size: 13, 
-                  color: Theme.of(context).brightness == Brightness.dark 
+                  color: isDark 
                       ? Colors.white 
                       : Theme.of(context).primaryColor
                 ),
@@ -414,6 +457,75 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
               ],
             ),
           ),
+        ),
+
+        // Action Buttons: AI Summary & Refresh (matching Attendance-Web)
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // AI Summary Button (mirroring web AiSummaryModal)
+            InkWell(
+              onTap: () {
+                final auth = Provider.of<AuthService>(context, listen: false);
+                AiSummaryBottomSheet.show(
+                  context,
+                  selectedDate: _selectedDate,
+                  items: _items,
+                  dio: auth.dio,
+                );
+              },
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1.5),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.auto_awesome_rounded, size: 12, color: Colors.white),
+                    const SizedBox(width: 5),
+                    Text(
+                      'AI Insights',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+
+            // Refresh Button
+            InkWell(
+              onTap: () => _fetchDashboardData(forceRefresh: true),
+              borderRadius: BorderRadius.circular(10),
+              child: GlassContainer(
+                padding: const EdgeInsets.all(6),
+                borderRadius: 10,
+                child: Icon(
+                  Icons.refresh_rounded,
+                  size: 16,
+                  color: isDark ? Colors.white70 : const Color(0xFF475569),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -427,9 +539,9 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2, 
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      childAspectRatio: 1.45,
+      crossAxisSpacing: 8,
+      mainAxisSpacing: 8,
+      childAspectRatio: 1.52,
       children: [
         StatCard(
           title: 'Total Present',
@@ -500,19 +612,19 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 220),
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              margin: const EdgeInsets.only(right: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5.5),
               decoration: BoxDecoration(
                 // FIX: Selected tab uses primaryColor with strong visibility in dark mode
                 color: isSelected
                     ? primaryColor
                     : (isDark ? const Color(0xFF21262D) : Colors.grey[200]),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(8),
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
                           color: primaryColor.withValues(alpha: 0.35),
-                          blurRadius: 8,
+                          blurRadius: 6,
                           offset: const Offset(0, 2),
                         )
                       ]
@@ -522,15 +634,15 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
                 children: [
                   Icon(
                     tab['icon'] as IconData,
-                    size: 14,
+                    size: 13,
                     // FIX: White icon on selected (primaryColor bg), grey on unselected
                     color: isSelected ? Colors.white : Colors.grey,
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 5),
                   Text(
                     tab['label'] as String,
                     style: GoogleFonts.poppins(
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: FontWeight.w600,
                       // FIX: Always white text on selected tab (primaryColor bg)
                       color: isSelected
@@ -600,7 +712,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
                     "Not Checked In",
                     style: GoogleFonts.poppins(
                       fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                       color: Colors.grey[400],
                       letterSpacing: 1.2,
                     ),
@@ -627,21 +739,30 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
   }
 
   Widget _buildFilters(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white;
+    final borderColor = isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey[300]!;
+
+    final onLeaveCount = _items.where((i) => i.statusLabel.toLowerCase().contains('leave')).length;
+
+    final statusTabs = [
+      {'key': 'ALL', 'label': 'All', 'count': _items.length, 'color': const Color(0xFF6366F1)},
+      {'key': 'PRESENT', 'label': 'Present', 'count': _present + _active, 'color': const Color(0xFF10B981)},
+      {'key': 'LATE', 'label': 'Late', 'count': _late, 'color': const Color(0xFFF59E0B)},
+      {'key': 'ABSENT', 'label': 'Absent', 'count': _absent, 'color': const Color(0xFFEF4444)},
+      {'key': 'ON_LEAVE', 'label': 'On Leave', 'count': onLeaveCount, 'color': const Color(0xFF8B5CF6)},
+    ];
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Search
+        // 1. Search Bar
         Container(
-          height: 44,
+          height: 36,
           decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? Colors.white.withValues(alpha: 0.05) 
-                : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Theme.of(context).brightness == Brightness.dark 
-                  ? Colors.white.withValues(alpha: 0.1) 
-                  : Colors.grey[300]!,
-            ),
+            color: cardBg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: borderColor),
           ),
           child: TextField(
             controller: _searchController,
@@ -651,47 +772,185 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
               });
             },
             decoration: InputDecoration(
+              isDense: true,
               hintText: 'Search employee...',
-              prefixIcon: Icon(Icons.search, size: 20, color: Theme.of(context).textTheme.bodySmall?.color),
+              hintStyle: GoogleFonts.poppins(fontSize: 11.5),
+              prefixIcon: Icon(Icons.search, size: 16, color: Theme.of(context).textTheme.bodySmall?.color),
+              prefixIconConstraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+              suffixIcon: _searchText.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.close, size: 14),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchText = '');
+                      },
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 28),
+                    )
+                  : null,
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              contentPadding: const EdgeInsets.symmetric(vertical: 8),
             ),
-            style: GoogleFonts.poppins(fontSize: 14),
+            style: GoogleFonts.poppins(fontSize: 12),
           ),
         ),
-        const SizedBox(height: 12),
-        // Dropdown
-        Container(
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? Colors.white.withValues(alpha: 0.05) 
-                : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Theme.of(context).brightness == Brightness.dark 
-                  ? Colors.white.withValues(alpha: 0.1) 
-                  : Colors.grey[300]!,
+        const SizedBox(height: 8),
+
+        // 2. Dual Dropdowns Row: Department + Shift (matching Attendance-Web)
+        Row(
+          children: [
+            // Department Dropdown
+            Expanded(
+              child: Container(
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: borderColor),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    isExpanded: true,
+                    value: _departments.contains(_selectedDepartment) ? _selectedDepartment : 'All Departments',
+                    icon: Icon(Icons.keyboard_arrow_down, size: 18, color: Theme.of(context).textTheme.bodySmall?.color),
+                    dropdownColor: Theme.of(context).cardColor, 
+                    items: _departments
+                        .map((e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(
+                                e,
+                                style: GoogleFonts.poppins(fontSize: 11.5),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _selectedDepartment = val;
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ),
             ),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              isExpanded: true,
-              value: _selectedDepartment,
-              icon: Icon(Icons.keyboard_arrow_down, color: Theme.of(context).textTheme.bodySmall?.color),
-              dropdownColor: Theme.of(context).cardColor, 
-              items: _departments
-                  .map((e) => DropdownMenuItem(value: e, child: Text(e, style: GoogleFonts.poppins(fontSize: 14))))
-                  .toList(),
-              onChanged: (val) {
-                if (val != null) {
-                  setState(() {
-                    _selectedDepartment = val;
-                  });
-                }
-              },
+            const SizedBox(width: 8),
+
+            // Shift Dropdown
+            Expanded(
+              child: Container(
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: borderColor),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    isExpanded: true,
+                    value: _shifts.contains(_selectedShift) ? _selectedShift : 'All Shifts',
+                    icon: Icon(Icons.keyboard_arrow_down, size: 18, color: Theme.of(context).textTheme.bodySmall?.color),
+                    dropdownColor: Theme.of(context).cardColor, 
+                    items: _shifts
+                        .map((e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(
+                                e,
+                                style: GoogleFonts.poppins(fontSize: 11.5),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _selectedShift = val;
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ),
             ),
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        // 3. Quick Status Filter Chips (matching Attendance-Web status chips)
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: statusTabs.map((tab) {
+              final key = tab['key'] as String;
+              final isSelected = _selectedStatusFilter == key;
+              final color = tab['color'] as Color;
+              final count = tab['count'] as int;
+
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _selectedStatusFilter = key;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4.5),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? color.withValues(alpha: isDark ? 0.25 : 0.12)
+                          : (isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9)),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isSelected ? color : (isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0)),
+                        width: isSelected ? 1.2 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          tab['label'] as String,
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected
+                                ? color
+                                : (isDark ? Colors.white70 : const Color(0xFF475569)),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? color
+                                : (isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.06)),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '$count',
+                            style: GoogleFonts.poppins(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: isSelected ? Colors.white : (isDark ? Colors.white60 : Colors.black54),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         ),
       ],
@@ -858,7 +1117,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
         value: presentCount.toDouble(),
         title: '$presentCount',
         radius: 35,
-        titleStyle: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+        titleStyle: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
       ));
     }
     if (activeCount > 0) {
@@ -867,7 +1126,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
         value: activeCount.toDouble(),
         title: '$activeCount',
         radius: 35,
-        titleStyle: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+        titleStyle: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
       ));
     }
     if (lateCount > 0) {
@@ -876,7 +1135,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
         value: lateCount.toDouble(),
         title: '$lateCount',
         radius: 35,
-        titleStyle: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+        titleStyle: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
       ));
     }
     if (absentCount > 0) {
@@ -885,7 +1144,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
         value: absentCount.toDouble(),
         title: '$absentCount',
         radius: 35,
-        titleStyle: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+        titleStyle: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
       ));
     }
 
@@ -895,7 +1154,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
         value: 1,
         title: '0',
         radius: 35,
-        titleStyle: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+        titleStyle: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
       ));
     }
 
@@ -905,7 +1164,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Attendance Distribution", style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
+          Text("Attendance Distribution", style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
           const SizedBox(height: 16),
           SizedBox(
             height: 150,
@@ -994,7 +1253,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Staff Activity Velocity", style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
+          Text("Staff Activity Velocity", style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
           const SizedBox(height: 16),
           SizedBox(
             height: 160,
@@ -1123,7 +1382,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Department Health Stack", style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
+          Text("Department Health Stack", style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
           const SizedBox(height: 16),
           SizedBox(
             height: 160,
@@ -1230,7 +1489,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Session Intensity Distribution", style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
+          Text("Session Intensity Distribution", style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
           const SizedBox(height: 16),
           SizedBox(
             height: 160,
@@ -1337,7 +1596,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
                 Icon(Icons.view_timeline, size: 16, color: Theme.of(context).primaryColor),
                 const SizedBox(width: 8),
                 Text('Session Gantt Chart',
-                    style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
+                    style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1346,7 +1605,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text('${activeItems.length} employees',
-                      style: GoogleFonts.poppins(fontSize: 10, color: const Color(0xFF10B981), fontWeight: FontWeight.bold)),
+                      style: GoogleFonts.poppins(fontSize: 10, color: const Color(0xFF10B981), fontWeight: FontWeight.w600)),
                 ),
               ],
             ),
@@ -1547,11 +1806,11 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
   // ── flutter_map (OpenStreetMap / CARTO) ─────────────────────────
 
   static const Map<String, Map<String, String>> _mapThemes = {
-    'dark':    {'name': 'Night Mode',  'url': 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'},
-    'light':   {'name': 'Light Mode',  'url': 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'},
-    'voyager': {'name': 'Day Mode',    'url': 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'},
-    'satellite':{'name': 'Satellite',  'url': 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'},
-    'streets': {'name': 'Streets',     'url': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'},
+    'streets':   {'name': 'Streets',    'url': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'},
+    'voyager':   {'name': 'Day Mode',   'url': 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png'},
+    'light':     {'name': 'Light Mode', 'url': 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'},
+    'dark':      {'name': 'Night Mode', 'url': 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'},
+    'satellite': {'name': 'Satellite',  'url': 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'},
   };
 
   List<_MapMarkerData> _buildFlutterMapMarkers() {
@@ -1630,7 +1889,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
             child: Center(
               child: Text(
                 md.employee.name.isNotEmpty ? md.employee.name[0].toUpperCase() : '?',
-                style: GoogleFonts.poppins(color: color, fontWeight: FontWeight.bold, fontSize: 14),
+                style: GoogleFonts.poppins(color: color, fontWeight: FontWeight.w600, fontSize: 14),
               ),
             ),
           ),
@@ -1661,7 +1920,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
               children: [
                 TileLayer(
                   urlTemplate: tileUrl,
-                  subdomains: _activeMapTheme == 'satellite' ? const [] : const ['a', 'b', 'c'],
+                  subdomains: tileUrl.contains('{s}') ? const ['a', 'b', 'c'] : const [],
                   userAgentPackageName: 'com.example.flutter_application',
                   retinaMode: RetinaMode.isHighDensity(context),
                 ),
@@ -1730,7 +1989,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
                 const SizedBox(width: 4),
                 Text(
                   _mapThemes[_activeMapTheme]!['name']!,
-                  style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.bold,
+                  style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.w600,
                       color: isDark ? Colors.white : Colors.black87),
                 ),
                 const SizedBox(width: 4),
@@ -1829,7 +2088,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(item.name, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 13)),
+                    Text(item.name, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13)),
                     Text(item.designation, style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey)),
                   ],
                 ),
@@ -1868,7 +2127,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
                       ),
                       child: Text(
                         label,
-                        style: GoogleFonts.poppins(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.poppins(color: color, fontSize: 9, fontWeight: FontWeight.w600),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1900,8 +2159,21 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
                         imageUrl: image,
                         height: 90,
                         fit: BoxFit.cover,
-                        placeholder: (c, u) => Container(color: Colors.grey[800], child: const Center(child: CircularProgressIndicator())),
-                        errorWidget: (c, u, e) => Container(color: Colors.grey[800], child: const Icon(Icons.broken_image, color: Colors.grey)),
+                        placeholder: (c, u) => Container(
+                          color: Colors.grey[900], 
+                          child: const Center(
+                            child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF6366F1))),
+                          ),
+                        ),
+                        errorWidget: (c, u, e) => Image.network(
+                          image,
+                          height: 90,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: Colors.grey[900], 
+                            child: const Center(child: Icon(Icons.broken_image_rounded, color: Colors.white38)),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -1915,53 +2187,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
   }
 
   void _showPhotoViewer(BuildContext context, String imageUrl, String name) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            InteractiveViewer(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: CachedNetworkImage(
-                  imageUrl: imageUrl,
-                  fit: BoxFit.contain,
-                  placeholder: (c, u) => const SizedBox(width: 80, height: 80, child: CircularProgressIndicator()),
-                  errorWidget: (c, u, e) => const Icon(Icons.broken_image, size: 48, color: Colors.red),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 16,
-              right: 16,
-              child: CircleAvatar(
-                backgroundColor: Colors.black.withValues(alpha: 0.5),
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  name,
-                  style: GoogleFonts.poppins(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    InteractiveImageViewerDialog.show(context, imageUrl.trim(), title: "$name Selfie");
   }
 
   void _showEmployeeDetailsBottomSheet(BuildContext context, LiveAttendanceItem item) {
@@ -2021,7 +2247,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
                       children: [
                         Text(
                           item.name,
-                          style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
                         ),
                         Text(
                           "${item.designation} • ${item.department}",
@@ -2053,7 +2279,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
               
               Text(
                 "Sessions Activity",
-                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold),
+                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 12),
               
@@ -2088,7 +2314,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
                                 children: [
                                   Text(
                                     "Session #${index + 1}",
-                                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.blue),
+                                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 11, color: Colors.blue),
                                   ),
                                   const SizedBox(height: 8),
                                   Row(
@@ -2145,8 +2371,17 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
                                                       height: 70,
                                                       width: double.infinity,
                                                       fit: BoxFit.cover,
-                                                      placeholder: (c, u) => Container(color: Colors.grey[800], child: const Center(child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)))),
-                                                      errorWidget: (c, u, e) => Container(color: Colors.grey[800], child: const Icon(Icons.broken_image, size: 14, color: Colors.grey)),
+                                                      placeholder: (c, u) => Container(
+                                                        color: Colors.grey[900], 
+                                                        child: const Center(child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF6366F1)))),
+                                                      ),
+                                                      errorWidget: (c, u, e) => Image.network(
+                                                        session.timeInImage!,
+                                                        height: 70,
+                                                        width: double.infinity,
+                                                        fit: BoxFit.cover,
+                                                        errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey[900], child: const Icon(Icons.broken_image_rounded, size: 16, color: Colors.white38)),
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
@@ -2171,8 +2406,17 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
                                                       height: 70,
                                                       width: double.infinity,
                                                       fit: BoxFit.cover,
-                                                      placeholder: (c, u) => Container(color: Colors.grey[800], child: const Center(child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)))),
-                                                      errorWidget: (c, u, e) => Container(color: Colors.grey[800], child: const Icon(Icons.broken_image, size: 14, color: Colors.grey)),
+                                                      placeholder: (c, u) => Container(
+                                                        color: Colors.grey[900], 
+                                                        child: const Center(child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF6366F1)))),
+                                                      ),
+                                                      errorWidget: (c, u, e) => Image.network(
+                                                        session.timeOutImage!,
+                                                        height: 70,
+                                                        width: double.infinity,
+                                                        fit: BoxFit.cover,
+                                                        errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey[900], child: const Icon(Icons.broken_image_rounded, size: 16, color: Colors.white38)),
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
@@ -2207,7 +2451,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
           value,
           style: GoogleFonts.poppins(
             fontSize: 12,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
             color: color ?? (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
           ),
         ),
