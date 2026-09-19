@@ -1,12 +1,11 @@
-﻿import 'package:flutter/material.dart';
-import 'package:flutter_application/features/attendance/core/correction_request.dart'; // Add import for CorrectionType
-import 'package:flutter_application/shared/widgets/toast_helper.dart';
-import 'package:flutter_application/features/attendance/widgets/correction_request_form.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_application/features/attendance/core/correction_request.dart';
+import 'package:flutter_application/features/attendance/widgets/correction_request_dialog.dart';
 
-class CorrectionRequestDialogMobile extends StatefulWidget {
+class CorrectionRequestDialogMobile extends StatelessWidget {
   final int? attendanceId;
   final DateTime? initialDate;
-  final CorrectionType? initialType; // Added
+  final CorrectionType? initialType;
 
   const CorrectionRequestDialogMobile({
     super.key,
@@ -20,43 +19,23 @@ class CorrectionRequestDialogMobile extends StatefulWidget {
     int? attendanceId,
     DateTime? date,
     CorrectionType? type,
+    VoidCallback? onSuccess,
   }) async {
-    final result = await showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      constraints: const BoxConstraints(maxWidth: 500),
-      builder: (context) => CorrectionRequestDialogMobile(
-        attendanceId: attendanceId,
-        initialDate: date,
-        initialType: type,
-      ),
+    return CorrectionRequestDialog.show(
+      context,
+      attendanceId: attendanceId,
+      date: date,
+      type: type,
+      onSuccess: onSuccess,
     );
-
-    if (result == true && context.mounted) {
-       context.showToast("Your correction request has been sent for approval.", isSuccess: true);
-    }
   }
-
-  @override
-  State<CorrectionRequestDialogMobile> createState() => _CorrectionRequestDialogMobileState();
-}
-
-class _CorrectionRequestDialogMobileState extends State<CorrectionRequestDialogMobile> {
 
   @override
   Widget build(BuildContext context) {
-    return CorrectionRequestForm(
-      initialDate: widget.initialDate,
-      initialType: widget.initialType, // Pass to form
-      onClose: () => Navigator.pop(context),
-      onSuccess: () {
-        Navigator.pop(context, true);
-      },
+    return CorrectionRequestDialog(
+      attendanceId: attendanceId,
+      initialDate: initialDate,
+      initialType: initialType,
     );
   }
 }
-
-
-
-// [upd:2026-04-16T14:00:00+05:30]

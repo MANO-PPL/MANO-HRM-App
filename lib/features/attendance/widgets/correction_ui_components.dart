@@ -30,7 +30,7 @@ class CorrectionHeader extends StatelessWidget {
             title,
             style: GoogleFonts.poppins(
               fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
               color: isDark ? Colors.white : const Color(0xFF1F2937),
             ),
           ),
@@ -62,7 +62,7 @@ class CorrectionLabel extends StatelessWidget {
         label.toUpperCase(),
         style: GoogleFonts.poppins(
           fontSize: 11,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w600,
           color: isDark ? Colors.white70 : const Color(0xFF6B7280),
           letterSpacing: 0.5,
         ),
@@ -238,7 +238,7 @@ class CorrectionSegmentedControl<T> extends StatelessWidget {
                     entry.value,
                     style: GoogleFonts.poppins(
                       fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                       color: isSelected 
                           ? (isDark ? const Color(0xFF818CF8) : const Color(0xFF4F46E5)) 
                           : (isDark ? Colors.white54 : const Color(0xFF6B7280)),
@@ -286,7 +286,7 @@ class CorrectionDashedButton extends StatelessWidget {
                     label,
                     style: GoogleFonts.poppins(
                       fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                       color: isDark ? Colors.white70 : const Color(0xFF4B5563),
                     ),
                   ),
@@ -380,7 +380,7 @@ class CorrectionSubmitButton extends StatelessWidget {
                     label,
                     style: GoogleFonts.poppins(
                       fontSize: 15,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -431,7 +431,7 @@ class CorrectionDetailCard extends StatelessWidget {
             value,
             style: GoogleFonts.poppins(
               fontSize: 16,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
               color: textColor ?? (isDark ? Colors.white : const Color(0xFF1F2937)),
             ),
           ),
@@ -488,7 +488,7 @@ class CorrectionAuditItem extends StatelessWidget {
                 title,
                 style: GoogleFonts.poppins(
                   fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
                   color: isDark ? Colors.white : const Color(0xFF1F2937),
                 ),
               ),

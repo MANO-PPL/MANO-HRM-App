@@ -1,12 +1,12 @@
-﻿import 'package:flutter/material.dart';
-import 'package:flutter_application/features/attendance/core/correction_request.dart'; // Add import for CorrectionType
+import 'package:flutter/material.dart';
+import 'package:flutter_application/features/attendance/core/correction_request.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
 import 'package:flutter_application/features/attendance/widgets/correction_request_form.dart';
 
 class CorrectionRequestDialog extends StatefulWidget {
-  final int? attendanceId; // Optional, if correcting a specific record
+  final int? attendanceId;
   final DateTime? initialDate;
-  final CorrectionType? initialType; // Added
+  final CorrectionType? initialType;
 
   const CorrectionRequestDialog({
     super.key,
@@ -20,21 +20,77 @@ class CorrectionRequestDialog extends StatefulWidget {
     int? attendanceId,
     DateTime? date,
     CorrectionType? type,
+    VoidCallback? onSuccess,
   }) async {
-    final result = await showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      constraints: const BoxConstraints(maxWidth: 500),
-      builder: (context) => CorrectionRequestDialog(
-        attendanceId: attendanceId,
-        initialDate: date,
-        initialType: type,
-      ),
-    );
+    final size = MediaQuery.of(context).size;
+    final width = size.width;
 
-    if (result == true && context.mounted) {
-       context.showToast("Your correction request has been sent for approval.", isSuccess: true);
+    bool? result;
+
+    if (width >= 900) {
+      // 1. Tablet Landscape / Desktop: Render as elegant centered wide modal
+      result = await showDialog<bool>(
+        context: context,
+        barrierDismissible: true,
+        barrierColor: Colors.black.withValues(alpha: 0.5),
+        builder: (context) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 840,
+                maxHeight: size.height * 0.90,
+              ),
+              child: CorrectionRequestDialog(
+                attendanceId: attendanceId,
+                initialDate: date,
+                initialType: type,
+              ),
+            ),
+          ),
+        ),
+      );
+    } else if (width >= 600) {
+      // 2. Tablet Portrait: Bottom sheet modal constrained to max 600px
+      result = await showModalBottomSheet<bool>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        useSafeArea: true,
+        constraints: BoxConstraints(
+          maxWidth: 600,
+          maxHeight: size.height * 0.92,
+        ),
+        builder: (context) => CorrectionRequestDialog(
+          attendanceId: attendanceId,
+          initialDate: date,
+          initialType: type,
+        ),
+      );
+    } else {
+      // 3. Mobile Portrait: Full-width bottom sheet with swipe handle
+      result = await showModalBottomSheet<bool>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        useSafeArea: true,
+        constraints: BoxConstraints(
+          maxHeight: size.height * 0.94,
+        ),
+        builder: (context) => CorrectionRequestDialog(
+          attendanceId: attendanceId,
+          initialDate: date,
+          initialType: type,
+        ),
+      );
+    }
+
+    if (result == true) {
+      if (context.mounted) {
+        context.showToast("Your correction request has been sent for approval.", isSuccess: true);
+      }
+      onSuccess?.call();
     }
   }
 
@@ -43,18 +99,13 @@ class CorrectionRequestDialog extends StatefulWidget {
 }
 
 class _CorrectionRequestDialogState extends State<CorrectionRequestDialog> {
-
   @override
   Widget build(BuildContext context) {
     return CorrectionRequestForm(
       initialDate: widget.initialDate,
-      initialType: widget.initialType, // Pass to form
+      initialType: widget.initialType,
       onClose: () => Navigator.pop(context),
-      onSuccess: () {
-        Navigator.pop(context, true);
-      },
+      onSuccess: () => Navigator.pop(context, true),
     );
   }
 }
-
-// [mod:2026-02-17T17:00:00+05:30]
