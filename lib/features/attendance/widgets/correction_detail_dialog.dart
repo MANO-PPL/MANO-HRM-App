@@ -1,4 +1,3 @@
-﻿
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -8,41 +7,53 @@ import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/shared/constants/api_constants.dart';
 import 'package:flutter_application/features/attendance/core/correction_request.dart';
 import 'package:flutter_application/features/attendance/core/attendance_service.dart';
-import 'package:flutter_application/features/attendance/widgets/correction_ui_components.dart';
+import 'package:flutter_application/features/attendance/widgets/visual_correction_timeline.dart';
+import 'package:flutter_application/features/attendance/widgets/correction_document_card.dart';
+import 'package:flutter_application/features/attendance/widgets/correction_reject_dialog.dart';
+import 'package:flutter_application/shared/models/user_model.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
 
+/// Detailed view of a correction request with Visual 24h Timeline, Supporting Document Proof,
+/// Stated Justification, Audit Trail, and Admin Actions (Approve, Reject with Presets, Manual Override).
+/// Directly mirroring `CorrectionRequestsTab.jsx` from Attendance-Web.
 class CorrectionDetailDialog extends StatefulWidget {
   final AttendanceCorrectionRequest request;
   final VoidCallback onStatusChanged;
   final bool isBottomSheet;
+  final bool isEmbedded;
+  final VoidCallback? onClose;
 
   const CorrectionDetailDialog({
-    super.key, 
+    super.key,
     required this.request,
     required this.onStatusChanged,
     this.isBottomSheet = false,
+    this.isEmbedded = false,
+    this.onClose,
   });
 
-  /// Always shows as a bottom sheet sliding from the bottom of the screen.
-  /// On tablet, constrained to maxWidth: 560 centred.
   static Future<void> show(
     BuildContext context, {
     required AttendanceCorrectionRequest request,
     required VoidCallback onStatusChanged,
   }) async {
+    final size = MediaQuery.of(context).size;
+    final isTablet = size.width >= 600;
+
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width < 600 
-            ? double.infinity 
-            : 560,
+        maxWidth: isTablet ? 680 : double.infinity,
+        maxHeight: size.height * 0.94,
       ),
       builder: (context) => CorrectionDetailDialog(
         request: request,
         onStatusChanged: onStatusChanged,
         isBottomSheet: true,
+        onClose: () => Navigator.pop(context),
       ),
     );
   }
@@ -56,26 +67,35 @@ class _CorrectionDetailDialogState extends State<CorrectionDetailDialog> {
   bool _isLoading = false;
   bool _isFetching = true;
   AttendanceCorrectionRequest? _fullRequest;
-  final TextEditingController _commentController = TextEditingController();
-  
-  // Override State
+
+  // Manual Override State
   bool _isOverride = false;
-  CorrectionMethod? _overrideMethod;
-  final TextEditingController _overrideInController = TextEditingController();
-  final TextEditingController _overrideOutController = TextEditingController();
+  List<Map<String, dynamic>> _overrideSessions = [];
 
   @override
   void initState() {
     super.initState();
     final authService = Provider.of<AuthService>(context, listen: false);
     _service = AttendanceService(authService.dio);
-    
-    // Pre-fill overrides with requested times from initial data
-    _overrideMethod = widget.request.method;
-    _overrideInController.text = widget.request.requestedTimeIn ?? '';
-    _overrideOutController.text = widget.request.requestedTimeOut ?? '';
 
+    _initOverrideSessionsFromRequest(widget.request);
     _fetchRequestDetails();
+  }
+
+  void _initOverrideSessionsFromRequest(AttendanceCorrectionRequest req) {
+    if (req.sessions.isNotEmpty) {
+      _overrideSessions = List<Map<String, dynamic>>.from(req.sessions);
+    } else if (req.timeIn != null || req.timeOut != null) {
+      _overrideSessions = [
+        {
+          'time_in': req.timeIn ?? '',
+          'time_out': req.timeOut ?? '',
+          'punch_type': 'regular',
+        }
+      ];
+    } else {
+      _overrideSessions = [];
+    }
   }
 
   Future<void> _fetchRequestDetails() async {
@@ -85,604 +105,719 @@ class _CorrectionDetailDialogState extends State<CorrectionDetailDialog> {
         setState(() {
           _fullRequest = detail;
           _isFetching = false;
-          // Refresh override controllers if they were empty or to match full data
-          if (_overrideInController.text.isEmpty) {
-             _overrideInController.text = detail.requestedTimeIn ?? '';
-          }
-          if (_overrideOutController.text.isEmpty) {
-             _overrideOutController.text = detail.requestedTimeOut ?? '';
-          }
+          _initOverrideSessionsFromRequest(detail);
         });
       }
     } catch (e) {
       debugPrint("Error fetching correction detail: $e");
-      if (mounted) {
-        setState(() => _isFetching = false);
-      }
+      if (mounted) setState(() => _isFetching = false);
     }
   }
 
-  Future<void> _updateStatus(RequestStatus status) async {
-    if (status == RequestStatus.rejected && _commentController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Comment is required for rejection')));
-      return;
-    }
-
+  Future<void> _handleApprove() async {
     setState(() => _isLoading = true);
-    
     try {
-      List<Map<String, String>>? overrideSessions;
-
-      if (_isOverride && _overrideMethod != null) {
-        final inTime = _overrideInController.text.contains(':') && _overrideInController.text.split(':').length == 2 
-            ? '${_overrideInController.text}:00' 
-            : _overrideInController.text;
-        final outTime = _overrideOutController.text.contains(':') && _overrideOutController.text.split(':').length == 2 
-            ? '${_overrideOutController.text}:00' 
-            : _overrideOutController.text;
-
-        // Both addSession and reset/fix use sessions array in the backend
-        overrideSessions = [{'time_in': inTime, 'time_out': outTime}];
+      List<Map<String, String>>? overrideSessionsToSend;
+      if (_isOverride && _overrideSessions.isNotEmpty) {
+        overrideSessionsToSend = _overrideSessions.map<Map<String, String>>((s) {
+          final inT = s['time_in']?.toString() ?? '';
+          final outT = s['time_out']?.toString() ?? '';
+          return {
+            'time_in': inT.length == 5 ? '$inT:00' : inT,
+            'time_out': outT.length == 5 ? '$outT:00' : outT,
+          };
+        }).toList();
       }
 
       await _service.processCorrectionRequest(
         widget.request.id,
-        status: status.toString().split('.').last.toLowerCase(),
-        reviewComments: _commentController.text.isNotEmpty ? _commentController.text : null,
-        sessions: overrideSessions,
+        status: 'approved',
+        reviewComments: _isOverride ? 'Approved with manual override' : 'Approved by administrator',
+        sessions: overrideSessionsToSend,
       );
-      
+
       if (!mounted) return;
-      Navigator.pop(context);
+      if (!widget.isEmbedded) Navigator.pop(context);
       widget.onStatusChanged();
-      
-      if (!mounted) return;
-      if (status == RequestStatus.approved) {
-        context.showToast("The attendance correction has been successfully approved.", isSuccess: true);
-      } else {
-        context.showToast("The correction request has been rejected.", isSuccess: true);
-      }
+      context.showToast(
+        _isOverride ? "Correction approved with manual override!" : "Correction request approved successfully!",
+        isSuccess: true,
+      );
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) {
+        context.showToast('Error: $e', isError: true);
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _pickOverrideTime(bool isTimeIn) async {
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-      builder: (context, child) {
-        return Theme(
-          data: ThemeData.light().copyWith(
-            primaryColor: const Color(0xFF4F46E5),
-            colorScheme: const ColorScheme.light(primary: Color(0xFF4F46E5)),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (time != null) {
-      setState(() {
-        final formatted = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-        if (isTimeIn) {
-          _overrideInController.text = formatted;
-        } else {
-          _overrideOutController.text = formatted;
-        }
-      });
+  Future<void> _handleReject(String reason) async {
+    setState(() => _isLoading = true);
+    try {
+      await _service.processCorrectionRequest(
+        widget.request.id,
+        status: 'rejected',
+        reviewComments: reason,
+      );
+
+      if (!mounted) return;
+      if (!widget.isEmbedded) Navigator.pop(context);
+      widget.onStatusChanged();
+      context.showToast("Correction request has been rejected.", isSuccess: true);
+    } catch (e) {
+      if (mounted) {
+        context.showToast('Error: $e', isError: true);
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _openRejectDialog(AttendanceCorrectionRequest req) async {
+    await CorrectionRejectDialog.show(
+      context,
+      userName: req.userName,
+      requestDate: req.requestDate,
+      onConfirm: _handleReject,
+    );
+  }
+
+  bool _isUserMatch(AttendanceCorrectionRequest r, User? user) {
+    if (user == null) return false;
+    final rUid = r.userId.trim().toLowerCase();
+    final rEmpId = (r.employeeId ?? '').trim().toLowerCase();
+    final rUname = r.userName.trim().toLowerCase();
+
+    final myId = user.id.trim().toLowerCase();
+    final myEmpId = user.employeeId.trim().toLowerCase();
+    final myUsername = user.username.trim().toLowerCase();
+    final myName = user.name.trim().toLowerCase();
+
+    if (rUid.isNotEmpty) {
+      if (myId.isNotEmpty && rUid == myId) return true;
+      if (myEmpId.isNotEmpty && rUid == myEmpId) return true;
+      if (myUsername.isNotEmpty && rUid == myUsername) return true;
+    }
+
+    if (rEmpId.isNotEmpty) {
+      if (myId.isNotEmpty && rEmpId == myId) return true;
+      if (myEmpId.isNotEmpty && rEmpId == myEmpId) return true;
+      if (myUsername.isNotEmpty && rEmpId == myUsername) return true;
+    }
+
+    if (rUname.isNotEmpty && rUname != 'unknown' && myName.isNotEmpty && rUname == myName) {
+      return true;
+    }
+
+    return false;
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final req = _fullRequest ?? widget.request;
+
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUser = authService.user;
+    final isOwnRequest = _isUserMatch(req, currentUser);
+    final isAdmin = (currentUser?.isAdmin ?? false) && !isOwnRequest;
+    final isPending = req.status == RequestStatus.pending;
+
     String? avatarUrl = req.userAvatar;
     if (avatarUrl != null && avatarUrl.isNotEmpty && !avatarUrl.startsWith('http')) {
-      avatarUrl = avatarUrl.startsWith('/') ? '${ApiConstants.baseUrl}$avatarUrl' : '${ApiConstants.baseUrl}/$avatarUrl';
+      avatarUrl = avatarUrl.startsWith('/')
+          ? '${ApiConstants.baseUrl}$avatarUrl'
+          : '${ApiConstants.baseUrl}/$avatarUrl';
     }
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final isOwnRequest = req.userId == authService.user?.id;
-    final isAdmin = (authService.user?.isAdmin ?? false) && !isOwnRequest;
+
+    final originalSessions = req.originalSessions ?? [];
+    final proposedSessions = req.sessions.isNotEmpty
+        ? req.sessions
+        : (req.timeIn != null || req.timeOut != null
+            ? [
+                {'time_in': req.timeIn ?? '', 'time_out': req.timeOut ?? ''}
+              ]
+            : <Map<String, dynamic>>[]);
 
     final bgColor = isDark ? const Color(0xFF161B22) : Colors.white;
+    final borderColor = isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0);
 
-    // Bottom sheet container that sizes to its content (max 92% of screen height)
-    final sheetContent = Container(
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border(
-            top: BorderSide(
-              color: isDark ? const Color(0xFF30363D) : Colors.grey[200]!,
-              width: 1,
-            ),
-          ),
-        ),
-        child: SafeArea(
-          bottom: true,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // ── Drag Handle ──
-              Container(
-                margin: const EdgeInsets.only(top: 12, bottom: 4),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF30363D) : Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-
-            // HEADER SECTION
-             Padding(
-               padding: const EdgeInsets.fromLTRB(24, 12, 8, 0),
-               child: Column(
-                 crossAxisAlignment: CrossAxisAlignment.start,
-                 children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${req.typeLabel} Request',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                        color: isDark ? Colors.white : const Color(0xFF1F2937),
-                                      ),
-                                    ),
-                                    Row(
-                                      children: [
-                                        CircleAvatar(
-                                          radius: 12,
-                                          backgroundColor: isDark ? const Color(0xFF5B60F6) : Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                                          child: ClipRRect(
-                                            borderRadius: BorderRadius.circular(12),
-                                            child: avatarUrl != null && avatarUrl.isNotEmpty
-                                                ? CachedNetworkImage(
-                                                    imageUrl: avatarUrl,
-                                                    fit: BoxFit.cover,
-                                                    width: 24,
-                                                    height: 24,
-                                                    placeholder: (context, url) => Center(
-                                                      child: Text(
-                                                        req.userName.isNotEmpty ? req.userName[0] : '?',
-                                                        style: TextStyle(
-                                                          color: isDark ? Colors.white : Theme.of(context).primaryColor, 
-                                                          fontWeight: FontWeight.bold, 
-                                                          fontSize: 8
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    errorWidget: (context, url, error) => Center(
-                                                      child: Text(
-                                                        req.userName.isNotEmpty ? req.userName[0] : '?',
-                                                        style: TextStyle(
-                                                          color: isDark ? Colors.white : Theme.of(context).primaryColor, 
-                                                          fontWeight: FontWeight.bold, 
-                                                          fontSize: 8
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  )
-                                                : Text(
-                                                    req.userName.isNotEmpty ? req.userName[0] : '?',
-                                                    style: TextStyle(
-                                                      color: isDark ? Colors.white : Theme.of(context).primaryColor, 
-                                                      fontWeight: FontWeight.bold, 
-                                                      fontSize: 8
-                                                    ),
-                                                  ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'By ${req.userName} (${req.designation ?? (req.desgId == 1 ? "Manager" : "Employee")})',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 12,
-                                            color: isDark ? Colors.white54 : const Color(0xFF6B7280),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              IconButton(
-                                icon: Icon(Icons.close, color: isDark ? Colors.white70 : const Color(0xFF6B7280)),
-                                onPressed: () => Navigator.pop(context),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          if (req.status == RequestStatus.pending && isAdmin)
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildHeaderAction(
-                                    icon: Icons.cancel_outlined,
-                                    label: 'Reject',
-                                    color: Colors.red,
-                                    onPressed: _isLoading ? null : () => _updateStatus(RequestStatus.rejected),
-                                    isDark: isDark,
-                                    compact: true,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: _buildHeaderAction(
-                                    icon: Icons.check_circle_outline,
-                                    label: 'Approve',
-                                    color: const Color(0xFF059669),
-                                    onPressed: _isLoading ? null : () => _updateStatus(RequestStatus.approved),
-                                    isDark: isDark,
-                                    isPrimary: true,
-                                    compact: true,
-                                  ),
-                                ),
-                              ],
-                            ),
-                   const SizedBox(height: 16),
-                   if (req.status == RequestStatus.pending && isAdmin)
-                     Row(
-                       children: [
-                         SizedBox(
-                           height: 24,
-                           width: 24,
-                           child: Checkbox(
-                             value: _isOverride,
-                             onChanged: (val) => setState(() => _isOverride = val ?? false),
-                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                           ),
-                         ),
-                         const SizedBox(width: 8),
-                         Text(
-                           'Override Request Details',
-                           style: GoogleFonts.poppins(
-                             fontSize: 14,
-                             fontWeight: FontWeight.w600,
-                             color: isDark ? Colors.white : const Color(0xFF1F2937),
-                           ),
-                         ),
-                       ],
-                     ),
-                 ],
-               ),
-             ),
-             
-             Divider(height: 1, color: isDark ? Colors.white10 : Colors.black12),
-             ConstrainedBox(
-               constraints: BoxConstraints(
-                 maxHeight: MediaQuery.of(context).size.height * 0.65,
-               ),
-               child: _isFetching 
-                 ? const Center(child: CircularProgressIndicator())
-                 : SingleChildScrollView(
-                 padding: const EdgeInsets.all(24),
-                 child: Column(
-                   crossAxisAlignment: CrossAxisAlignment.start,
-                   children: [
-                     // MAIN GRID
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final isMobile = constraints.maxWidth < 600;
-                          final body = [
-                            // LEFT COLUMN: CORRECTION DETAILS
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildSectionTitle('CORRECTION DETAILS', isDark),
-                                const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: CorrectionDetailCard(
-                                        label: 'Request Type',
-                                        value: req.typeLabel.toUpperCase(),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: CorrectionDetailCard(
-                                        label: 'Method',
-                                        value: req.methodLabel.replaceAll('_', ' ').toUpperCase(),
-                                        backgroundColor: isDark ? const Color(0xFF4F46E5).withValues(alpha: 0.1) : const Color(0xFFEEF2FF),
-                                        textColor: const Color(0xFF4F46E5),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                // Requested Sessions Card
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: isDark ? Colors.white.withValues(alpha: 0.03) : const Color(0xFFF9FAFB),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE5E7EB)),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Requested Sessions',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 12,
-                                          color: isDark ? Colors.white54 : const Color(0xFF6B7280),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      if (req.sessions.isEmpty && req.timeIn == null && req.timeOut == null)
-                                        Text('No sessions requested', style: GoogleFonts.poppins(fontSize: 14, color: isDark ? Colors.white24 : Colors.black26))
-                                      else ...[
-                                        if (req.sessions.isNotEmpty)
-                                          ...req.sessions.map((s) => Padding(
-                                            padding: const EdgeInsets.only(bottom: 4.0),
-                                            child: Text(
-                                              '• ${s['time_in']} - ${s['time_out']}', 
-                                              style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
-                                            ),
-                                          )),
-                                        if (req.timeIn != null)
-                                           Text('In: ${req.timeIn}', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
-                                        if (req.timeOut != null)
-                                           Text('Out: ${req.timeOut}', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                                
-                                if (_isOverride) ...[
-                                   const SizedBox(height: 24),
-                                   _buildSectionTitle('ADMIN OVERRIDE', isDark),
-                                   const SizedBox(height: 12),
-                                   CorrectionSegmentedControl<CorrectionMethod>(
-                                     value: (_overrideMethod == null || _overrideMethod == CorrectionMethod.fix) 
-                                         ? CorrectionMethod.addSession 
-                                         : _overrideMethod!,
-                                     items: {
-                                       CorrectionMethod.reset: 'Reset Day',
-                                       CorrectionMethod.addSession: 'Manual Correction',
-                                     },
-                                     onChanged: (val) => setState(() => _overrideMethod = val),
-                                   ),
-                                   const SizedBox(height: 12),
-                                   Row(
-                                     children: [
-                                       Expanded(
-                                         child: CorrectionInputField(
-                                           value: _overrideInController.text.isEmpty ? '--:--' : _overrideInController.text,
-                                           suffixIcon: Icons.access_time,
-                                           onTap: () => _pickOverrideTime(true),
-                                         ),
-                                       ),
-                                       const SizedBox(width: 12),
-                                       Expanded(
-                                         child: CorrectionInputField(
-                                           value: _overrideOutController.text.isEmpty ? '--:--' : _overrideOutController.text,
-                                           suffixIcon: Icons.access_time,
-                                           onTap: () => _pickOverrideTime(false),
-                                         ),
-                                       ),
-                                     ],
-                                   ),
-                                ],
-                              ],
-                            ),
-
-                            // RIGHT COLUMN: JUSTIFICATION
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                 if (isMobile) const SizedBox(height: 24),
-                                 _buildSectionTitle('JUSTIFICATION & COMMENTS', isDark),
-                                 const SizedBox(height: 12),
-                                 // Reason Card
-                                 Container(
-                                   width: double.infinity,
-                                   padding: const EdgeInsets.all(16),
-                                   decoration: BoxDecoration(
-                                     color: isDark ? Colors.white.withValues(alpha: 0.03) : const Color(0xFFF9FAFB),
-                                     borderRadius: BorderRadius.circular(12),
-                                     border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE5E7EB)),
-                                   ),
-                                   child: Row(
-                                     crossAxisAlignment: CrossAxisAlignment.start,
-                                     children: [
-                                       Icon(Icons.chat_bubble_outline, size: 18, color: isDark ? Colors.white38 : const Color(0xFF9CA3AF)),
-                                       const SizedBox(width: 12),
-                                       Expanded(
-                                         child: Text(
-                                           '"${req.reason}"',
-                                           style: GoogleFonts.poppins(
-                                             fontSize: 14,
-                                             fontStyle: FontStyle.italic,
-                                             color: isDark ? Colors.white70 : const Color(0xFF4B5563),
-                                           ),
-                                         ),
-                                       ),
-                                     ],
-                                   ),
-                                 ),
-                                 const SizedBox(height: 12),
-                                 if (req.status == RequestStatus.pending && isAdmin)
-                                   TextField(
-                                     controller: _commentController,
-                                     maxLines: 4,
-                                     style: GoogleFonts.poppins(fontSize: 14, color: isDark ? Colors.white : Colors.black87),
-                                     decoration: InputDecoration(
-                                       hintText: 'Add a review comment...',
-                                       hintStyle: GoogleFonts.poppins(fontSize: 14, color: isDark ? Colors.white24 : const Color(0xFF9CA3AF)),
-                                       filled: true,
-                                       fillColor: isDark ? Colors.transparent : Colors.white,
-                                       border: OutlineInputBorder(
-                                         borderRadius: BorderRadius.circular(12),
-                                         borderSide: BorderSide(color: isDark ? Colors.white10 : const Color(0xFFE5E7EB)),
-                                       ),
-                                       enabledBorder: OutlineInputBorder(
-                                         borderRadius: BorderRadius.circular(12),
-                                         borderSide: BorderSide(color: isDark ? Colors.white10 : const Color(0xFFE5E7EB)),
-                                       ),
-                                     ),
-                                   )
-                                 else if (req.reviewComments != null) ...[
-                                    _buildSectionTitle('REVIEW COMMENTS', isDark),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      req.reviewComments!,
-                                      style: GoogleFonts.poppins(fontSize: 14, color: isDark ? Colors.white70 : Colors.black87),
-                                    ),
-                                 ],
-                              ],
-                            ),
-                          ];
-
-                          if (isMobile) {
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: body,
-                            );
-                          }
-
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: body.map((e) => Expanded(child: Padding(
-                              padding: EdgeInsets.only(right: e == body.last ? 0 : 32),
-                              child: e,
-                            ))).toList(),
-                          );
-                        },
-                      ),
-                     
-                     const SizedBox(height: 32),
-                     Divider(color: isDark ? Colors.white10 : Colors.black12),
-                     const SizedBox(height: 24),
-                     
-                     // AUDIT TRAIL
-                     _buildSectionTitle('AUDIT TRAIL', isDark, icon: Icons.timeline),
-                     const SizedBox(height: 16),
-                     CorrectionAuditItem(
-                       title: 'Submitted',
-                       subtitle: '${DateFormat('M/d/yyyy, h:mm:ss a').format(req.submittedAt ?? req.requestDate)} • by ${req.userName}',
-                       isLast: req.status == RequestStatus.pending,
-                     ),
-                     if (req.status != RequestStatus.pending)
-                        CorrectionAuditItem(
-                          title: req.status == RequestStatus.approved ? 'Approved' : 'Rejected',
-                          subtitle: '${req.reviewedAt != null ? DateFormat('M/d/yyyy, h:mm:ss a').format(req.reviewedAt!) : "Recently"} • by ${req.reviewedBy ?? "Admin"}',
-                          isLast: true,
-                        ),
-                   ],
-                 ),
-               ),
-             ),
-          ],
-        ),
+    return Container(
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: widget.isEmbedded
+            ? BorderRadius.circular(16)
+            : const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border.all(color: borderColor),
       ),
-    );
+      child: Column(
+        mainAxisSize: widget.isEmbedded ? MainAxisSize.max : MainAxisSize.min,
+        children: [
+          // Drag handle for bottom sheets
+          if (!widget.isEmbedded)
+            Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 4),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
 
-    return sheetContent;
-  }
+          // Header Section
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 16, 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Employee Avatar
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: avatarUrl != null && avatarUrl.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: avatarUrl,
+                            fit: BoxFit.cover,
+                            width: 40,
+                            height: 40,
+                            errorWidget: (context, url, error) => _buildInitials(req.userName),
+                          )
+                        : _buildInitials(req.userName),
+                  ),
+                ),
+                const SizedBox(width: 12),
 
-  Widget _buildHeaderAction({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback? onPressed,
-    required bool isDark,
-    bool isPrimary = false,
-    bool compact = false,
-  }) {
-    if (compact) {
-      return Container(
-        height: 40,
-        decoration: BoxDecoration(
-          color: isPrimary ? color : color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: isPrimary ? null : Border.all(color: color.withValues(alpha: 0.2)),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onPressed,
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 16, color: isPrimary ? Colors.white : color),
-                  const SizedBox(width: 6),
-                  Text(
-                    label,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isPrimary ? Colors.white : color,
+                // Name & Metadata
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              req.userName,
+                              style: GoogleFonts.poppins(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white : const Color(0xFF1E293B),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          _buildStatusBadge(req.status),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${req.typeLabel} • ${DateFormat('MMM dd, yyyy').format(req.requestDate)}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: isDark ? Colors.white54 : const Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Top Actions when Pending & Admin
+                if (isAdmin && isPending) ...[
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _isOverride = !_isOverride;
+                        if (!_isOverride) {
+                          _overrideSessions = List<Map<String, dynamic>>.from(proposedSessions);
+                        }
+                      });
+                    },
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: _isOverride ? const Color(0xFFF59E0B).withValues(alpha: 0.12) : null,
+                      foregroundColor: _isOverride ? const Color(0xFFF59E0B) : (isDark ? Colors.white70 : const Color(0xFF475569)),
+                      side: BorderSide(
+                        color: _isOverride ? const Color(0xFFF59E0B) : (isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1)),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      minimumSize: Size.zero,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: Icon(
+                      _isOverride ? Icons.edit_note_rounded : Icons.edit_rounded,
+                      size: 14,
+                      color: _isOverride ? const Color(0xFFF59E0B) : null,
+                    ),
+                    label: Text(
+                      _isOverride ? 'Override Active' : 'Manual Override',
+                      style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600),
                     ),
                   ),
+                  const SizedBox(width: 8),
                 ],
-              ),
+
+                if (widget.onClose != null)
+                  IconButton(
+                    icon: Icon(
+                      Icons.close_rounded,
+                      size: 20,
+                      color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
+                    ),
+                    onPressed: widget.onClose,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+              ],
             ),
           ),
-        ),
-      );
-    }
 
-    if (isPrimary) {
-      return ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 18),
-        label: Text(label),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          elevation: 0,
-        ),
-      );
-    }
+          const Divider(height: 1, thickness: 1),
 
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 18),
-      label: Text(label),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: color,
-        side: BorderSide(color: color.withValues(alpha: 0.2)),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          // Scrollable Content
+          Expanded(
+            flex: widget.isEmbedded ? 1 : 0,
+            child: _isFetching
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Manual Override Active Banner (when Pending and Override toggled)
+                        if (isAdmin && isPending && _isOverride) ...[
+                          _buildManualOverrideBanner(isDark, proposedSessions),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // 1. Full 24-Hour Visual Correction Timeline
+                        VisualCorrectionTimeline(
+                          originalSessions: originalSessions,
+                          proposedSessions: _isOverride ? _overrideSessions : proposedSessions,
+                          isDark: isDark,
+                          editable: isAdmin && isPending && _isOverride,
+                          onSessionsChange: (updated) {
+                            setState(() {
+                              _overrideSessions = updated;
+                            });
+                          },
+                          onResetToOriginal: () {
+                            setState(() {
+                              _overrideSessions = List<Map<String, dynamic>>.from(proposedSessions);
+                            });
+                            context.showToast("Reset to employee's original requested punches", isSuccess: false);
+                          },
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // 2. Supporting Document / Proof Card (hooks into CorrectionDocumentModal)
+                        CorrectionDocumentCard(
+                          attachmentUrl: req.attachmentUrl,
+                          isDark: isDark,
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // 3. Information & Employee Stated Justification Grid
+                        _buildRequestInfoAndReasonCard(req, isDark),
+
+                        // 4. Reviewer Decision Banner (if already reviewed)
+                        if (!isPending) ...[
+                          const SizedBox(height: 16),
+                          _buildReviewerDecisionCard(req, isDark),
+                        ],
+
+                        const SizedBox(height: 20),
+
+                        // 5. Action Bar for Admin
+                        if (isAdmin && isPending)
+                          _buildAdminActionBar(req, isDark),
+                      ],
+                    ),
+                  ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildSectionTitle(String title, bool isDark, {IconData? icon}) {
-    return Row(
-      children: [
-        if (icon != null) ...[
-          Icon(icon, size: 14, color: isDark ? Colors.white38 : const Color(0xFF9CA3AF)),
-          const SizedBox(width: 8),
+  Widget _buildManualOverrideBanner(bool isDark, List<Map<String, dynamic>> proposedSessions) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.tune_rounded, size: 16, color: Color(0xFFF59E0B)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Manual Override Active',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFFF59E0B),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Drag handles or edit below',
+                        style: GoogleFonts.poppins(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFFF59E0B),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'You can modify punch handles directly on the timeline, then click Approve to apply.',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    color: isDark ? Colors.white60 : const Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          OutlinedButton.icon(
+            onPressed: () {
+              setState(() {
+                _overrideSessions = List<Map<String, dynamic>>.from(proposedSessions);
+              });
+              context.showToast("Reset to employee's original requested punches", isSuccess: false);
+            },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: isDark ? Colors.white70 : const Color(0xFF475569),
+              side: BorderSide(color: isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1)),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            icon: const Icon(Icons.restore_rounded, size: 12),
+            label: Text('Reset', style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600)),
+          ),
         ],
-        Flexible(
-          child: Text(
-            title,
+      ),
+    );
+  }
+
+  Widget _buildInitials(String name) {
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
+    return Text(
+      initial,
+      style: GoogleFonts.poppins(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: const Color(0xFF6366F1),
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(RequestStatus status) {
+    Color bg;
+    Color fg;
+    String label;
+
+    switch (status) {
+      case RequestStatus.approved:
+        bg = const Color(0xFF10B981).withValues(alpha: 0.12);
+        fg = const Color(0xFF10B981);
+        label = 'Approved';
+        break;
+      case RequestStatus.rejected:
+        bg = const Color(0xFFEF4444).withValues(alpha: 0.12);
+        fg = const Color(0xFFEF4444);
+        label = 'Rejected';
+        break;
+      case RequestStatus.pending:
+        bg = const Color(0xFFF59E0B).withValues(alpha: 0.12);
+        fg = const Color(0xFFF59E0B);
+        label = 'Pending';
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: fg.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.poppins(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: fg,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRequestInfoAndReasonCard(AttendanceCorrectionRequest req, bool isDark) {
+    final cardBg = isDark ? const Color(0xFF161B22) : const Color(0xFFF8FAFC);
+    final borderColor = isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'REQUEST DETAILS & REASON',
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+              color: isDark ? Colors.white54 : const Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          Row(
+            children: [
+              Expanded(
+                child: _buildInfoItem(
+                  label: 'Category',
+                  value: req.typeLabel,
+                  isDark: isDark,
+                ),
+              ),
+              Expanded(
+                child: _buildInfoItem(
+                  label: 'Method',
+                  value: req.methodLabel,
+                  isDark: isDark,
+                ),
+              ),
+              if (req.submittedAt != null)
+                Expanded(
+                  child: _buildInfoItem(
+                    label: 'Submitted',
+                    value: DateFormat('MMM dd, hh:mm a').format(req.submittedAt!),
+                    isDark: isDark,
+                  ),
+                ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          Text(
+            'Employee Stated Justification',
             style: GoogleFonts.poppins(
               fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white38 : const Color(0xFF9CA3AF),
-              letterSpacing: 1.0,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white70 : const Color(0xFF475569),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0D1117) : Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border(
+                left: const BorderSide(color: Color(0xFF6366F1), width: 3),
+                top: BorderSide(color: isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0)),
+                right: BorderSide(color: isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0)),
+                bottom: BorderSide(color: isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0)),
+              ),
+            ),
+            child: Text(
+              '"${req.reason.isNotEmpty ? req.reason : "No specific remarks provided."}"',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                height: 1.4,
+                color: isDark ? Colors.white70 : const Color(0xFF334155),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoItem({
+    required String label,
+    required String value,
+    required bool isDark,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 10,
+            color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: isDark ? Colors.white : const Color(0xFF1E293B),
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReviewerDecisionCard(AttendanceCorrectionRequest req, bool isDark) {
+    final isApproved = req.status == RequestStatus.approved;
+    final color = isApproved ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isApproved ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                size: 18,
+                color: color,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Decision: ${req.status.name.toUpperCase()}',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+              const Spacer(),
+              if (req.reviewedAt != null)
+                Text(
+                  DateFormat('MMM dd, yyyy').format(req.reviewedAt!),
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    color: isDark ? Colors.white54 : const Color(0xFF64748B),
+                  ),
+                ),
+            ],
+          ),
+          if (req.reviewComments != null && req.reviewComments!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              req.reviewComments!,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: isDark ? Colors.white70 : const Color(0xFF334155),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdminActionBar(AttendanceCorrectionRequest req, bool isDark) {
+    return Row(
+      children: [
+        // Reject button
+        Expanded(
+          child: SizedBox(
+            height: 44,
+            child: OutlinedButton.icon(
+              onPressed: _isLoading ? null : () => _openRejectDialog(req),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFEF4444),
+                side: const BorderSide(color: Color(0xFFEF4444)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              icon: const Icon(Icons.cancel_outlined, size: 16),
+              label: Text(
+                'Reject',
+                style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+
+        // Approve button
+        Expanded(
+          flex: 2,
+          child: SizedBox(
+            height: 44,
+            child: ElevatedButton.icon(
+              onPressed: _isLoading ? null : _handleApprove,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              icon: _isLoading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.check_circle_rounded, size: 16),
+              label: Text(
+                _isOverride ? 'Approve with Overrides' : 'Approve Request',
+                style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
             ),
           ),
         ),
@@ -690,5 +825,3 @@ class _CorrectionDetailDialogState extends State<CorrectionDetailDialog> {
     );
   }
 }
-
-// [mod:2026-02-17T17:00:00+05:30]
