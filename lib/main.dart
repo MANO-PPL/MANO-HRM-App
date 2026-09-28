@@ -30,6 +30,8 @@ import 'package:flutter_application/shared/services/socket_service.dart';
 import 'package:flutter_application/features/collaboration/core/chat_service.dart';
 
 
+import 'package:flutter_application/shared/utils/error_logger.dart';
+
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Must re-initialise Firebase in the background isolate
@@ -59,6 +61,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   Provider.debugCheckInvalidValueType = null;
   WidgetsFlutterBinding.ensureInitialized();
+  ErrorLogger.setupGlobalErrorHandling();
   await Firebase.initializeApp();
 
   // Register background handler BEFORE any other FCM setup

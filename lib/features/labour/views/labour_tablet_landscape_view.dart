@@ -78,11 +78,11 @@ class _LabourTabletLandscapeViewState extends State<LabourTabletLandscapeView> w
   String _gridRoleFilter = 'All';
   bool _gridLoading = false;
 
-  String _financeRoleFilter = 'All';
+  final String _financeRoleFilter = 'All';
   bool _financeLoading = false;
 
   String _directorySearch = '';
-  dynamic _directorySiteFilter = 'All'; // 'All', 'Unassigned', or int site_id
+  final dynamic _directorySiteFilter = 'All'; // 'All', 'Unassigned', or int site_id
   String _directoryRoleFilter = 'All';
 
   @override
@@ -991,7 +991,7 @@ class _LabourTabletLandscapeViewState extends State<LabourTabletLandscapeView> w
                                   Expanded(
                                     child: ListView.separated(
                                       itemCount: filteredRoster.length,
-                                      separatorBuilder: (_, __) => Divider(
+                                      separatorBuilder: (_, _) => Divider(
                                         height: 1,
                                         thickness: 1,
                                         color: isDark ? const Color(0xFF21262D) : const Color(0xFFF1F5F9),
@@ -1995,10 +1995,15 @@ class _LabourTabletLandscapeViewState extends State<LabourTabletLandscapeView> w
                   ...List.generate(daysInMonth, (i) {
                     final status = row.days["${i + 1}"] ?? '';
                     Color c = Colors.grey;
-                    if (status == 'P') c = const Color(0xFF10B981);
-                    else if (status == 'HD') c = const Color(0xFFF59E0B);
-                    else if (status == 'A') c = const Color(0xFFEF4444);
-                    else if (status == 'PL') c = const Color(0xFF3B82F6);
+                    if (status == 'P') {
+                      c = const Color(0xFF10B981);
+                    } else if (status == 'HD') {
+                      c = const Color(0xFFF59E0B);
+                    } else if (status == 'A') {
+                      c = const Color(0xFFEF4444);
+                    } else if (status == 'PL') {
+                      c = const Color(0xFF3B82F6);
+                    }
 
                     return DataCell(
                       Center(
@@ -2056,11 +2061,17 @@ class _LabourTabletLandscapeViewState extends State<LabourTabletLandscapeView> w
                     children: List.generate(daysInMonth, (i) {
                       final status = row.days["${i + 1}"] ?? '';
                       Color cellColor;
-                      if (status == 'P') cellColor = const Color(0xFF10B981);
-                      else if (status == 'HD') cellColor = const Color(0xFFF59E0B);
-                      else if (status == 'A') cellColor = const Color(0xFFEF4444);
-                      else if (status == 'PL') cellColor = const Color(0xFF3B82F6);
-                      else cellColor = isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0);
+                      if (status == 'P') {
+                        cellColor = const Color(0xFF10B981);
+                      } else if (status == 'HD') {
+                        cellColor = const Color(0xFFF59E0B);
+                      } else if (status == 'A') {
+                        cellColor = const Color(0xFFEF4444);
+                      } else if (status == 'PL') {
+                        cellColor = const Color(0xFF3B82F6);
+                      } else {
+                        cellColor = isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0);
+                      }
 
                       return Container(
                         width: 26,
@@ -2670,12 +2681,13 @@ class _LabourTabletLandscapeViewState extends State<LabourTabletLandscapeView> w
               labourIds: labourIds,
               roleFilter: roleFilter,
             );
-            if (mounted) {
+            if (ctx.mounted) {
               Navigator.pop(ctx);
-              context.showToast("Transferred ${labourIds.length} worker(s) successfully!", isSuccess: true);
-              _loadInitialData();
-              if (_selectedSite != null) _loadAttendanceRoster();
             }
+            if (!mounted) return;
+            context.showToast("Transferred ${labourIds.length} worker(s) successfully!", isSuccess: true);
+            _loadInitialData();
+            if (_selectedSite != null) _loadAttendanceRoster();
           } catch (e) {
             if (mounted) context.showExceptionToast(e, fallback: "Failed to transfer workers.");
           }
@@ -2701,11 +2713,12 @@ class _LabourTabletLandscapeViewState extends State<LabourTabletLandscapeView> w
               date: date,
               notes: notes,
             );
-            if (mounted) {
+            if (ctx.mounted) {
               Navigator.pop(ctx);
-              context.showToast("Salary advance logged successfully!", isSuccess: true);
-              _loadFinances();
             }
+            if (!mounted) return;
+            context.showToast("Salary advance logged successfully!", isSuccess: true);
+            _loadFinances();
           } catch (e) {
             if (mounted) context.showExceptionToast(e, fallback: "Failed to log advance.");
           }
@@ -2732,11 +2745,12 @@ class _LabourTabletLandscapeViewState extends State<LabourTabletLandscapeView> w
               paymentMode: paymentMode,
               notes: notes,
             );
-            if (mounted) {
+            if (ctx.mounted) {
               Navigator.pop(ctx);
-              context.showToast("Payout settled successfully!", isSuccess: true);
-              _loadFinances();
             }
+            if (!mounted) return;
+            context.showToast("Payout settled successfully!", isSuccess: true);
+            _loadFinances();
           } catch (e) {
             if (mounted) context.showExceptionToast(e, fallback: "Failed to process payout.");
           }
