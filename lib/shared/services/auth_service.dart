@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_application/shared/constants/api_constants.dart';
+import 'package:flutter_application/shared/constants/auth_error_codes.dart';
+import 'package:flutter_application/shared/services/auth_storage_service.dart';
+import 'package:flutter_application/shared/services/device_info_service.dart';
+import 'package:flutter_application/shared/network/auth_interceptor.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
 import 'package:flutter_application/shared/utils/error_helper.dart';
 import 'package:flutter_application/shared/utils/error_logger.dart';
@@ -27,28 +30,30 @@ const MethodChannel _settingsChannel = MethodChannel('co.mano.attendance/setting
 
 class AuthService extends ChangeNotifier {
   final Dio _dio = Dio();
+  final Dio _refreshDio = Dio();
   late PersistCookieJar _cookieJar;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final AuthStorageService _authStorage = AuthStorageService();
+  final DeviceInfoService _deviceInfo = DeviceInfoService();
 
   static Future<String?> getSavedIdentifier() async {
-    const storage = FlutterSecureStorage();
-    return await storage.read(key: 'saved_identifier') ?? await storage.read(key: 'saved_email');
+    return await AuthStorageService().getSavedIdentifier();
   }
 
   static Future<bool> getRememberMePreference() async {
-    return true;
+    return await AuthStorageService().getRememberMePreference();
   }
 
   String? _accessToken;
   User? _currentUser;
 
   static const Set<String> _explicitRevokeCodes = {
-    'INVALID_REFRESH_TOKEN',
+    AuthErrorCodes.invalidRefreshToken,
     'TOKEN_REUSE_DETECTED',
-    'SESSION_EXPIRED',
-    'ACCOUNT_INACTIVE',
-    'ACCOUNT_DELETED',
-    'ORG_DELETED',
+    AuthErrorCodes.sessionRevoked,
+    AuthErrorCodes.sessionExpired,
+    AuthErrorCodes.accountDeleted,
+    AuthErrorCodes.orgDeleted,
   };
 
   /// Returns true only when the server explicitly confirms the session/user is permanently invalidated.
@@ -58,8 +63,6 @@ class AuthService extends ChangeNotifier {
         _explicitRevokeCodes.contains(errorCode);
   }
 
-  // Future lock to synchronize concurrent token refreshes
-  Future<String?>? _refreshFuture;
 
   bool _isLoggingOut = false;
 
@@ -115,18 +118,62 @@ class AuthService extends ChangeNotifier {
       storage: FileStorage("$appDocPath/.cookies/"),
     );
 
+    // Initialize Device Identification
+    await _deviceInfo.init();
+
+    // Migrate any legacy cookie tokens into FlutterSecureStorage
+    await _authStorage.migrateLegacyTokensIfNeeded(_cookieJar);
+
+    // Main Dio configuration
     _dio.options.baseUrl = ApiConstants.baseUrl;
     _dio.options.connectTimeout = const Duration(seconds: 15);
     _dio.options.sendTimeout = const Duration(seconds: 15);
     _dio.options.receiveTimeout = const Duration(seconds: 15);
-    _dio.interceptors.add(CookieManager(_cookieJar));
+    _dio.options.headers['Content-Type'] = 'application/json';
+    _dio.options.headers['Accept'] = 'application/json';
+
+    // Dedicated Refresh Dio (isolated from main interceptors to avoid refresh recursion)
+    _refreshDio.options.baseUrl = ApiConstants.baseUrl;
+    _refreshDio.options.connectTimeout = const Duration(seconds: 15);
+    _refreshDio.options.sendTimeout = const Duration(seconds: 15);
+    _refreshDio.options.receiveTimeout = const Duration(seconds: 15);
+    _refreshDio.options.headers['Content-Type'] = 'application/json';
+    _refreshDio.options.headers['Accept'] = 'application/json';
+
+    // Setup QueuedInterceptor for Automatic Headers, Device Telemetry & Synchronized Refresh
+    _dio.interceptors.add(
+      AuthInterceptor(
+        mainDio: _dio,
+        refreshDio: _refreshDio,
+        storage: _authStorage,
+        deviceInfo: _deviceInfo,
+        onTokenRefreshed: (newToken) {
+          _accessToken = newToken;
+          notifyListeners();
+        },
+        onSessionRevoked: (msg) async {
+          _showNetworkToast(msg, isSlow: false);
+          await logout();
+        },
+        onSessionExpired: (msg) async {
+          _showNetworkToast(msg, isSlow: false);
+          await logout();
+        },
+        onAccountInactive: (msg) {
+          // Do NOT logout user! Show notification and keep cached session intact.
+          _showNetworkToast(msg, isSlow: false);
+        },
+        onNetworkIssue: (msg, {bool isSlow = false}) {
+          _showNetworkToast(msg, isSlow: isSlow);
+        },
+      ),
+    );
 
     _isInitialized = true;
 
-    // Load saved tokens & user profile (always persist session on mobile, matching Attendance-Web behavior)
-    _accessToken = await _storage.read(key: 'access_token');
-    final savedRefreshToken = await _readRefreshTokenWithDiagnostics();
-    final cachedUser = await _storage.read(key: 'user');
+    // Load saved tokens & user profile from AuthStorageService
+    _accessToken = await _authStorage.getAccessToken();
+    final cachedUser = await _authStorage.getCachedUserJson();
     if (cachedUser != null) {
       try {
         _currentUser = User.fromJson(jsonDecode(cachedUser));
@@ -134,11 +181,6 @@ class AuthService extends ChangeNotifier {
         debugPrint("Error decoding cached user: $e");
         _currentUser = null;
       }
-    }
-
-    // Proactively sync saved refresh token into CookieJar on startup
-    if (savedRefreshToken != null && savedRefreshToken.isNotEmpty) {
-      await _syncRefreshTokenCookie(savedRefreshToken);
     }
 
     // Initialize and start the singleton NetworkMonitor
@@ -163,217 +205,8 @@ class AuthService extends ChangeNotifier {
         }
       }
     });
-
-    // Setup Interceptor for Access Token & Refresh Logic
-    _dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) async {
-          if (_accessToken != null && options.extra['no_auth_header'] != true) {
-            options.headers['Authorization'] = 'Bearer $_accessToken';
-          }
-          return handler.next(options);
-        },
-        onError: (DioException e, handler) async {
-          // Log network or api errors locally on device with sensitive credentials scrubbed
-          ErrorLogger.logApiError(
-            e,
-            contextTag: 'api_interceptor',
-          );
-
-          // Check for network connectivity or slow network issues
-          if (e.type == DioExceptionType.connectionTimeout ||
-              e.type == DioExceptionType.sendTimeout ||
-              e.type == DioExceptionType.receiveTimeout) {
-            _showNetworkToast(
-              "Slow or unstable connection. Please check your internet and try again.",
-              isSlow: true,
-            );
-          } else if ((e.type == DioExceptionType.connectionError ||
-                  e.error is SocketException) &&
-              NetworkMonitor().isOnline) {
-            _showNetworkToast(
-              "No internet connection. Please check your Wi-Fi or mobile data.",
-              isSlow: false,
-            );
-          }
-
-          final path = e.requestOptions.path;
-
-          // Guard 1: Avoid recursive refresh loops if the failed request is refresh, logout, fcm unregister, or suppressed
-          final isRefreshRequest = path.contains(ApiConstants.refresh);
-          final isLogoutOrCleanupRequest = path.contains(ApiConstants.logout) ||
-              path.contains(ApiConstants.notificationUnregisterFCM) ||
-              path.contains(ApiConstants.login) ||
-              e.requestOptions.extra['no_auth_refresh'] == true;
-
-          // Guard 2: Avoid infinite loops on genuine permission errors (e.g. 403 Forbidden retry fails again)
-          final isRetry = e.requestOptions.headers['X-Retry'] == 'true';
-
-          // Handle 401 Unauthorized (likely expired access token)
-          if (e.response?.statusCode == 401 &&
-              !_isLoggingOut &&
-              !isRefreshRequest &&
-              !isLogoutOrCleanupRequest &&
-              !isRetry) {
-            try {
-              // Await synchronized refresh future to avoid race conditions
-              final newAccessToken = await _synchronizedRefreshToken();
-              if (newAccessToken != null) {
-                final opts = e.requestOptions;
-                opts.headers['Authorization'] = 'Bearer $newAccessToken';
-                // Tag as retry to prevent loops if endpoint remains restricted
-                opts.headers['X-Retry'] = 'true';
-
-                final clonedReq = await _dio.request(
-                  opts.path,
-                  options: Options(
-                    method: opts.method,
-                    headers: opts.headers,
-                    contentType: opts.contentType,
-                    responseType: opts.responseType,
-                    extra: opts.extra,
-                  ),
-                  data: opts.data,
-                  queryParameters: opts.queryParameters,
-                );
-                return handler.resolve(clonedReq);
-              }
-            } catch (refreshError) {
-              if (refreshError is DioException) {
-                final status = refreshError.response?.statusCode;
-                final resData = refreshError.response?.data;
-                final errorCode = resData is Map ? resData['code']?.toString() : null;
-
-                if (_isExplicitSessionRevocation(status, errorCode)) {
-                  // Only force logout if the backend explicitly rejected the refresh token
-                  debugPrint("Backend explicitly rejected session ($status - $errorCode). Logging out.");
-                  await logout();
-                } else {
-                  debugPrint("Refresh failed ($status - $errorCode). Keeping session intact without revoking server token.");
-                }
-              } else {
-                debugPrint("Refresh failed due to unexpected error ($refreshError). Keeping session intact.");
-              }
-            }
-          }
-          final friendly = friendlyError(e);
-          final friendlyException = DioException(
-            requestOptions: e.requestOptions,
-            response: e.response,
-            type: e.type,
-            error: friendly,
-            message: friendly,
-          );
-          return handler.next(friendlyException);
-        },
-      ),
-    );
   }
 
-  /// Extracts the refresh token from response data or Set-Cookie header.
-  String? _extractRefreshToken(Response response) {
-    if (response.data is Map && response.data['refreshToken'] != null) {
-      final token = response.data['refreshToken'].toString().trim();
-      if (token.isNotEmpty) return token;
-    }
-    final rawCookies = response.headers['set-cookie'];
-    if (rawCookies != null) {
-      for (final cookieStr in rawCookies) {
-        final match = RegExp(r'refreshToken=([^;]+)').firstMatch(cookieStr);
-        if (match != null && match.group(1) != null) {
-          final token = match.group(1)!.trim();
-          if (token.isNotEmpty) return token;
-        }
-      }
-    }
-    return null;
-  }
-
-  /// Programmatically injects the refresh token cookie into the PersistCookieJar.
-  Future<void> _syncRefreshTokenCookie(String token) async {
-    try {
-      final uri = Uri.parse(ApiConstants.baseUrl);
-      final cookie = Cookie('refreshToken', token)
-        ..domain = uri.host
-        ..path = '/'
-        ..httpOnly = true
-        ..secure = uri.scheme == 'https'
-        ..maxAge = 30 * 24 * 60 * 60; // 30 Days (matches backend REFRESH_TOKEN_COOKIE_MAX_AGE)
-      await _cookieJar.saveFromResponse(uri, [cookie]);
-      debugPrint("AuthService: Refresh token synced to CookieJar for ${uri.host}");
-    } catch (e) {
-      debugPrint("AuthService: Error syncing refresh token cookie: $e");
-    }
-  }
-
-  /// Safely reads the refresh token from FlutterSecureStorage with diagnostic logging.
-  /// If FlutterSecureStorage returns null/empty or throws an exception, falls back to
-  /// checking the CookieJar which already persists the session cookie in the app sandbox.
-  Future<String?> _readRefreshTokenWithDiagnostics() async {
-    String? token;
-    try {
-      token = await _storage.read(key: 'refresh_token');
-      if (token != null && token.isNotEmpty) {
-        debugPrint("AuthService: Refresh token read from SecureStorage (length: ${token.length})");
-        return token;
-      }
-    } catch (e, stack) {
-      debugPrint("AuthService: SecureStorage exception reading refresh_token: $e\n$stack");
-      await ErrorLogger.logError(
-        e,
-        type: 'secure_storage_exception',
-        extraInfo: {
-          'action': 'read_refresh_token',
-          'error': e.toString(),
-          'stack': stack.toString(),
-        },
-      );
-    }
-
-    // Fallback: Check CookieJar for the 'refreshToken' cookie
-    try {
-      final uri = Uri.parse(ApiConstants.baseUrl);
-      final cookies = await _cookieJar.loadForRequest(uri);
-      for (final cookie in cookies) {
-        if (cookie.name == 'refreshToken' && cookie.value.isNotEmpty) {
-          debugPrint("AuthService: Found candidate refresh token in CookieJar fallback.");
-          await ErrorLogger.logError(
-            'Candidate refresh token loaded from CookieJar fallback',
-            type: 'auth_recovery',
-            extraInfo: {'source': 'cookie_jar_fallback'},
-          );
-          return cookie.value;
-        }
-      }
-    } catch (cookieErr) {
-      debugPrint("AuthService: CookieJar fallback check error: $cookieErr");
-    }
-
-    debugPrint("AuthService: No refresh token found in SecureStorage or CookieJar.");
-    await ErrorLogger.logError(
-      'refresh_token is NULL or empty across all storages',
-      type: 'auth_diagnostic',
-      extraInfo: {'action': 'read_refresh_token', 'result': 'NULL'},
-    );
-    return null;
-  }
-
-  /// Wrapper around refreshToken that ensures only one active network call 
-  /// is made to the backend refresh endpoint at a time.
-  Future<String?> _synchronizedRefreshToken() async {
-    if (_refreshFuture != null) {
-      debugPrint("Token refresh already in progress. Awaiting existing request...");
-      return _refreshFuture;
-    }
-
-    _refreshFuture = refreshToken();
-    try {
-      final newToken = await _refreshFuture;
-      return newToken;
-    } finally {
-      _refreshFuture = null; // Clear lock
-    }
-  }
 
   Future<Map<String, dynamic>> login(
     String userInput,
@@ -383,6 +216,8 @@ class AuthService extends ChangeNotifier {
     bool rememberMe = true,
   }) async {
     try {
+      await _deviceInfo.init();
+
       final response = await _dio.post(
         ApiConstants.login,
         data: {
@@ -394,41 +229,33 @@ class AuthService extends ChangeNotifier {
         },
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 && response.data != null) {
         _accessToken = response.data['accessToken'];
-        await _storage.write(key: 'access_token', value: _accessToken);
+        final refreshTokenStr = response.data['refreshToken']?.toString();
+        final rawSid = response.data['sessionId'];
+        final sessionId = rawSid is int ? rawSid : (int.tryParse(rawSid?.toString() ?? '') ?? 0);
 
-        // Save refresh token permanently (matches 30-day sliding session in Attendance-Web)
-        final refreshTokenStr = _extractRefreshToken(response);
-        if (refreshTokenStr != null && refreshTokenStr.isNotEmpty) {
-          await _storage.write(key: 'refresh_token', value: refreshTokenStr);
-          await _syncRefreshTokenCookie(refreshTokenStr);
-          debugPrint("AuthService: Saved refresh token permanently on login.");
+        if (_accessToken != null && refreshTokenStr != null && refreshTokenStr.isNotEmpty) {
+          await _authStorage.saveAuthData(
+            accessToken: _accessToken!,
+            refreshToken: refreshTokenStr,
+            sessionId: sessionId,
+          );
+          debugPrint("AuthService: Saved accessToken, refreshToken, and sessionId on login.");
         }
 
         // Save rememberMe preference
-        await _storage.write(
-          key: 'remember_me',
-          value: rememberMe ? 'true' : 'false',
+        await _authStorage.saveRememberMePreference(
+          rememberMe: rememberMe,
+          identifier: userInput,
         );
 
-        if (rememberMe) {
-          await _storage.write(key: 'saved_identifier', value: userInput);
-        } else {
-          await _storage.delete(key: 'saved_identifier');
-          await _storage.delete(key: 'saved_email');
-        }
-
-        // 1. Initial Data (Login): Store complete profile info from login response
-        // Best for: Initial Dashboard Load
         if (response.data['user'] != null) {
           _currentUser = User.fromJson(response.data['user']);
-          await _storage.write(
-            key: 'user',
-            value: jsonEncode(_currentUser!.toJson()),
+          await _authStorage.saveCachedUserJson(
+            jsonEncode(_currentUser!.toJson()),
           );
         } else {
-          // Fallback if user object missing (unlikely per docs)
           await getMe();
         }
 
@@ -457,43 +284,66 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  Future<String?>? _directRefreshFuture;
+
   Future<String?> refreshToken() async {
+    if (_directRefreshFuture != null) {
+      debugPrint("AuthService: Direct token refresh already in progress. Awaiting existing request...");
+      return _directRefreshFuture;
+    }
+    _directRefreshFuture = _executeRefreshToken();
+    try {
+      return await _directRefreshFuture;
+    } finally {
+      _directRefreshFuture = null;
+    }
+  }
+
+  Future<String?> _executeRefreshToken() async {
     if (!NetworkMonitor().isOnline) {
       debugPrint("Offline: Skipping refreshToken API call. Returning current token.");
       return _accessToken;
     }
     try {
-      final savedRefreshToken = await _readRefreshTokenWithDiagnostics();
+      final savedRefreshToken = await _authStorage.getRefreshToken();
       if (savedRefreshToken == null || savedRefreshToken.isEmpty) {
         debugPrint("AuthService: No local refresh token available. Skipping /auth/refresh API call to prevent false 401.");
         return null;
       }
 
-      await _syncRefreshTokenCookie(savedRefreshToken);
+      await _deviceInfo.init();
 
-      final response = await _dio.post(
+      // Explicit JSON Body Token Transport with Device Telemetry Headers
+      final response = await _refreshDio.post(
         ApiConstants.refresh,
         data: {'refreshToken': savedRefreshToken},
         options: Options(
-          headers: {'x-refresh-token': savedRefreshToken},
+          headers: {
+            'X-Client-Type': 'mobile',
+            'X-App-Version': _deviceInfo.appVersion,
+            'X-Device-Id': _deviceInfo.deviceId,
+            'X-Device-Name': _deviceInfo.deviceName,
+          },
           extra: {'no_auth_refresh': true, 'no_auth_header': true},
         ),
       );
 
-      if (response.statusCode == 200) {
-        final newToken = response.data['accessToken'];
-        if (newToken != null) {
-          _accessToken = newToken;
-          await _storage.write(key: 'access_token', value: newToken);
+      if (response.statusCode == 200 && response.data != null) {
+        final resData = response.data;
+        final newToken = resData['accessToken']?.toString();
+        final newRefreshToken = resData['refreshToken']?.toString() ?? savedRefreshToken;
+        final rawSid = resData['sessionId'];
+        final sessionId = rawSid is int ? rawSid : (int.tryParse(rawSid?.toString() ?? '') ?? 0);
 
-          // Update refresh token if rotated / extended
-          final updatedRefreshToken =
-              _extractRefreshToken(response) ?? savedRefreshToken;
-          if (updatedRefreshToken.isNotEmpty) {
-            await _storage.write(key: 'refresh_token', value: updatedRefreshToken);
-            await _syncRefreshTokenCookie(updatedRefreshToken);
-            debugPrint("AuthService: Extended refresh token in storage & CookieJar.");
-          }
+        if (newToken != null && newToken.isNotEmpty) {
+          _accessToken = newToken;
+          await _authStorage.saveAuthData(
+            accessToken: newToken,
+            refreshToken: newRefreshToken,
+            sessionId: sessionId,
+          );
+          notifyListeners();
+          debugPrint("AuthService: Successfully refreshed access & sliding refresh token.");
           return newToken;
         }
       }
@@ -521,6 +371,7 @@ class AuthService extends ChangeNotifier {
     ChatbotOverlayManager.destroyAll();
 
     final savedToken = _accessToken;
+    final savedRefreshToken = await _authStorage.getRefreshToken();
 
     // Immediately clear in-memory auth state to prevent 401 refresh loops from any ongoing requests
     _accessToken = null;
@@ -548,15 +399,13 @@ class AuthService extends ChangeNotifier {
     }
 
     try {
-      final savedRefreshToken = await _storage.read(key: 'refresh_token');
-      if (savedToken != null || savedRefreshToken != null) {
+      if (savedRefreshToken != null && savedRefreshToken.isNotEmpty) {
         await _dio.post(
           ApiConstants.logout,
-          data: savedRefreshToken != null ? {'refreshToken': savedRefreshToken} : null,
+          data: {'refreshToken': savedRefreshToken},
           options: Options(
             headers: {
               if (savedToken != null) 'Authorization': 'Bearer $savedToken',
-              if (savedRefreshToken != null) 'x-refresh-token': savedRefreshToken,
               'X-Retry': 'true',
             },
             extra: {'no_auth_refresh': true, 'no_auth_header': true},
@@ -564,25 +413,15 @@ class AuthService extends ChangeNotifier {
         );
       }
     } catch (e) {
-      // Ignore errors during logout
+      debugPrint('Logout API error: $e');
     } finally {
-      // Preserve remember me & saved identifier across logouts
-      final rememberMe = await _storage.read(key: 'remember_me');
-      final savedIdentifier = await _storage.read(key: 'saved_identifier') ?? await _storage.read(key: 'saved_email');
-
       try {
         await _cookieJar.deleteAll();
       } catch (e) {
         debugPrint("Error clearing cookie jar: $e");
       }
       try {
-        await _storage.deleteAll();
-        if (rememberMe != null) {
-          await _storage.write(key: 'remember_me', value: rememberMe);
-        }
-        if (savedIdentifier != null && rememberMe != 'false') {
-          await _storage.write(key: 'saved_identifier', value: savedIdentifier);
-        }
+        await _authStorage.clearAuthData();
       } catch (e) {
         debugPrint("Error clearing secure storage: $e");
       }
@@ -753,7 +592,7 @@ class AuthService extends ChangeNotifier {
       return null;
     }
 
-    final savedRefreshToken = await _readRefreshTokenWithDiagnostics();
+    final savedRefreshToken = await _authStorage.getRefreshToken();
     if (_accessToken == null && savedRefreshToken == null) {
       return null;
     }
@@ -783,6 +622,17 @@ class AuthService extends ChangeNotifier {
           debugPrint("Backend explicitly rejected session on checkAuth ($status - $errorCode). Logging out.");
           await logout();
           return null;
+        }
+
+        // If account or org is inactive -> do NOT logout! Notify user and retain session
+        if (errorCode == AuthErrorCodes.accountInactive ||
+            errorCode == AuthErrorCodes.orgInactive) {
+          debugPrint("Account or Org inactive on checkAuth ($status - $errorCode). Retaining session.");
+          final msg = resData is Map && resData['message'] != null
+              ? resData['message'].toString()
+              : "Your account is currently inactive. Please contact HR.";
+          _showNetworkToast(msg, isSlow: false);
+          return _currentUser != null ? {'user': _currentUser!} : null;
         }
       }
       // On temporary 403, server errors, or network drops, retain cached session
