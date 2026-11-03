@@ -11,7 +11,6 @@ import 'package:flutter_application/features/attendance/core/attendance_provider
 import 'package:flutter_application/features/attendance/widgets/correction_detail_dialog.dart';
 import 'package:flutter_application/features/attendance/widgets/correction_request_dialog.dart';
 import 'package:flutter_application/features/attendance/widgets/correction_request_dialog_mobile.dart';
-import 'package:flutter_application/shared/widgets/loading_screen.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
 import 'package:flutter_application/shared/models/user_model.dart';
 
@@ -204,11 +203,20 @@ class _AdminCorrectionRequestsState extends State<AdminCorrectionRequests> {
     final approvedCount = _allRequests.where((r) => r.status == RequestStatus.approved).length;
     final rejectedCount = _allRequests.where((r) => r.status == RequestStatus.rejected).length;
 
-    return LoadingScreen(
-      isLoading: _isLoading && _allRequests.isEmpty,
-      message: "Loading correction requests...",
-      child: LayoutBuilder(
-        builder: (context, constraints) {
+    if (_isLoading && _allRequests.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 40),
+          child: CircularProgressIndicator(
+            strokeWidth: 2.5,
+            color: isDark ? const Color(0xFF818CF8) : const Color(0xFF4F46E5),
+          ),
+        ),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
           final isLandscape = constraints.maxWidth >= 950 && !widget.shrinkWrap;
 
           if (isLandscape) {
@@ -222,11 +230,11 @@ class _AdminCorrectionRequestsState extends State<AdminCorrectionRequests> {
                   child: Column(
                     children: [
                       _buildHeader(isDark),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       _buildSearchBar(isDark),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       _buildFilterTabs(allCount, pendingCount, approvedCount, rejectedCount, isDark),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       Expanded(
                         child: _requests.isEmpty
                             ? _buildEmptyState(isDark)
@@ -251,7 +259,7 @@ class _AdminCorrectionRequestsState extends State<AdminCorrectionRequests> {
 
                 // Vertical Divider
                 VerticalDivider(
-                  width: 24,
+                  width: 16,
                   thickness: 1,
                   color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
                 ),
@@ -278,11 +286,11 @@ class _AdminCorrectionRequestsState extends State<AdminCorrectionRequests> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeader(isDark),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               _buildSearchBar(isDark),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               _buildFilterTabs(allCount, pendingCount, approvedCount, rejectedCount, isDark),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               widget.shrinkWrap
                   ? (_requests.isEmpty
                       ? _buildEmptyState(isDark)
@@ -320,9 +328,8 @@ class _AdminCorrectionRequestsState extends State<AdminCorrectionRequests> {
             ],
           );
         },
-      ),
-    );
-  }
+      );
+    }
 
   Widget _buildHeader(bool isDark) {
     return Row(
@@ -560,11 +567,11 @@ class _AdminCorrectionRequestsState extends State<AdminCorrectionRequests> {
     return GestureDetector(
       onTap: onSelect,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: cardBg,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: borderColor,
             width: isSelected ? 1.5 : 1,
@@ -637,7 +644,7 @@ class _AdminCorrectionRequestsState extends State<AdminCorrectionRequests> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  DateFormat('EEE, MMM dd, yyyy').format(req.requestDate),
+                  DateFormat('d MMMM yyyy').format(req.requestDate),
                   style: GoogleFonts.poppins(
                     fontSize: 11,
                     fontWeight: FontWeight.w500,

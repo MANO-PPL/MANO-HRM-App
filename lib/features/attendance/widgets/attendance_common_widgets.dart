@@ -211,31 +211,32 @@ class AttendanceSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassContainer(
-      padding: const EdgeInsets.all(16),
-      borderRadius: 16,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      borderRadius: 14,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(child: Text(title, style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey), overflow: TextOverflow.ellipsis)),
-              if (icon != null) Icon(icon, color: color, size: 20),
+              Expanded(child: Text(title, style: GoogleFonts.poppins(fontSize: 11.5, color: Colors.grey), overflow: TextOverflow.ellipsis)),
+              if (icon != null) Icon(icon, color: color, size: 18),
               if (percentage != null) 
                  Container(
-                   padding: const EdgeInsets.all(6),
+                   padding: const EdgeInsets.all(4),
                    decoration: BoxDecoration(
                      shape: BoxShape.circle,
                      border: Border.all(color: Colors.green),
                    ),
-                   child: Text(percentage!, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
+                   child: Text(percentage!, style: GoogleFonts.poppins(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.green)),
                  )
             ],
           ),
+          const SizedBox(height: 3),
           Text(
             value, 
             style: GoogleFonts.poppins(
-              fontSize: 24, 
+              fontSize: 21, 
               fontWeight: FontWeight.bold,
               color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
             ),

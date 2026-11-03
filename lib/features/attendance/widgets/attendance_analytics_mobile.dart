@@ -2,17 +2,10 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:open_filex/open_filex.dart';
-import 'dart:io';
 import 'package:flutter_application/shared/widgets/glass_container.dart';
-import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/features/attendance/core/attendance_provider.dart';
-import 'package:flutter_application/features/attendance/core/attendance_service.dart';
 import 'package:flutter_application/features/attendance/core/attendance_record.dart';
-import 'package:flutter_application/features/attendance/widgets/attendance_common_widgets.dart'; // Keep for SummaryCard
-import 'package:flutter_application/features/attendance/widgets/attendance_mobile_common_widgets.dart'; // Mobile Header
+import 'package:flutter_application/features/attendance/widgets/attendance_common_widgets.dart';
 
 class AttendanceAnalyticsMobile extends StatefulWidget {
   final bool shrinkWrap;
@@ -29,15 +22,16 @@ class AttendanceAnalyticsMobile extends StatefulWidget {
 }
 
 class _AttendanceAnalyticsMobileState extends State<AttendanceAnalyticsMobile> {
-  DateTime _selectedMonth = DateTime.now();
+  final DateTime _selectedMonth = DateTime.now();
   List<AttendanceRecord> _records = [];
   bool _isLoading = false;
-  bool _isExporting = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchMonthRecords();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _fetchMonthRecords();
+    });
   }
 
   Future<void> _fetchMonthRecords() async {
@@ -58,49 +52,6 @@ class _AttendanceAnalyticsMobileState extends State<AttendanceAnalyticsMobile> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _handleExport() async {
-    final monthStr = DateFormat('yyyy-MM').format(_selectedMonth);
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final attendanceService = AttendanceService(authService.dio);
-
-    setState(() => _isExporting = true);
-
-    try {
-      final bytes = await attendanceService.exportMyReport(monthStr);
-      final directory = await getTemporaryDirectory();
-      final String safeName = (authService.user?.name ?? 'User').replaceAll(RegExp(r'\s+'), '_');
-      final String fileName = 'Attendance_${monthStr}_$safeName.xlsx';
-      final String filePath = '${directory.path}/$fileName';
-      final File file = File(filePath);
-      await file.writeAsBytes(bytes, flush: true);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Report saved'),
-            action: SnackBarAction(
-              label: 'OPEN',
-              onPressed: () => OpenFilex.open(filePath),
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Export failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isExporting = false);
       }
     }
   }
@@ -134,64 +85,59 @@ class _AttendanceAnalyticsMobileState extends State<AttendanceAnalyticsMobile> {
     return ListView(
       shrinkWrap: widget.shrinkWrap,
       physics: widget.physics,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
       children: [
-        MonthlyReportHeaderMobile(
-          selectedMonth: _selectedMonth, 
-          onMonthChanged: (newDate) {
-            setState(() {
-              _selectedMonth = newDate;
-            });
-            _fetchMonthRecords();
-          },
-          onDownload: _handleExport,
-          isDownloading: _isExporting,
-        ),
-        const SizedBox(height: 24),
-        
-        // 1. Summary Cards (Stacked for Mobile)
+        // 1. Summary Cards (2x2 Grid for Mobile)
         Column(
           children: [
-            AttendanceSummaryCard(title: 'Total Records', value: '$totalDays', icon: Icons.calendar_today, color: Colors.blue),
-            const SizedBox(height: 12),
-            AttendanceSummaryCard(title: 'Present', value: '$presentPercent%', percentage: '$presentPercent%'),
-            const SizedBox(height: 12),
-            AttendanceSummaryCard(title: 'Late', value: '$latePercent%', percentage: '$latePercent%'),
-            const SizedBox(height: 12),
-            AttendanceSummaryCard(title: 'Avg Hours', value: avgHours, icon: Icons.access_time, color: Colors.blue),
+            Row(
+              children: [
+                Expanded(child: AttendanceSummaryCard(title: 'Total Records', value: '$totalDays', icon: Icons.calendar_today, color: Colors.blue)),
+                const SizedBox(width: 8),
+                Expanded(child: AttendanceSummaryCard(title: 'Present', value: '$presentPercent%', percentage: '$presentPercent%')),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: AttendanceSummaryCard(title: 'Late', value: '$latePercent%', percentage: '$latePercent%')),
+                const SizedBox(width: 8),
+                Expanded(child: AttendanceSummaryCard(title: 'Avg Hours', value: avgHours, icon: Icons.access_time, color: Colors.blue)),
+              ],
+            ),
           ],
         ),
         
-        const SizedBox(height: 24),
+        const SizedBox(height: 10),
 
         // 2. Line Chart
         GlassContainer(
-          padding: const EdgeInsets.all(24),
-          borderRadius: 24,
+          padding: const EdgeInsets.all(14),
+          borderRadius: 16,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Total Attendance', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
-                  const Icon(Icons.more_vert, size: 20, color: Colors.grey),
+                  Text('Total Attendance', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600)),
+                  const Icon(Icons.more_vert, size: 18, color: Colors.grey),
                 ],
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 10),
               SizedBox(
-                height: 250, // Slightly shorter for mobile
+                height: 200, // Compact height for mobile
                 child: _LineChartWidget(),
               ),
             ],
           ),
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: 10),
 
         // 3. Status & Weekly (Stacked)
         _buildAttendanceStatusCard(context, onTimeCount, lateCount),
-        const SizedBox(height: 24),
+        const SizedBox(height: 10),
         _buildWeeklyActivityCard(context),
       ],
     );
@@ -200,15 +146,15 @@ class _AttendanceAnalyticsMobileState extends State<AttendanceAnalyticsMobile> {
   Widget _buildAttendanceStatusCard(BuildContext context, int onTime, int late) {
     final total = onTime + late;
     return GlassContainer(
-      padding: const EdgeInsets.all(24),
-      borderRadius: 24,
+      padding: const EdgeInsets.all(14),
+      borderRadius: 16,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Attendance Status', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 24),
+          Text('Attendance Status', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 10),
           SizedBox(
-            height: 200,
+            height: 160,
             child: Row(
               children: [
                 Expanded(
@@ -218,18 +164,18 @@ class _AttendanceAnalyticsMobileState extends State<AttendanceAnalyticsMobile> {
                       PieChart(
                         PieChartData(
                           sectionsSpace: 0,
-                          centerSpaceRadius: 50,
+                          centerSpaceRadius: 42,
                           sections: [
-                            PieChartSectionData(color: const Color(0xFF10B981), value: onTime.toDouble(), radius: 20, showTitle: false), 
-                            PieChartSectionData(color: const Color(0xFFF59E0B), value: late.toDouble(), radius: 20, showTitle: false),
+                            PieChartSectionData(color: const Color(0xFF10B981), value: onTime.toDouble(), radius: 18, showTitle: false), 
+                            PieChartSectionData(color: const Color(0xFFF59E0B), value: late.toDouble(), radius: 18, showTitle: false),
                           ],
                         ),
                       ),
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text('$total', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold)),
-                          Text('TOTAL', style: GoogleFonts.poppins(fontSize: 9, color: Colors.grey)),
+                          Text('$total', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold)),
+                          Text('TOTAL', style: GoogleFonts.poppins(fontSize: 8.5, color: Colors.grey)),
                         ],
                       ),
                     ],
@@ -240,7 +186,7 @@ class _AttendanceAnalyticsMobileState extends State<AttendanceAnalyticsMobile> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildLegendItem(const Color(0xFF10B981), 'On Time'),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     _buildLegendItem(const Color(0xFFF59E0B), 'Late'),
                   ],
                 ),
@@ -255,28 +201,28 @@ class _AttendanceAnalyticsMobileState extends State<AttendanceAnalyticsMobile> {
   Widget _buildLegendItem(Color color, String text) {
     return Row(
       children: [
-        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 8),
-        Text(text, style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
+        Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 6),
+        Text(text, style: GoogleFonts.poppins(fontSize: 11.5, color: Colors.grey)),
       ],
     );
   }
 
   Widget _buildWeeklyActivityCard(BuildContext context) {
     return GlassContainer(
-      padding: const EdgeInsets.all(24),
-      borderRadius: 24,
+      padding: const EdgeInsets.all(14),
+      borderRadius: 16,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Weekly Activity', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 24),
+          Text('Weekly Activity', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 10),
           SizedBox(
-            height: 200,
+            height: 160,
             child: Column(
               children: [
-                Text('Weekly Activity (summary)', style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey)),
-                const SizedBox(height: 12),
+                Text('Weekly Activity (summary)', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
+                const SizedBox(height: 8),
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
@@ -296,7 +242,7 @@ class _AttendanceAnalyticsMobileState extends State<AttendanceAnalyticsMobile> {
                                 height: constraints.maxHeight * 0.65 * heightFactor,
                                 decoration: BoxDecoration(color: const Color(0xFF5B60F6).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 6),
                               Text(labels[i], style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey)),
                             ],
                           );

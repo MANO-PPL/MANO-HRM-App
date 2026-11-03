@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_application/features/attendance/core/attendance_provider.dart';
 import 'package:flutter_application/features/attendance/widgets/mark_attendance_mobile.dart';
 import 'package:flutter_application/features/attendance/widgets/attendance_history_tab.dart';
 import 'package:flutter_application/features/attendance/widgets/attendance_analytics_tab.dart';
@@ -90,44 +92,56 @@ class _AttendanceTabletPortraitViewState extends State<AttendanceTabletPortraitV
       color: Theme.of(context).brightness == Brightness.dark
           ? Colors.transparent
           : const Color(0xFFF8F9FA),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const AttendanceHeaderWidget(showTabBar: false),
-            Transform.translate(
-              offset: const Offset(0, -8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: AttendanceTabBar(
-                  controller: _effectiveTabController,
-                  onTap: _onTabSelected,
+      child: RefreshIndicator(
+        color: const Color(0xFF4F46E5),
+        onRefresh: () async {
+          final att = Provider.of<AttendanceProvider>(context, listen: false);
+          await Future.wait([
+            att.fetchRecords(DateTime.now(), forceRefresh: true),
+            att.fetchShiftPolicy(),
+            att.checkMissedPunch(),
+          ]);
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const AttendanceHeaderWidget(showTabBar: false),
+              Transform.translate(
+                offset: const Offset(0, -14),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: AttendanceTabBar(
+                    controller: _effectiveTabController,
+                    onTap: _onTabSelected,
+                  ),
                 ),
               ),
-            ),
-            Visibility(
-              visible: _currentIndex == 0,
-              maintainState: true,
-              maintainAnimation: false,
-              maintainSize: false,
-              maintainSemantics: false,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: MarkAttendanceMobile(),
-              ),
-            ),
-            if (_hasVisitedMyAttendance || _currentIndex == 1)
+              const SizedBox(height: 8),
               Visibility(
-                visible: _currentIndex == 1,
+                visible: _currentIndex == 0,
                 maintainState: true,
                 maintainAnimation: false,
                 maintainSize: false,
                 maintainSemantics: false,
-                child: const AttendanceReportsTabTablet(),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: MarkAttendanceMobile(),
+                ),
               ),
-            const SizedBox(height: 32),
-          ],
+              if (_hasVisitedMyAttendance || _currentIndex == 1)
+                Visibility(
+                  visible: _currentIndex == 1,
+                  maintainState: true,
+                  maintainAnimation: false,
+                  maintainSize: false,
+                  maintainSemantics: false,
+                  child: const AttendanceReportsTabTablet(),
+                ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );
@@ -146,20 +160,28 @@ class _AttendanceReportsTabTabletState extends State<AttendanceReportsTabTablet>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Sub-tabs
+        // Sub-tabs matching Attendance-Web
         Container(
-          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: borderColor, width: 1),
+            ),
+          ),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _buildSubTab('History', 0, Icons.history),
-                const SizedBox(width: 32),
+                _buildSubTab('History', 0, Icons.history_rounded),
+                const SizedBox(width: 20),
                 _buildSubTab('Analytics', 1, Icons.analytics_outlined),
-                const SizedBox(width: 32),
+                const SizedBox(width: 20),
                 _buildSubTab('Correction Requests', 2, Icons.edit_calendar_outlined),
               ],
             ),
@@ -171,7 +193,7 @@ class _AttendanceReportsTabTabletState extends State<AttendanceReportsTabTablet>
           : _selectedIndex == 1
             ? const AttendanceAnalyticsTab(shrinkWrap: true, physics: NeverScrollableScrollPhysics())
             : const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24),
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 child: AdminCorrectionRequests(
                   isPersonalView: true,
                   shrinkWrap: true,
