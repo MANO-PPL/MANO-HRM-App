@@ -1,54 +1,163 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
-.DS_Store
-.atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
-migrate_working_dir/
+# ==============================================================================
+# Flutter & Dart
+# ==============================================================================
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+**/doc/api/
+**/ios/Flutter/.last_build_id
 
-# IntelliJ related
+# Symbolication & Obfuscation
+app.*.symbols
+app.*.map.json
+
+# ==============================================================================
+# Android
+# ==============================================================================
+**/android/.gradle/
+**/android/captures/
+**/android/local.properties
+**/android/app/local.properties
+**/android/GeneratedPluginRegistrant.java
+**/android/.cxx/
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+
+# Android Build Outputs
+*.apk
+*.aab
+*.dex
+*.class
+
+# Android Signing Keys & Keystores (CRITICAL - Never commit!)
+*.keystore
+*.jks
+key.properties
+**/android/key.properties
+**/android/app/key.properties
+
+# ==============================================================================
+# iOS & macOS
+# ==============================================================================
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Flutter/ephemeral/
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_assets/
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/ios/Pods/
+**/ios/.symlinks/
+**/macos/Pods/
+**/macos/.symlinks/
+**/macos/Flutter/ephemeral/
+
+# Xcode Build Artifacts & User State
+**/DerivedData/
+*.mode1v3
+*.mode2v3
+*.moved-aside
+*.pbxuser
+*.perspectivev3
+*.xcuserstate
+xcuserdata/
+profile
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# iOS & Apple Signing / Certificates (CRITICAL - Never commit!)
+*.p12
+*.cer
+*.mobileprovision
+*.provisionprofile
+*.p8
+AuthKey_*.p8
+
+# ==============================================================================
+# Environment & Secrets (Never commit secrets!)
+# ==============================================================================
+.env
+.env.*
+*.env
+!.env.example
+
+# Firebase & Cloud Credentials
+google-services.json
+google-services (*).json
+**/android/app/google-services.json
+GoogleService-Info.plist
+**/ios/Runner/GoogleService-Info.plist
+**/macos/Runner/GoogleService-Info.plist
+
+# Service Accounts & API Keys (Google Play / App Store / Cloud / CI-CD)
+*service-account*.json
+*service_account*.json
+serviceAccountKey.json
+play-store-*.json
+api-key*.json
+*.pem
+*.key
+
+# ==============================================================================
+# Fastlane (Mobile CI/CD)
+# ==============================================================================
+**/fastlane/report.xml
+**/fastlane/Preview.html
+**/fastlane/screenshots
+**/fastlane/test_output
+**/fastlane/README.md
+
+# ==============================================================================
+# IDEs & Editors
+# ==============================================================================
+# Visual Studio Code (Keep team configurations, ignore user-specific state)
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# IntelliJ / Android Studio
 *.iml
 *.ipr
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# Miscellaneous Editors
+*.swp
+*.bak
+*~
+.history
+.atom/
 
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
-/coverage/
+# ==============================================================================
+# Operating System Junk
+# ==============================================================================
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 
-# Symbolication related
-app.*.symbols
+# Windows
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
 
-# Obfuscation related
-app.*.map.json
-
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
-
-# Environment
-.env
-
-# Firebase configuration files (contain sensitive API keys/secrets)
-google-services.json
-google-services (*).json
-android/app/google-services.json
-GoogleService-Info.plist
+# Linux / Misc
+*.log
+*.pyc
+.build/
+.buildlog/
+.svn/
+.swiftpm/
+migrate_working_dir/

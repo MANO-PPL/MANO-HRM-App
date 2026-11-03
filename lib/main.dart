@@ -268,6 +268,8 @@ class _AttendanceAppState extends State<AttendanceApp> with WidgetsBindingObserv
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
+      visualDensity: const VisualDensity(horizontal: -1.0, vertical: -1.0),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       colorScheme: ColorScheme.fromSeed(
         brightness: brightness, // Explicitly match the brightness
         seedColor: isDark ? const Color(0xFF2F81F7) : const Color(0xFF5B60F6),
@@ -285,13 +287,27 @@ class _AttendanceAppState extends State<AttendanceApp> with WidgetsBindingObserv
       cardTheme: CardThemeData(
         color: isDark ? const Color(0xFF161B22) : const Color(0xFFFFFFFF),
         surfaceTintColor: Colors.transparent,
+        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
         shape: RoundedRectangleBorder(
           side: BorderSide(
             color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
             width: 1,
           ),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
         ),
+      ),
+      listTileTheme: const ListTileThemeData(
+        dense: true,
+        visualDensity: VisualDensity(horizontal: -1.0, vertical: -1.0),
+        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      ),
+      inputDecorationTheme: const InputDecorationTheme(
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      ),
+      buttonTheme: const ButtonThemeData(
+        alignedDropdown: true,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: isDark
