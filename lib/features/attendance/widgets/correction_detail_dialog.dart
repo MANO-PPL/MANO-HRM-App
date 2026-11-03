@@ -12,6 +12,7 @@ import 'package:flutter_application/features/attendance/widgets/correction_docum
 import 'package:flutter_application/features/attendance/widgets/correction_reject_dialog.dart';
 import 'package:flutter_application/shared/models/user_model.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
+import 'package:flutter_application/shared/widgets/pfp_viewer_dialog.dart';
 
 /// Detailed view of a correction request with Visual 24h Timeline, Supporting Document Proof,
 /// Stated Justification, Audit Trail, and Admin Actions (Approve, Reject with Presets, Manual Override).
@@ -268,25 +269,36 @@ class _CorrectionDetailDialogState extends State<CorrectionDetailDialog> {
 
           // Header Section
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 16, 12),
+            padding: const EdgeInsets.fromLTRB(14, 10, 12, 8),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // Employee Avatar
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.15),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: avatarUrl != null && avatarUrl.isNotEmpty
-                        ? CachedNetworkImage(
-                            imageUrl: avatarUrl,
-                            fit: BoxFit.cover,
-                            width: 40,
-                            height: 40,
-                            errorWidget: (context, url, error) => _buildInitials(req.userName),
-                          )
-                        : _buildInitials(req.userName),
+                GestureDetector(
+                  onTap: () {
+                    PfpViewerDialog.show(
+                      context,
+                      imageUrl: avatarUrl,
+                      name: req.userName,
+                      subtitle: req.employeeId != null ? 'ID: ${req.employeeId}' : (req.designation ?? 'User ID: ${req.userId}'),
+                      heroTag: 'correction_detail_avatar_${req.id}',
+                    );
+                  },
+                  child: CircleAvatar(
+                    radius: 20,
+                    backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: avatarUrl != null && avatarUrl.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: avatarUrl,
+                              fit: BoxFit.cover,
+                              width: 40,
+                              height: 40,
+                              errorWidget: (context, url, error) => _buildInitials(req.userName),
+                            )
+                          : _buildInitials(req.userName),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -316,7 +328,7 @@ class _CorrectionDetailDialogState extends State<CorrectionDetailDialog> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${req.typeLabel} • ${DateFormat('MMM dd, yyyy').format(req.requestDate)}',
+                        '${req.typeLabel} • ${DateFormat('d MMMM yyyy').format(req.requestDate)}',
                         style: GoogleFonts.poppins(
                           fontSize: 11,
                           color: isDark ? Colors.white54 : const Color(0xFF64748B),
@@ -353,7 +365,7 @@ class _CorrectionDetailDialogState extends State<CorrectionDetailDialog> {
                       color: _isOverride ? const Color(0xFFF59E0B) : null,
                     ),
                     label: Text(
-                      _isOverride ? 'Override Active' : 'Manual Override',
+                      _isOverride ? 'Override' : 'Modify',
                       style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -388,14 +400,14 @@ class _CorrectionDetailDialogState extends State<CorrectionDetailDialog> {
                     ),
                   )
                 : SingleChildScrollView(
-                    padding: const EdgeInsets.all(18),
+                    padding: const EdgeInsets.all(12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Manual Override Active Banner (when Pending and Override toggled)
                         if (isAdmin && isPending && _isOverride) ...[
                           _buildManualOverrideBanner(isDark, proposedSessions),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 10),
                         ],
 
                         // 1. Full 24-Hour Visual Correction Timeline
@@ -417,7 +429,7 @@ class _CorrectionDetailDialogState extends State<CorrectionDetailDialog> {
                           },
                         ),
 
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 10),
 
                         // 2. Supporting Document / Proof Card (hooks into CorrectionDocumentModal)
                         CorrectionDocumentCard(
@@ -425,18 +437,18 @@ class _CorrectionDetailDialogState extends State<CorrectionDetailDialog> {
                           isDark: isDark,
                         ),
 
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 10),
 
                         // 3. Information & Employee Stated Justification Grid
                         _buildRequestInfoAndReasonCard(req, isDark),
 
                         // 4. Reviewer Decision Banner (if already reviewed)
                         if (!isPending) ...[
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 10),
                           _buildReviewerDecisionCard(req, isDark),
                         ],
 
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 14),
 
                         // 5. Action Bar for Admin
                         if (isAdmin && isPending)
@@ -474,7 +486,10 @@ class _CorrectionDetailDialogState extends State<CorrectionDetailDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
                       'Manual Override Active',
@@ -484,7 +499,6 @@ class _CorrectionDetailDialogState extends State<CorrectionDetailDialog> {
                         color: const Color(0xFFF59E0B),
                       ),
                     ),
-                    const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                       decoration: BoxDecoration(
@@ -633,7 +647,7 @@ class _CorrectionDetailDialogState extends State<CorrectionDetailDialog> {
                 Expanded(
                   child: _buildInfoItem(
                     label: 'Submitted',
-                    value: DateFormat('MMM dd, hh:mm a').format(req.submittedAt!),
+                    value: DateFormat('d MMMM yyyy, hh:mm a').format(req.submittedAt!),
                     isDark: isDark,
                   ),
                 ),
@@ -653,24 +667,39 @@ class _CorrectionDetailDialogState extends State<CorrectionDetailDialog> {
           const SizedBox(height: 6),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF0D1117) : Colors.white,
               borderRadius: BorderRadius.circular(8),
-              border: Border(
-                left: const BorderSide(color: Color(0xFF6366F1), width: 3),
-                top: BorderSide(color: isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0)),
-                right: BorderSide(color: isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0)),
-                bottom: BorderSide(color: isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0)),
+              border: Border.all(
+                color: isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0),
               ),
             ),
-            child: Text(
-              '"${req.reason.isNotEmpty ? req.reason : "No specific remarks provided."}"',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
-                height: 1.4,
-                color: isDark ? Colors.white70 : const Color(0xFF334155),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      width: 4,
+                      color: const Color(0xFF6366F1),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text(
+                          '"${req.reason.isNotEmpty ? req.reason : "No specific remarks provided."}"',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                            height: 1.4,
+                            color: isDark ? Colors.white70 : const Color(0xFF334155),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -743,7 +772,7 @@ class _CorrectionDetailDialogState extends State<CorrectionDetailDialog> {
               const Spacer(),
               if (req.reviewedAt != null)
                 Text(
-                  DateFormat('MMM dd, yyyy').format(req.reviewedAt!),
+                  DateFormat('d MMMM yyyy').format(req.reviewedAt!),
                   style: GoogleFonts.poppins(
                     fontSize: 10,
                     color: isDark ? Colors.white54 : const Color(0xFF64748B),

@@ -2,15 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:open_filex/open_filex.dart';
-import 'dart:io';
 import 'package:flutter_application/shared/widgets/glass_container.dart';
-import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/features/attendance/core/attendance_provider.dart';
-import 'package:flutter_application/features/attendance/core/attendance_service.dart';
 import 'package:flutter_application/features/attendance/core/attendance_record.dart';
-import 'package:flutter_application/features/attendance/widgets/attendance_common_widgets.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_application/shared/widgets/interactive_image_viewer.dart';
 
@@ -31,10 +25,9 @@ class AttendanceHistoryTab extends StatefulWidget {
 }
 
 class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
-  DateTime _selectedMonth = DateTime.now();
+  final DateTime _selectedMonth = DateTime.now();
   List<AttendanceRecord> _records = [];
   bool _isLoading = false;
-  bool _isExporting = false;
 
   @override
   void initState() {
@@ -66,47 +59,44 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
     }
   }
 
-  Future<void> _handleExport() async {
-    final monthStr = DateFormat('yyyy-MM').format(_selectedMonth);
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final attendanceService = AttendanceService(authService.dio);
+  // Injects absent-day placeholders for working days with no recorded attendance.
+  List<_TabDayEntry> _buildDayEntries(List<AttendanceRecord> records) {
+    final today = DateTime.now();
+    final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
 
-    setState(() => _isExporting = true);
+    final Map<String, List<AttendanceRecord>> recordsByDate = {};
+    for (final r in records) {
+      if (r.timeIn == null) continue;
+      try {
+        final dt = DateTime.parse(r.timeIn!);
+        final key = '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+        recordsByDate.putIfAbsent(key, () => []).add(r);
+      } catch (_) {}
+    }
 
-    try {
-      final bytes = await attendanceService.exportMyReport(monthStr);
-      final directory = await getTemporaryDirectory();
-      final String safeName = (authService.user?.name ?? 'User').replaceAll(RegExp(r'\s+'), '_');
-      final String fileName = 'Attendance_${monthStr}_$safeName.xlsx';
-      final String filePath = '${directory.path}/$fileName';
-      final File file = File(filePath);
-      await file.writeAsBytes(bytes, flush: true);
+    final daysInMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
+    final entries = <_TabDayEntry>[];
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Report saved: $fileName'),
-            action: SnackBarAction(
-              label: 'OPEN',
-              onPressed: () => OpenFilex.open(filePath),
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Export failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isExporting = false);
+    for (int d = 1; d <= daysInMonth; d++) {
+      final dt = DateTime(_selectedMonth.year, _selectedMonth.month, d);
+      final dateStr = '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+
+      if (dateStr.compareTo(todayStr) >= 0) continue;
+
+      if (recordsByDate.containsKey(dateStr)) {
+        for (final r in recordsByDate[dateStr]!) {
+          entries.add(_TabDayEntry(dateStr: dateStr, date: dt, record: r, isAbsent: false));
+        }
+      } else {
+        final dow = dt.weekday;
+        if (dow >= 1 && dow <= 5) {
+          entries.add(_TabDayEntry(dateStr: dateStr, date: dt, record: null, isAbsent: true));
+        }
       }
     }
+
+    entries.sort((a, b) => b.dateStr.compareTo(a.dateStr));
+    return entries;
   }
 
   @override
@@ -115,77 +105,59 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // Group records by week
-    final Map<int, List<AttendanceRecord>> groupedRecords = {};
-    for (var record in _records) {
-      if (record.timeIn != null) {
-        final date = DateTime.parse(record.timeIn!);
-        // Calculate week number or just group by 7-day windows?
-        // Let's group by "Week of [Month] [Day]"
-        final weekOfMonth = ((date.day - 1) / 7).floor() + 1;
-        groupedRecords.putIfAbsent(weekOfMonth, () => []).add(record);
-      }
-    }
+    final dayEntries = _buildDayEntries(_records);
 
-    // Sort weeks descending
-    final sortedWeeks = groupedRecords.keys.toList()..sort((a, b) => b.compareTo(a));
+    final Map<int, List<_TabDayEntry>> groupedByWeek = {};
+    for (final entry in dayEntries) {
+      final weekOfMonth = ((entry.date.day - 1) ~/ 7) + 1;
+      groupedByWeek.putIfAbsent(weekOfMonth, () => []).add(entry);
+    }
+    final sortedWeeks = groupedByWeek.keys.toList()..sort((a, b) => b.compareTo(a));
 
     return ListView(
       shrinkWrap: widget.shrinkWrap,
       physics: widget.physics,
-      padding: widget.padding ?? const EdgeInsets.all(24),
+      padding: widget.padding ?? const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       children: [
-        // 1. Report Header
-        MonthlyReportHeader(
-          selectedMonth: _selectedMonth,
-          onMonthChanged: (newDate) {
-            setState(() {
-              _selectedMonth = newDate;
-            });
-            _fetchMonthRecords();
-          },
-          onDownload: _handleExport,
-          isDownloading: _isExporting,
-        ),
-        const SizedBox(height: 32),
-
-        if (_records.isEmpty)
+        if (dayEntries.isEmpty)
           Center(
-            child: Column(
-              children: [
-                Icon(Icons.history_outlined, size: 48, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                Text(
-                  "No records found for this month",
-                  style: GoogleFonts.poppins(color: Colors.grey[600]),
-                ),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Column(
+                children: [
+                  Icon(Icons.history_outlined, size: 48, color: Colors.grey[400]),
+                  const SizedBox(height: 12),
+                  Text(
+                    "No records found for this month",
+                    style: GoogleFonts.poppins(color: Colors.grey[600]),
+                  ),
+                ],
+              ),
             ),
           )
         else
           ...sortedWeeks.map((week) {
-            final weekRecords = groupedRecords[week]!;
-            // Sort records in week descending by date
-            weekRecords.sort((a, b) => b.timeIn!.compareTo(a.timeIn!));
-            
+            final weekEntries = groupedByWeek[week]!;
             return Padding(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: _buildWeekSection(context, 'Week $week', weekRecords),
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _buildWeekSection(context, 'Week $week', weekEntries),
             );
           }),
       ],
     );
   }
 
-  Widget _buildWeekSection(BuildContext context, String title, List<AttendanceRecord> records) {
+  Widget _buildWeekSection(BuildContext context, String title, List<_TabDayEntry> entries) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey[600])),
-        const SizedBox(height: 16),
-        ...records.map((record) => Padding(
-          padding: const EdgeInsets.only(bottom: 12), 
-          child: _buildHistoryCard(record),
+        Text(title, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[600])),
+        const SizedBox(height: 8),
+        ...entries.map((entry) => Padding(
+          padding: const EdgeInsets.only(bottom: 8), 
+          child: entry.isAbsent
+              ? _buildAbsentCard(context, entry.date)
+              : _buildHistoryCard(entry.record!),
         )),
       ],
     );
@@ -194,14 +166,29 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
   Widget _buildHistoryCard(AttendanceRecord record) {
     final timeIn = DateTime.parse(record.timeIn!);
     final day = timeIn.day;
-    final dateStr = DateFormat('EEEE, MMM d').format(timeIn);
+    final dateStr = DateFormat('d MMMM yyyy').format(timeIn);
     
     final status = record.status.toUpperCase();
     final isLate = status == 'LATE';
     final isAbsent = status == 'ABSENT';
-    
-    final statusColor = isLate ? Colors.orange : (isAbsent ? Colors.red : Colors.green[100]);
-    final statusText = isLate ? Colors.orange[800] : (isAbsent ? Colors.red[800] : Colors.green[800]);
+    final isMissedPunch = status == 'MISSED_PUNCH';
+
+    // Web-aligned: absent = muted grey (not red)
+    Color? statusBg;
+    Color? statusText;
+    if (isLate) {
+      statusBg = Colors.orange;
+      statusText = Colors.orange[800];
+    } else if (isAbsent) {
+      statusBg = Colors.grey[300];
+      statusText = Colors.grey[700];
+    } else if (isMissedPunch) {
+      statusBg = Colors.red[100];
+      statusText = Colors.red[700];
+    } else {
+      statusBg = Colors.green[100];
+      statusText = Colors.green[800];
+    }
 
     String displayIn = DateFormat('hh:mm a').format(timeIn);
     String displayOut = '-';
@@ -220,8 +207,8 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
     final location = record.timeInAddress ?? 'Unknown Location';
 
     return GlassContainer(
-      padding: const EdgeInsets.all(20),
-      borderRadius: 16,
+      padding: const EdgeInsets.all(12),
+      borderRadius: 14,
       child: LayoutBuilder(
         builder: (context, constraints) {
           if (constraints.maxWidth < 450) {
@@ -233,16 +220,16 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
                   children: [
                     // Date Box
                     Container(
-                      width: 50,
-                      height: 50,
+                      width: 42,
+                      height: 42,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Text('$day', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600, color: const Color(0xFF5B60F6))),
+                      child: Text('$day', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF5B60F6))),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     
                     // Details
                     Expanded(
@@ -251,22 +238,22 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
                         children: [
                           Text(
                             dateStr, 
-                            style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14),
+                            style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13),
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 3),
                           Row(
                             children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(color: statusColor?.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
-                                child: Text(status, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: statusText)),
+                                decoration: BoxDecoration(color: statusBg?.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
+                                child: Text(status, style: GoogleFonts.poppins(fontSize: 9.5, fontWeight: FontWeight.w600, color: statusText)),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   location, 
-                                  style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
+                                  style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -277,7 +264,7 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Divider(height: 1, color: Theme.of(context).dividerColor.withValues(alpha: 0.3)),
                 const SizedBox(height: 8),
                 Row(
@@ -300,16 +287,16 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
                   children: [
                     // Date Box
                     Container(
-                      width: 50,
-                      height: 50,
+                      width: 42,
+                      height: 42,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Text('$day', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600, color: const Color(0xFF5B60F6))),
+                      child: Text('$day', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF5B60F6))),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     
                     // Details
                     Expanded(
@@ -321,26 +308,26 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
                               Expanded(
                                 child: Text(
                                   dateStr, 
-                                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14),
+                                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13.5),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                             ],
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 3),
                           Row(
                             children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(color: statusColor?.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
-                                child: Text(status, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: statusText)),
+                                decoration: BoxDecoration(color: statusBg?.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
+                                child: Text(status, style: GoogleFonts.poppins(fontSize: 9.5, fontWeight: FontWeight.w600, color: statusText)),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   location, 
-                                  style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
+                                  style: GoogleFonts.poppins(fontSize: 11.5, color: Colors.grey),
                                 ),
                               ),
                             ],
@@ -348,7 +335,7 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     
                     // Times
                     Column(
@@ -359,9 +346,9 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             _buildTimeColumn('IN', displayIn, imageUrl: record.timeInImage),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 6),
                             _buildTimeColumn('OUT', displayOut, imageUrl: record.timeOutImage),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 6),
                             _buildTimeColumn('HRS', hrs),
                           ],
                         )
@@ -505,6 +492,87 @@ class _AttendanceHistoryTabState extends State<AttendanceHistoryTab> {
         else
           Text(value, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
       ],
+    );
+  }
+}
+
+// ─── Data classes ─────────────────────────────────────────────────────────────
+
+class _TabDayEntry {
+  final String dateStr;
+  final DateTime date;
+  final AttendanceRecord? record;
+  final bool isAbsent;
+
+  _TabDayEntry({required this.dateStr, required this.date, this.record, required this.isAbsent});
+}
+
+// ─── Absent Card ──────────────────────────────────────────────────────────────
+
+extension _AbsentTabCardExt on _AttendanceHistoryTabState {
+  Widget _buildAbsentCard(BuildContext context, DateTime date) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final day = date.day;
+    final dateLabel = DateFormat('d MMMM yyyy').format(date);
+
+    return GlassContainer(
+      padding: const EdgeInsets.all(12),
+      borderRadius: 14,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: (isDark ? Colors.grey[800] : Colors.grey[200])!,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '$day',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.grey[500] : Colors.grey[500],
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  dateLabel,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.grey[800] : Colors.grey[200],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'ABSENT',
+                    style: GoogleFonts.poppins(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.grey[500] : Colors.grey[600],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

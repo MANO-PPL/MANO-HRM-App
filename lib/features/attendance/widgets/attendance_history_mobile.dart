@@ -2,15 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:open_filex/open_filex.dart';
-import 'dart:io';
 import 'package:flutter_application/shared/widgets/glass_container.dart';
-import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/features/attendance/core/attendance_provider.dart';
-import 'package:flutter_application/features/attendance/core/attendance_service.dart';
 import 'package:flutter_application/features/attendance/core/attendance_record.dart';
-import 'package:flutter_application/features/attendance/widgets/attendance_mobile_common_widgets.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_application/shared/widgets/interactive_image_viewer.dart';
 
@@ -29,10 +23,9 @@ class AttendanceHistoryMobile extends StatefulWidget {
 }
 
 class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
-  DateTime _selectedMonth = DateTime.now();
+  final DateTime _selectedMonth = DateTime.now();
   List<AttendanceRecord> _records = [];
   bool _isLoading = false;
-  bool _isExporting = false;
 
   @override
   void initState() {
@@ -64,47 +57,51 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
     }
   }
 
-  Future<void> _handleExport() async {
-    final monthStr = DateFormat('yyyy-MM').format(_selectedMonth);
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final attendanceService = AttendanceService(authService.dio);
+  // Injects absent-day placeholders for working days with no recorded attendance.
+  // Mirrors web's injectAbsentDaysIntoHistory: Mon-Fri past days with no record
+  // get an ABSENT placeholder card so the history list is never silently empty.
+  List<_DayEntry> _buildDayEntries(List<AttendanceRecord> records) {
+    final today = DateTime.now();
+    final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
 
-    setState(() => _isExporting = true);
+    // Map of dateStr -> records for that date
+    final Map<String, List<AttendanceRecord>> recordsByDate = {};
+    for (final r in records) {
+      if (r.timeIn == null) continue;
+      try {
+        final dt = DateTime.parse(r.timeIn!);
+        final key = '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+        recordsByDate.putIfAbsent(key, () => []).add(r);
+      } catch (_) {}
+    }
 
-    try {
-      final bytes = await attendanceService.exportMyReport(monthStr);
-      final directory = await getTemporaryDirectory();
-      final String safeName = (authService.user?.name ?? 'User').replaceAll(RegExp(r'\s+'), '_');
-      final String fileName = 'Attendance_${monthStr}_$safeName.xlsx';
-      final String filePath = '${directory.path}/$fileName';
-      final File file = File(filePath);
-      await file.writeAsBytes(bytes, flush: true);
+    final daysInMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
+    final entries = <_DayEntry>[];
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Report saved'),
-            action: SnackBarAction(
-              label: 'OPEN',
-              onPressed: () => OpenFilex.open(filePath),
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Export failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isExporting = false);
+    for (int d = 1; d <= daysInMonth; d++) {
+      final dt = DateTime(_selectedMonth.year, _selectedMonth.month, d);
+      final dateStr = '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+
+      // Skip future dates and today
+      if (dateStr.compareTo(todayStr) >= 0) continue;
+
+      if (recordsByDate.containsKey(dateStr)) {
+        // Has actual attendance records
+        for (final r in recordsByDate[dateStr]!) {
+          entries.add(_DayEntry(dateStr: dateStr, date: dt, record: r, isAbsent: false));
+        }
+      } else {
+        // No records – inject ABSENT placeholder for working days (Mon-Fri only)
+        final dow = dt.weekday; // 1=Mon, 7=Sun
+        if (dow >= 1 && dow <= 5) {
+          entries.add(_DayEntry(dateStr: dateStr, date: dt, record: null, isAbsent: true));
+        }
       }
     }
+
+    // Sort descending (most recent first)
+    entries.sort((a, b) => b.dateStr.compareTo(a.dateStr));
+    return entries;
   }
 
   @override
@@ -113,59 +110,49 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // Group records by week
-    final Map<int, List<AttendanceRecord>> groupedRecords = {};
-    for (var record in _records) {
-      if (record.timeIn != null) {
-        final date = DateTime.parse(record.timeIn!);
-        final weekOfMonth = ((date.day - 1) / 7).floor() + 1;
-        groupedRecords.putIfAbsent(weekOfMonth, () => []).add(record);
-      }
-    }
+    final dayEntries = _buildDayEntries(_records);
 
-    // Sort weeks descending
-    final sortedWeeks = groupedRecords.keys.toList()..sort((a, b) => b.compareTo(a));
+    // Group entries by week-of-month (descending)
+    final Map<int, List<_DayEntry>> groupedByWeek = {};
+    for (final entry in dayEntries) {
+      final weekOfMonth = ((entry.date.day - 1) ~/ 7) + 1;
+      groupedByWeek.putIfAbsent(weekOfMonth, () => []).add(entry);
+    }
+    final sortedWeeks = groupedByWeek.keys.toList()..sort((a, b) => b.compareTo(a));
 
     return ListView(
       shrinkWrap: widget.shrinkWrap,
       physics: widget.physics,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
       children: [
-        // 1. Report Header (Mobile)
-        MonthlyReportHeaderMobile(
-          selectedMonth: _selectedMonth,
-          onMonthChanged: (newDate) {
-            setState(() {
-              _selectedMonth = newDate;
-            });
-            _fetchMonthRecords();
-          },
-          onDownload: _handleExport,
-          isDownloading: _isExporting,
-        ),
-        const SizedBox(height: 32),
-
-        if (_records.isEmpty)
+        if (dayEntries.isEmpty)
           Center(
-            child: Column(
-              children: [
-                Icon(Icons.history_outlined, size: 48, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                Text(
-                  "No records found for this month",
-                  style: GoogleFonts.poppins(color: Colors.grey[600]),
-                ),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Column(
+                children: [
+                  Icon(Icons.history_outlined, size: 48, color: Colors.grey[400]),
+                  const SizedBox(height: 12),
+                  Text(
+                    "No records found for this month",
+                    style: GoogleFonts.poppins(color: Colors.grey[600]),
+                  ),
+                ],
+              ),
             ),
           )
         else
           ...sortedWeeks.map((week) {
-            final weekRecords = groupedRecords[week]!;
-            weekRecords.sort((a, b) => b.timeIn!.compareTo(a.timeIn!));
-            
+            final weekEntries = groupedByWeek[week]!;
             return Padding(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: _buildWeekSection(context, 'Week $week', weekRecords.map((r) => _buildHistoryCard(context, r)).toList()),
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _buildWeekSection(
+                context,
+                'Week $week',
+                weekEntries.map((e) => e.isAbsent
+                    ? _buildAbsentCard(context, e.date)
+                    : _buildHistoryCard(context, e.record!)).toList(),
+              ),
             );
           }),
       ],
@@ -179,13 +166,13 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
         Text(
           title, 
           style: GoogleFonts.poppins(
-            fontSize: 14, 
+            fontSize: 13, 
             fontWeight: FontWeight.w600, 
             color: Theme.of(context).textTheme.bodyLarge?.color?.withValues(alpha: 0.7) ?? Colors.grey[600]
           ),
         ),
-        const SizedBox(height: 16),
-        ...children.map((c) => Padding(padding: const EdgeInsets.only(bottom: 12), child: c)),
+        const SizedBox(height: 8),
+        ...children.map((c) => Padding(padding: const EdgeInsets.only(bottom: 8), child: c)),
       ],
     );
   }
@@ -195,14 +182,29 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
     
     final timeIn = DateTime.parse(record.timeIn!);
     final day = timeIn.day;
-    final dateStr = DateFormat('EEEE, MMM d').format(timeIn);
+    final dateStr = DateFormat('d MMMM yyyy').format(timeIn);
     
     final status = record.status.toUpperCase();
     final isLate = status == 'LATE';
     final isAbsent = status == 'ABSENT';
-    
-    final statusColor = isLate ? Colors.orange : (isAbsent ? Colors.red : Colors.green[100]);
-    final statusText = isLate ? Colors.orange[800] : (isAbsent ? Colors.red[800] : Colors.green[800]);
+    final isMissedPunch = status == 'MISSED_PUNCH';
+
+    // Web-aligned colour scheme: absent = muted slate/grey (not red)
+    Color? statusBg;
+    Color? statusText;
+    if (isLate) {
+      statusBg = Colors.orange;
+      statusText = Colors.orange[800];
+    } else if (isAbsent) {
+      statusBg = Colors.grey[300];
+      statusText = Colors.grey[700];
+    } else if (isMissedPunch) {
+      statusBg = Colors.red[100];
+      statusText = Colors.red[700];
+    } else {
+      statusBg = Colors.green[100];
+      statusText = Colors.green[800];
+    }
 
     String displayIn = DateFormat('hh:mm a').format(timeIn);
     String displayOut = '-';
@@ -221,8 +223,8 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
     final location = record.timeInAddress ?? 'Unknown Location';
 
     return GlassContainer(
-      padding: const EdgeInsets.all(16),
-      borderRadius: 16,
+      padding: const EdgeInsets.all(12),
+      borderRadius: 14,
       child: Column(
         children: [
           Row(
@@ -230,16 +232,16 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
             children: [
               // Date Box
               Container(
-                width: 44,
-                height: 44,
+                width: 40,
+                height: 40,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text('$day', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF5B60F6))),
+                child: Text('$day', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600, color: const Color(0xFF5B60F6))),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               
               // Details
               Expanded(
@@ -254,7 +256,7 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
                         color: Theme.of(context).textTheme.bodyLarge?.color,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       location, 
                       style: GoogleFonts.poppins(
@@ -262,10 +264,10 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
                         color: Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: statusColor?.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
+                      decoration: BoxDecoration(color: statusBg?.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
                       child: Text(status, style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.w600, color: statusText)),
                     ),
                   ],
@@ -273,9 +275,9 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           const Divider(height: 1),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           // Times Row (Space Between)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -433,6 +435,93 @@ class _AttendanceHistoryMobileState extends State<AttendanceHistoryMobile> {
             ),
           ),
       ],
+    );
+  }
+}
+
+// ─── Data Classes ─────────────────────────────────────────────────────────────
+
+class _DayEntry {
+  final String dateStr;
+  final DateTime date;
+  final AttendanceRecord? record;
+  final bool isAbsent;
+
+  _DayEntry({required this.dateStr, required this.date, this.record, required this.isAbsent});
+}
+
+// ─── Absent Card Extension ─────────────────────────────────────────────────────
+
+extension _AbsentCardExt on _AttendanceHistoryMobileState {
+  Widget _buildAbsentCard(BuildContext context, DateTime date) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final day = date.day;
+    final dateStr = DateFormat('d MMMM yyyy').format(date);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1C2128) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Date box – greyed out for absent
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: (isDark ? Colors.grey[800] : Colors.grey[200])!,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '$day',
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.grey[500] : Colors.grey[500],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  dateStr,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.grey[800] : Colors.grey[200],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'ABSENT',
+                    style: GoogleFonts.poppins(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.grey[500] : Colors.grey[600],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

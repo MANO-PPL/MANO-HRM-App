@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
 
@@ -134,7 +135,7 @@ class _CorrectionRejectDialogState extends State<CorrectionRejectDialog> {
                             ),
                           ),
                           Text(
-                            'For ${widget.userName}',
+                            'For ${widget.userName} • ${DateFormat('d MMMM yyyy').format(widget.requestDate)}',
                             style: GoogleFonts.poppins(
                               fontSize: 12,
                               color: isDark ? Colors.white54 : const Color(0xFF64748B),
