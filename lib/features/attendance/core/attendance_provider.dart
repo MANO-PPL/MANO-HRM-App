@@ -65,12 +65,14 @@ class AttendanceProvider with ChangeNotifier {
   }
 
   void _onAuthChanged() {
-    final currentUserId = _authService.user?.employeeId;
-    if (currentUserId != _lastUserId) {
+    final currentUserId = _authService.user?.employeeId ?? _authService.user?.id;
+    if (_lastUserId != null && currentUserId != _lastUserId) {
       debugPrint('AttendanceProvider: User changed from $_lastUserId to $currentUserId. Clearing cache.');
       clearCache();
       _lastUserId = currentUserId;
       _initShiftPolicyAndMissedPunch();
+    } else if (_lastUserId == null && currentUserId != null) {
+      _lastUserId = currentUserId;
     }
   }
 
@@ -86,6 +88,104 @@ class AttendanceProvider with ChangeNotifier {
 
   // Getters
   List<AttendanceRecord> get records => _currentRecords;
+  List<AttendanceRecord> _todayRecords = [];
+  List<AttendanceRecord> get todayRecords => _todayRecords;
+
+  /// Returns records for a specific date from cache, todayRecords, or currentRecords
+  List<AttendanceRecord> getRecordsForDate(DateTime date) {
+    final dateStr = DateFormat('yyyy-MM-dd').format(date);
+    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final isTodayDate = dateStr == todayStr;
+
+    if (isTodayDate && _todayRecords.isNotEmpty) {
+      return _todayRecords.where((r) => _isToday(r.timeIn)).toList();
+    }
+
+    final userId = _authService.user?.employeeId ?? _authService.user?.id ?? 'anon';
+    final key = '${userId}_$dateStr';
+    if (_recordsCache.containsKey(key)) {
+      final cached = _recordsCache[key]!;
+      return isTodayDate ? cached.where((r) => _isToday(r.timeIn)).toList() : cached;
+    }
+
+    for (final entry in _recordsCache.entries) {
+      if (entry.key.endsWith('_$dateStr')) {
+        return isTodayDate ? entry.value.where((r) => _isToday(r.timeIn)).toList() : entry.value;
+      }
+    }
+
+    if (_currentRecords.isNotEmpty) {
+      final matches = _currentRecords.where((r) {
+        if (r.timeIn == null) return false;
+        try {
+          return DateFormat('yyyy-MM-dd').format(DateTime.parse(r.timeIn!).toLocal()) == dateStr;
+        } catch (_) {
+          return false;
+        }
+      }).toList();
+      if (matches.isNotEmpty) {
+        return isTodayDate ? matches.where((r) => _isToday(r.timeIn)).toList() : matches;
+      }
+    }
+
+    return [];
+  }
+
+  /// Helper to check if an AttendanceRecord belongs to today
+  bool isRecordToday(AttendanceRecord r) => _isToday(r.timeIn);
+
+  /// Returns true if the employee has an active open session today (timed in without timing out)
+  bool get isCheckedInToday {
+    if (_todayRecords.any((r) => r.timeIn != null && r.timeOut == null && _isToday(r.timeIn))) {
+      return true;
+    }
+    for (final r in _currentRecords) {
+      if (r.timeIn != null && r.timeOut == null && _isToday(r.timeIn)) {
+        return true;
+      }
+    }
+    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    for (final entry in _recordsCache.entries) {
+      if (entry.key.endsWith('_$todayStr')) {
+        if (entry.value.any((r) => r.timeIn != null && r.timeOut == null && _isToday(r.timeIn))) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /// Returns the active session record if any for today
+  AttendanceRecord? get activeSessionRecord {
+    try {
+      return _todayRecords.firstWhere((r) => r.timeIn != null && r.timeOut == null && _isToday(r.timeIn));
+    } catch (_) {
+      try {
+        return _currentRecords.firstWhere((r) => r.timeIn != null && r.timeOut == null && _isToday(r.timeIn));
+      } catch (_) {
+        final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+        for (final entry in _recordsCache.entries) {
+          if (entry.key.endsWith('_$todayStr')) {
+            try {
+              return entry.value.firstWhere((r) => r.timeIn != null && r.timeOut == null && _isToday(r.timeIn));
+            } catch (_) {}
+          }
+        }
+        return null;
+      }
+    }
+  }
+
+  static bool _isToday(String? isoString) {
+    if (isoString == null) return false;
+    try {
+      final dt = DateTime.parse(isoString).toLocal();
+      final now = DateTime.now();
+      return dt.year == now.year && dt.month == now.month && dt.day == now.day;
+    } catch (_) {
+      return false;
+    }
+  }
 
   bool get isLoading => _isLoading;
   bool get isRangeLoading => _isRangeLoading;
@@ -154,7 +254,6 @@ class AttendanceProvider with ChangeNotifier {
           dayRecords = await _attendanceService.getMyRecords(
             fromDate: checkStr,
             toDate: checkStr,
-            userId: userId,
           );
           _recordsCache[cacheKey] = dayRecords;
         } catch (_) {
@@ -189,6 +288,7 @@ class AttendanceProvider with ChangeNotifier {
     final dateStr = DateFormat('yyyy-MM-dd').format(date);
     final userId = _authService.user?.employeeId ?? 'anon';
     final cacheKey = '${userId}_$dateStr';
+    final isToday = dateStr == DateFormat('yyyy-MM-dd').format(DateTime.now());
     _error = null;
 
     // 1. Return from memory cache if available and not forcing refresh
@@ -196,7 +296,12 @@ class AttendanceProvider with ChangeNotifier {
       final cached = _recordsCache[cacheKey]!;
       if (_currentRecords != cached) {
         _currentRecords = cached;
+        if (isToday) _todayRecords = cached;
         notifyListeners();
+      }
+      // If today, revalidate in background so live punches/updates aren't missed
+      if (isToday) {
+        _executeFetchRecords(date, dateStr, cacheKey, true, true);
       }
       return;
     }
@@ -223,8 +328,11 @@ class AttendanceProvider with ChangeNotifier {
     bool forceRefresh,
     bool silentRefresh,
   ) async {
-    // Try to load from persistent cache first if memory cache is empty
-    if (!_recordsCache.containsKey(cacheKey)) {
+    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final isTargetToday = dateStr == todayStr;
+
+    // Try to load from persistent cache first only if memory cache is empty and not forcing refresh
+    if (!forceRefresh && !_recordsCache.containsKey(cacheKey)) {
       try {
         final prefs = await SharedPreferences.getInstance();
         final cachedStr = prefs.getString('cached_attendance_$cacheKey');
@@ -233,6 +341,9 @@ class AttendanceProvider with ChangeNotifier {
           final list = decoded.map((item) => AttendanceRecord.fromJson(item)).toList();
           _recordsCache[cacheKey] = list;
           _currentRecords = list;
+          if (isTargetToday) {
+            _todayRecords = list.where((r) => _isToday(r.timeIn)).toList();
+          }
           notifyListeners();
         }
       } catch (e) {
@@ -247,16 +358,17 @@ class AttendanceProvider with ChangeNotifier {
         notifyListeners();
       }
 
-      final uid = _authService.user?.employeeId;
       final data = await _attendanceService.getMyRecords(
         fromDate: dateStr, 
         toDate: dateStr,
-        userId: uid,
       );
       
-      // Update Cache
+      // Update Cache directly with server response (source of truth)
       _recordsCache[cacheKey] = data;
       _currentRecords = data;
+      if (isTargetToday) {
+        _todayRecords = data.where((r) => _isToday(r.timeIn)).toList();
+      }
 
       // Save to SharedPreferences for persistence
       try {
@@ -267,18 +379,18 @@ class AttendanceProvider with ChangeNotifier {
         debugPrint("Error saving persistent records cache: $e");
       }
 
-      if (dateStr == DateFormat('yyyy-MM-dd').format(DateTime.now())) {
+      if (isTargetToday) {
         _scheduleShiftEndNotification();
         _scheduleShiftStartNotification();
       }
       
     } catch (e) {
       _error = e.toString();
-      // Keep cached records if available, otherwise clear
-      if (_recordsCache.containsKey(cacheKey)) {
+      // Keep cached records if available only when network/API fails
+      if (_recordsCache.containsKey(cacheKey) && _recordsCache[cacheKey]!.isNotEmpty) {
         _currentRecords = _recordsCache[cacheKey]!;
-      } else {
-        _currentRecords = [];
+      } else if (isTargetToday && _todayRecords.isNotEmpty) {
+        _currentRecords = _todayRecords;
       }
     } finally {
       if (!silentRefresh) {
@@ -305,12 +417,10 @@ class AttendanceProvider with ChangeNotifier {
 
     try {
       _isRangeLoading = true;
-      notifyListeners();
 
       final data = await _attendanceService.getMyRecords(
         fromDate: fromStr, 
         toDate: toStr,
-        userId: userId,
       );
       
       // 2. Update Cache
@@ -321,15 +431,18 @@ class AttendanceProvider with ChangeNotifier {
       return [];
     } finally {
       _isRangeLoading = false;
-      notifyListeners();
     }
   }
 
   // Invalidate cache for today (e.g. after punching in/out)
   void invalidateCache(DateTime date) {
     final dateStr = DateFormat('yyyy-MM-dd').format(date);
-    final userId = _authService.user?.employeeId ?? 'anon';
+    final userId = _authService.user?.employeeId ?? _authService.user?.id ?? 'anon';
     _recordsCache.remove('${userId}_$dateStr');
+    _recordsCache.removeWhere((key, _) => key.endsWith('_$dateStr'));
+    if (dateStr == DateFormat('yyyy-MM-dd').format(DateTime.now())) {
+      _todayRecords = [];
+    }
     
     // Also clear range cache to be safe as it might include this date
     _rangeCache.clear();
@@ -337,6 +450,12 @@ class AttendanceProvider with ChangeNotifier {
     // Clear SharedPreferences persistent cache too!
     SharedPreferences.getInstance().then((prefs) {
       prefs.remove('cached_attendance_${userId}_$dateStr');
+      final keys = prefs.getKeys();
+      for (final k in keys) {
+        if (k.startsWith('cached_attendance_') && k.endsWith('_$dateStr')) {
+          prefs.remove(k);
+        }
+      }
     }).catchError((e) {
       debugPrint("Error clearing persistent cache: $e");
     });
@@ -391,6 +510,7 @@ class AttendanceProvider with ChangeNotifier {
     _recordsCache.clear();
     _rangeCache.clear();
     _currentRecords = [];
+    _todayRecords = [];
     _pendingCorrectionCount = 0;
     _missedPunchDate = null;
     _shiftPolicy = null;

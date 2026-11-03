@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_application/features/attendance/core/attendance_provider.dart';
 import 'package:flutter_application/features/attendance/widgets/mark_attendance_mobile.dart';
 import 'package:flutter_application/features/attendance/widgets/attendance_header_widget.dart';
 import 'package:flutter_application/features/attendance/views/attendance_tablet_portrait_view.dart';
@@ -84,57 +86,73 @@ class _AttendanceTabletLandscapeViewState extends State<AttendanceTabletLandscap
 
     return Container(
       color: isDark ? Colors.transparent : const Color(0xFFF8F9FA),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const AttendanceHeaderWidget(showTabBar: false),
-            Transform.translate(
-              offset: const Offset(0, -8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: AttendanceTabBar(
-                  controller: _effectiveTabController,
-                  onTap: _onTabSelected,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1100),
-                child: Column(
-                  children: [
-                    Visibility(
-                      visible: _currentIndex == 0,
-                      maintainState: true,
-                      maintainAnimation: false,
-                      maintainSize: false,
-                      maintainSemantics: false,
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: MarkAttendanceMobile(),
+      child: RefreshIndicator(
+        color: const Color(0xFF4F46E5),
+        onRefresh: () async {
+          final att = Provider.of<AttendanceProvider>(context, listen: false);
+          await Future.wait([
+            att.fetchRecords(DateTime.now(), forceRefresh: true),
+            att.fetchShiftPolicy(),
+            att.checkMissedPunch(),
+          ]);
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const AttendanceHeaderWidget(showTabBar: false),
+              Transform.translate(
+                offset: const Offset(0, -14),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 540),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: AttendanceTabBar(
+                        controller: _effectiveTabController,
+                        onTap: _onTabSelected,
                       ),
                     ),
-                    if (_hasVisitedMyAttendance || _currentIndex == 1)
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1100),
+                  child: Column(
+                    children: [
                       Visibility(
-                        visible: _currentIndex == 1,
+                        visible: _currentIndex == 0,
                         maintainState: true,
                         maintainAnimation: false,
                         maintainSize: false,
                         maintainSemantics: false,
                         child: const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: AttendanceReportsTabTablet(),
+                          child: MarkAttendanceMobile(),
                         ),
                       ),
-                  ],
+                      if (_hasVisitedMyAttendance || _currentIndex == 1)
+                        Visibility(
+                          visible: _currentIndex == 1,
+                          maintainState: true,
+                          maintainAnimation: false,
+                          maintainSize: false,
+                          maintainSemantics: false,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: AttendanceReportsTabTablet(),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 32),
-          ],
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );

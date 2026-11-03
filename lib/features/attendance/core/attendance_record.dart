@@ -37,24 +37,40 @@ class AttendanceRecord {
     this.checkpoints = const [],
   });
 
+  static int _toInt(dynamic val, [int defaultValue = 0]) {
+    if (val == null) return defaultValue;
+    if (val is int) return val;
+    if (val is num) return val.toInt();
+    return int.tryParse(val.toString()) ?? defaultValue;
+  }
+
+  static int? _toIntOrNull(dynamic val) {
+    if (val == null) return null;
+    if (val is int) return val;
+    if (val is num) return val.toInt();
+    return int.tryParse(val.toString());
+  }
+
   factory AttendanceRecord.fromJson(Map<String, dynamic> json) {
     return AttendanceRecord(
-      attendanceId: json['attendance_id'] ?? 0,
-      userId: json['user_id'],
-      timeIn: _parseDate(json['time_in']),
-      timeOut: _parseDate(json['time_out']),
-      timeInLat: _toDouble(json['time_in_lat']),
-      timeInLng: _toDouble(json['time_in_lng']),
-      timeOutLat: _toDouble(json['time_out_lat']),
-      timeOutLng: _toDouble(json['time_out_lng']),
-      timeInAddress: json['time_in_address'],
-      timeOutAddress: json['time_out_address'],
+      attendanceId: _toInt(json['attendance_id'] ?? json['attendanceId'] ?? json['id'], 0),
+      userId: _toIntOrNull(json['user_id'] ?? json['userId']),
+      timeIn: _parseDate(json['time_in'] ?? json['timeIn'] ?? json['clock_in'] ?? json['clockIn'] ?? json['in']),
+      timeOut: _parseDate(json['time_out'] ?? json['timeOut'] ?? json['clock_out'] ?? json['clockOut'] ?? json['out']),
+      timeInLat: _toDouble(json['time_in_lat'] ?? json['timeInLat'] ?? json['latitude']),
+      timeInLng: _toDouble(json['time_in_lng'] ?? json['timeInLng'] ?? json['longitude']),
+      timeOutLat: _toDouble(json['time_out_lat'] ?? json['timeOutLat']),
+      timeOutLng: _toDouble(json['time_out_lng'] ?? json['timeOutLng']),
+      timeInAddress: (json['time_in_address'] ?? json['timeInAddress'] ?? json['location'])?.toString(),
+      timeOutAddress: (json['time_out_address'] ?? json['timeOutAddress'])?.toString(),
       timeInImage: _parseImageUrl(
         json['time_in_image'] ?? 
         json['time_in_image_url'] ?? 
         json['timeInImage'] ?? 
         json['time_in_photo'] ?? 
-        json['time_in_image_key']
+        json['time_in_image_key'] ??
+        json['image_url'] ??
+        json['verification_image']
       ), 
       timeOutImage: _parseImageUrl(
         json['time_out_image'] ?? 
@@ -63,9 +79,9 @@ class AttendanceRecord {
         json['time_out_photo'] ?? 
         json['time_out_image_key']
       ),
-      lateMinutes: json['late_minutes'] ?? 0,
-      lateReason: json['late_reason'],
-      status: json['status'] ?? 'Draft',
+      lateMinutes: _toInt(json['late_minutes'] ?? json['lateMinutes'], 0),
+      lateReason: json['late_reason']?.toString() ?? json['lateReason']?.toString(),
+      status: (json['status'] ?? 'Draft').toString(),
       checkpoints: ((json['checkpoints'] ?? json['raw_checkpoints']) as List<dynamic>?)
               ?.map((e) => CheckpointItem.fromJson(Map<String, dynamic>.from(e as Map)))
               .toList() ??
@@ -95,12 +111,12 @@ class AttendanceRecord {
 
   static String? _parseDate(dynamic val) {
     if (val == null) return null;
-    // If it's already ISO (common case), DateTime.parse works
+    final s = val.toString().trim();
+    if (s.isEmpty || s == 'null' || s == 'undefined') return null;
     try {
-      // Try standard parse first
-      return DateTime.parse(val.toString()).toIso8601String();
+      // Try standard ISO parse first
+      return DateTime.parse(s).toIso8601String();
     } catch (_) {
-      // Handle JS Date string: "Thu Jan 08 2026 11:48:36 GMT+0000 (Coordinated Universal Time)"
       try {
         final str = val.toString();
         // Extract the part we can parse: "Jan 08 2026 11:48:36" (Skip Day Name)

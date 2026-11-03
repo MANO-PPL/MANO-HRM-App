@@ -30,9 +30,14 @@ class AttendanceService {
     try {
       final response = await _dio.get(ApiConstants.myShift);
       if (response.statusCode == 200 && response.data != null) {
-        final raw = response.data;
-        if (raw is Map<String, dynamic>) {
-          final shiftObj = Shift.fromJson(raw);
+        dynamic raw = response.data;
+        if (raw is String) {
+          try {
+            raw = jsonDecode(raw);
+          } catch (_) {}
+        }
+        if (raw is Map) {
+          final shiftObj = Shift.fromJson(Map<String, dynamic>.from(raw));
           return shiftObj;
         }
       }
@@ -42,11 +47,19 @@ class AttendanceService {
     try {
       final response = await _dio.get(ApiConstants.policyShifts);
       if (response.statusCode == 200 && response.data != null) {
-        final list = response.data['shifts'] ?? response.data['data'];
-        if (list is List && list.isNotEmpty) {
-          final item = list.first;
-          if (item is Map<String, dynamic>) {
-            return Shift.fromJson(item);
+        dynamic raw = response.data;
+        if (raw is String) {
+          try {
+            raw = jsonDecode(raw);
+          } catch (_) {}
+        }
+        if (raw is Map) {
+          final list = raw['shifts'] ?? raw['data'];
+          if (list is List && list.isNotEmpty) {
+            final item = list.first;
+            if (item is Map) {
+              return Shift.fromJson(Map<String, dynamic>.from(item));
+            }
           }
         }
       }
@@ -55,6 +68,7 @@ class AttendanceService {
     }
     // Return default open shift if neither endpoint provided an explicit shift
     return Shift(
+      id: null,
       name: "Open Shift",
       startTime: "09:00",
       endTime: "18:00",
@@ -62,7 +76,7 @@ class AttendanceService {
       isOvertimeEnabled: false,
       overtimeThresholdHours: 8.0,
       policyRules: {
-        'entry_requirements': {'selfie': true, 'geofence': false},
+        'entry_requirements': {'selfie': false, 'geofence': false},
         'exit_requirements': {'selfie': false, 'geofence': false},
         'checkpoint_requirements': {'enabled': true, 'selfie': false},
         'correction_deadline': 2,
@@ -74,19 +88,49 @@ class AttendanceService {
   // 1. Get My Records
   Future<List<AttendanceRecord>> getMyRecords({String? fromDate, String? toDate, String? userId, int? limit}) async {
     try {
-      final response = await _dio.get(ApiConstants.attendanceRecords, queryParameters: {
-        'date_from': fromDate,
-        'date_to': toDate,
-        if (userId != null) 'user_id': userId,
+      final Map<String, dynamic> params = {
+        if (fromDate != null) 'date_from': fromDate,
+        if (toDate != null) 'date_to': toDate,
         if (limit != null) 'limit': limit,
-      });
+      };
+      if (userId != null && userId.isNotEmpty && userId != 'anon') {
+        params['user_id'] = userId;
+      }
 
-      if (response.statusCode == 200 && response.data['ok']) {
-        final List<dynamic> list = response.data['data'];
-        return list.map((json) => AttendanceRecord.fromJson(json)).toList();
+      final response = await _dio.get(ApiConstants.attendanceRecords, queryParameters: params);
+
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic raw = response.data;
+        List<dynamic>? list;
+
+        if (raw is List) {
+          list = raw;
+        } else if (raw is Map) {
+          final data = raw['data'] ?? raw['records'];
+          if (data is List) {
+            list = data;
+          } else if (data is Map) {
+            list = [data];
+          }
+        }
+
+        if (list != null) {
+          final List<AttendanceRecord> records = [];
+          for (final item in list) {
+            try {
+              if (item is Map) {
+                records.add(AttendanceRecord.fromJson(Map<String, dynamic>.from(item)));
+              }
+            } catch (e) {
+              debugPrint("getMyRecords: Error parsing individual record: $e, item: $item");
+            }
+          }
+          return records;
+        }
       }
       return [];
     } catch (e) {
+      debugPrint('getMyRecords failed: $e');
       throw Exception('Failed to fetch records: $e');
     }
   }
@@ -100,12 +144,38 @@ class AttendanceService {
         'limit': 200, 
       });
 
-      if (response.statusCode == 200 && response.data['ok']) {
-        final List<dynamic> list = response.data['data'];
-        return list.map((json) => AttendanceRecord.fromJson(json)).toList();
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic raw = response.data;
+        List<dynamic>? list;
+
+        if (raw is List) {
+          list = raw;
+        } else if (raw is Map) {
+          final data = raw['data'] ?? raw['records'];
+          if (data is List) {
+            list = data;
+          } else if (data is Map) {
+            list = [data];
+          }
+        }
+
+        if (list != null) {
+          final List<AttendanceRecord> records = [];
+          for (final item in list) {
+            try {
+              if (item is Map) {
+                records.add(AttendanceRecord.fromJson(Map<String, dynamic>.from(item)));
+              }
+            } catch (e) {
+              debugPrint("getAdminAttendanceRecords: Error parsing record: $e, item: $item");
+            }
+          }
+          return records;
+        }
       }
       return [];
     } catch (e) {
+      debugPrint('getAdminAttendanceRecords failed: $e');
       throw Exception('Failed to fetch live records: $e');
     }
   }
