@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// Punch item model used internally within the timeline.
@@ -60,6 +61,8 @@ class _VisualCorrectionTimelineState extends State<VisualCorrectionTimeline> {
   List<TimelinePunch> _punches = [];
   final Set<String> _selectedPunchIds = {};
   String? _hoveredPunchId;
+  String _selectedAddType = 'punch'; // 'punch' (Clock IN/OUT) or 'normal' (Checkpoint)
+  Offset? _lastSessionBarTapOffset;
 
   // Timeline track dimensions
   static const double _timelineWidth = 860.0;
@@ -258,20 +261,62 @@ class _VisualCorrectionTimelineState extends State<VisualCorrectionTimeline> {
     );
   }
 
-  void _addPunchAtMinutes(int rawMins) {
+  bool _isInsideSession(int mins) {
+    final boundary = _punches.where((p) => p.type != 'normal').toList();
+    for (int i = 0; i < boundary.length - 1; i += 2) {
+      final inP = boundary[i];
+      final outP = boundary[i + 1];
+      if (inP.type == 'in' && outP.type == 'out') {
+        if (mins >= inP.minutes && mins <= outP.minutes) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  void _addPunchAtMinutes(int rawMins, {String? type}) {
     if (!widget.editable) return;
     // Snap to 5 minutes
     final snappedMins = (rawMins / 5).round() * 5;
     final timeStr = _minutesToTimeStr(snappedMins);
 
+    // If clicked inside an existing timein & timeout interval, automatically add a checkpoint!
+    final bool inside = _isInsideSession(snappedMins);
+    final punchType = type ?? (inside ? 'normal' : _selectedAddType);
+
     final newPunch = TimelinePunch(
       id: 'punch-new-${DateTime.now().millisecondsSinceEpoch}',
       time: timeStr,
-      type: 'in', // will be resequenced
+      type: punchType == 'normal' ? 'normal' : 'in', // 'normal' remains checkpoint, 'in' is resequenced
     );
 
     setState(() {
       _punches.add(newPunch);
+      _emitChanges();
+    });
+  }
+
+  void _updatePunchTime(String id, String newTime) {
+    if (!widget.editable) return;
+    setState(() {
+      final punch = _punches.firstWhere((p) => p.id == id);
+      punch.time = newTime;
+      _emitChanges();
+    });
+  }
+
+  void _togglePunchType(String id) {
+    if (!widget.editable) return;
+    setState(() {
+      final punch = _punches.firstWhere((p) => p.id == id);
+      if (punch.type == 'in') {
+        punch.type = 'out';
+      } else if (punch.type == 'out') {
+        punch.type = 'normal';
+      } else {
+        punch.type = 'in';
+      }
       _emitChanges();
     });
   }
@@ -346,47 +391,30 @@ class _VisualCorrectionTimelineState extends State<VisualCorrectionTimeline> {
 
   @override
   Widget build(BuildContext context) {
-    final cardBg = widget.isDark ? const Color(0xFF161B22) : Colors.white;
-    final borderColor = widget.isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0);
     final totalProposedHours = _calculateProposedHoursFromPunches();
     final totalOriginalHours = _calculateTotalHours(widget.originalSessions);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: widget.isDark ? 0.2 : 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header with Title, Badges & Quick Action Helpers
-          _buildHeader(totalProposedHours, totalOriginalHours),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header with Title, Badges & Quick Action Helpers
+        _buildHeader(totalProposedHours, totalOriginalHours),
 
-          const SizedBox(height: 12),
+        const SizedBox(height: 12),
 
-          // Legend Bar (Shift, Original, Proposed IN/OUT)
-          _buildLegend(),
+        // Legend Bar (Shift, Original, Proposed IN/OUT)
+        _buildLegend(),
 
-          const SizedBox(height: 16),
+        const SizedBox(height: 14),
 
-          // 24-Hour Continuous Timeline Canvas & Track
-          _buildInteractiveTimelineTrack(),
+        // 24-Hour Continuous Timeline Canvas & Track
+        _buildInteractiveTimelineTrack(),
 
-          const SizedBox(height: 16),
+        const SizedBox(height: 14),
 
-          // Punch Breakdown & Direct Management Table
-          _buildPunchBreakdownTable(totalProposedHours),
-        ],
-      ),
+        // Punch Breakdown & Direct Management Table
+        _buildPunchBreakdownTable(totalProposedHours),
+      ],
     );
   }
 
@@ -551,37 +579,83 @@ class _VisualCorrectionTimelineState extends State<VisualCorrectionTimeline> {
     final trackBg = widget.isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC);
     final borderColor = widget.isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: trackBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderColor),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: SingleChildScrollView(
-        controller: _scrollController,
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        child: SizedBox(
-          width: _timelineWidth,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Hourly Time Scale & Tick Marks Header
-              _buildTimeScaleHeader(),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (widget.editable) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  'CLICK TO ADD:',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: widget.isDark ? Colors.white60 : const Color(0xFF64748B),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                _buildAddModeButton(
+                  label: 'Clock IN / OUT',
+                  icon: Icons.access_time_rounded,
+                  color: const Color(0xFF6366F1),
+                  isSelected: _selectedAddType == 'punch',
+                  onTap: () => setState(() => _selectedAddType = 'punch'),
+                ),
+                _buildAddModeButton(
+                  label: 'Checkpoint',
+                  icon: Icons.location_on_rounded,
+                  color: const Color(0xFFF59E0B),
+                  isSelected: _selectedAddType == 'normal',
+                  onTap: () => setState(() => _selectedAddType = 'normal'),
+                ),
+                Text(
+                  '• Click inside session to add Checkpoint • Double-click to remove',
+                  style: GoogleFonts.poppins(
+                    fontSize: 9.5,
+                    fontStyle: FontStyle.italic,
+                    color: widget.isDark ? Colors.white38 : const Color(0xFF94A3B8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        Container(
+          decoration: BoxDecoration(
+            color: trackBg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: borderColor),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: SizedBox(
+              width: _timelineWidth,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. Hourly Time Scale & Tick Marks Header
+                  _buildTimeScaleHeader(),
 
-              const SizedBox(height: 8),
+                  const SizedBox(height: 8),
 
-              // 2. Primary 24-Hour Track Container
-              GestureDetector(
-                onTapUp: (details) {
-                  if (widget.editable) {
-                    final localX = details.localPosition.dx.clamp(0.0, _timelineWidth);
-                    final mins = (localX / _timelineWidth * _totalMinutes).round();
-                    _addPunchAtMinutes(mins);
-                  }
-                },
-                child: Container(
+                  // 2. Primary 24-Hour Track Container
+                  GestureDetector(
+                    onTapUp: (details) {
+                      if (widget.editable) {
+                        final localX = details.localPosition.dx.clamp(0.0, _timelineWidth);
+                        final mins = (localX / _timelineWidth * _totalMinutes).round();
+                        _addPunchAtMinutes(mins);
+                      }
+                    },
+                    child: Container(
                   height: 64,
                   width: _timelineWidth,
                   margin: const EdgeInsets.symmetric(horizontal: 0),
@@ -626,7 +700,9 @@ class _VisualCorrectionTimelineState extends State<VisualCorrectionTimeline> {
           ),
         ),
       ),
-    );
+    ),
+  ],
+);
   }
 
   Widget _buildTimeScaleHeader() {
@@ -788,31 +864,51 @@ class _VisualCorrectionTimelineState extends State<VisualCorrectionTimeline> {
             top: 20,
             width: width,
             height: 22,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF10B981), Color(0xFF059669)],
-                ),
-                borderRadius: BorderRadius.circular(6),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.3),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              alignment: Alignment.center,
-              child: width > 35
-                  ? Text(
-                      '${durationHours.toStringAsFixed(1)}h',
-                      style: GoogleFonts.robotoMono(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    )
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (details) {
+                _lastSessionBarTapOffset = details.localPosition;
+              },
+              onTap: widget.editable
+                  ? () {
+                      final localX = _lastSessionBarTapOffset?.dx ?? (width / 2);
+                      final clickXOnTimeline = left + localX;
+                      final mins = (clickXOnTimeline / _timelineWidth * _totalMinutes).round();
+                      _addPunchAtMinutes(mins, type: 'normal');
+                    }
                   : null,
+              onDoubleTap: widget.editable
+                  ? () {
+                      _removePunch(inP.id);
+                      _removePunch(outP.id);
+                    }
+                  : null,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF10B981), Color(0xFF059669)],
+                  ),
+                  borderRadius: BorderRadius.circular(6),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: width > 35
+                    ? Text(
+                        '${durationHours.toStringAsFixed(1)}h',
+                        style: GoogleFonts.robotoMono(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      )
+                    : null,
+              ),
             ),
           ),
         );
@@ -836,20 +932,22 @@ class _VisualCorrectionTimelineState extends State<VisualCorrectionTimeline> {
           ? const Color(0xFFF59E0B)
           : (isIn ? const Color(0xFF10B981) : const Color(0xFFEF4444));
 
-      widgets.add(
+        widgets.add(
         Positioned(
           left: leftPos - 14,
           top: 8,
           child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () {
               if (widget.editable) {
-                setState(() {
-                  if (_selectedPunchIds.contains(p.id)) {
-                    _selectedPunchIds.remove(p.id);
-                  } else {
-                    _selectedPunchIds.add(p.id);
-                  }
-                });
+                // Single-click on pin: switch punch type (IN -> OUT -> Checkpoint -> IN)
+                _togglePunchType(p.id);
+              }
+            },
+            onDoubleTap: () {
+              if (widget.editable) {
+                // Double-click on pin: remove punch
+                _removePunch(p.id);
               }
             },
             onHorizontalDragUpdate: widget.editable
@@ -936,98 +1034,162 @@ class _VisualCorrectionTimelineState extends State<VisualCorrectionTimeline> {
     return widgets;
   }
 
-  Widget _buildPunchBreakdownTable(double totalProposedHours) {
-    final borderColor = widget.isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: widget.isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
+  Widget _buildAddModeButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withValues(alpha: 0.16) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? color : (widget.isDark ? Colors.white24 : const Color(0xFFCBD5E1)),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: isSelected ? color : (widget.isDark ? Colors.white60 : const Color(0xFF64748B))),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? color : (widget.isDark ? Colors.white70 : const Color(0xFF475569)),
+              ),
+            ),
+          ],
+        ),
       ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Table Toolbar Header
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'PUNCH BREAKDOWN',
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
-                    color: widget.isDark ? Colors.white70 : const Color(0xFF475569),
-                  ),
+    );
+  }
+
+  Widget _buildPunchBreakdownTable(double totalProposedHours) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Table Toolbar Header
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'PUNCH BREAKDOWN',
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                  color: widget.isDark ? Colors.white70 : const Color(0xFF475569),
                 ),
               ),
-              const SizedBox(width: 8),
-              if (widget.editable) ...[
-                if (_selectedPunchIds.isNotEmpty) ...[
-                  InkWell(
-                    onTap: _removeSelectedPunches,
-                    borderRadius: BorderRadius.circular(6),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.delete_outline_rounded, size: 13, color: Color(0xFFEF4444)),
-                          const SizedBox(width: 3),
-                          Text(
-                            'Del (${_selectedPunchIds.length})',
-                            style: GoogleFonts.poppins(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFFEF4444),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                ],
+            ),
+            const SizedBox(width: 8),
+            if (widget.editable) ...[
+              if (_selectedPunchIds.isNotEmpty) ...[
                 InkWell(
-                  onTap: () {
-                    // Quick add default session or punch
-                    int defaultMins = 540;
-                    if (_punches.isNotEmpty) {
-                      defaultMins = min(1380, _punches.last.minutes + 60);
-                    }
-                    _addPunchAtMinutes(defaultMins);
-                  },
+                  onTap: _removeSelectedPunches,
                   borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF6366F1).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3)),
-                    ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.add_rounded, size: 13, color: Color(0xFF6366F1)),
-                        const SizedBox(width: 4),
+                        const Icon(Icons.delete_outline_rounded, size: 13, color: Color(0xFFEF4444)),
+                        const SizedBox(width: 3),
                         Text(
-                          'Add Punch',
+                          'Del (${_selectedPunchIds.length})',
                           style: GoogleFonts.poppins(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
-                            color: const Color(0xFF6366F1),
+                            color: const Color(0xFFEF4444),
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
+                const SizedBox(width: 4),
               ],
+              InkWell(
+                onTap: () {
+                  int defaultMins = 540;
+                  if (_punches.isNotEmpty) {
+                    defaultMins = min(1380, _punches.last.minutes + 60);
+                  }
+                  _addPunchAtMinutes(defaultMins, type: 'punch');
+                },
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.add_rounded, size: 13, color: Color(0xFF6366F1)),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Add Punch',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF6366F1),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              InkWell(
+                onTap: () {
+                  int defaultMins = 720;
+                  if (_punches.isNotEmpty) {
+                    defaultMins = min(1410, _punches.last.minutes + 30);
+                  }
+                  _addPunchAtMinutes(defaultMins, type: 'normal');
+                },
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.add_location_alt_rounded, size: 13, color: Color(0xFFF59E0B)),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Add Checkpoint',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFFF59E0B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
-          ),
+          ],
+        ),
 
           const SizedBox(height: 10),
 
@@ -1070,320 +1232,449 @@ class _VisualCorrectionTimelineState extends State<VisualCorrectionTimeline> {
                 builder: (context, constraints) {
                   final isCompact = constraints.maxWidth < 360;
 
-                  final badgeWidget = Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                    decoration: BoxDecoration(
-                      color: badgeBg,
+                  final badgeWidget = Tooltip(
+                    message: widget.editable ? 'Tap to switch type (IN / OUT / Checkpoint)' : label,
+                    child: InkWell(
+                      onTap: widget.editable ? () => _togglePunchType(p.id) : null,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: badgeColor.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 5,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            color: badgeColor,
-                            shape: BoxShape.circle,
-                          ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                        decoration: BoxDecoration(
+                          color: badgeBg,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: badgeColor.withValues(alpha: 0.3)),
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          label,
-                          style: GoogleFonts.poppins(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: badgeColor,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 5,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                color: badgeColor,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              label,
+                              style: GoogleFonts.poppins(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: badgeColor,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   );
 
-                  final timeWidget = InkWell(
-                    onTap: widget.editable ? () => _pickPunchTime(p.id) : null,
-                    borderRadius: BorderRadius.circular(6),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: widget.isDark ? Colors.black26 : const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: widget.isDark ? Colors.white12 : const Color(0xFFCBD5E1),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.access_time_rounded, size: 11, color: Color(0xFF6366F1)),
-                          const SizedBox(width: 4),
-                          Text(
-                            p.time,
-                            style: GoogleFonts.robotoMono(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: widget.isDark ? Colors.white : const Color(0xFF1E293B),
+                  final Widget timeWidget = widget.editable
+                      ? DirectTimeInputField(
+                          key: ValueKey('punch-field-${p.id}'),
+                          initialTime: p.time,
+                          isDark: widget.isDark,
+                          onTimeChanged: (newTime) => _updatePunchTime(p.id, newTime),
+                          onPickClock: () => _pickPunchTime(p.id),
+                        )
+                      : Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: widget.isDark ? Colors.black26 : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: widget.isDark ? Colors.white12 : const Color(0xFFCBD5E1),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  );
-
-                  if (isCompact) {
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: widget.isDark ? const Color(0xFF161B22) : Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: isChecked
-                              ? const Color(0xFF6366F1)
-                              : (widget.isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0)),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Top row: Checkbox, #idx, Badge, Delete
-                          Row(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              if (widget.editable) ...[
-                                SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: Checkbox(
-                                    value: isChecked,
-                                    activeColor: const Color(0xFF6366F1),
-                                    onChanged: (val) {
-                                      setState(() {
-                                        if (val == true) {
-                                          _selectedPunchIds.add(p.id);
-                                        } else {
-                                          _selectedPunchIds.remove(p.id);
-                                        }
-                                      });
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                              ],
+                              const Icon(Icons.access_time_rounded, size: 11, color: Color(0xFF6366F1)),
+                              const SizedBox(width: 4),
                               Text(
-                                '#${idx + 1}',
+                                p.time,
                                 style: GoogleFonts.robotoMono(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: widget.isDark ? Colors.white54 : const Color(0xFF64748B),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: widget.isDark ? Colors.white : const Color(0xFF1E293B),
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              badgeWidget,
-                              const Spacer(),
-                              if (widget.editable)
-                                InkWell(
-                                  onTap: () => _removePunch(p.id),
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: const Padding(
-                                    padding: EdgeInsets.all(4),
-                                    child: Icon(Icons.close_rounded, size: 16, color: Color(0xFFEF4444)),
-                                  ),
-                                ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          // Bottom row: Time adjustment
-                          Row(
-                            children: [
-                              Text(
-                                'Time:',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
-                                  color: widget.isDark ? Colors.white38 : const Color(0xFF94A3B8),
-                                ),
-                              ),
-                              const Spacer(),
-                              if (widget.editable) ...[
-                                InkWell(
-                                  onTap: () => _stepPunchTime(p.id, -15),
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(4),
-                                    child: Icon(
-                                      Icons.remove_circle_outline_rounded,
-                                      size: 16,
-                                      color: widget.isDark ? Colors.white60 : const Color(0xFF64748B),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                              ],
-                              timeWidget,
-                              if (widget.editable) ...[
-                                const SizedBox(width: 4),
-                                InkWell(
-                                  onTap: () => _stepPunchTime(p.id, 15),
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(4),
-                                    child: Icon(
-                                      Icons.add_circle_outline_rounded,
-                                      size: 16,
-                                      color: widget.isDark ? Colors.white60 : const Color(0xFF64748B),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
+                        );                  if (isCompact) {
+                    return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onDoubleTap: widget.editable ? () => _removePunch(p.id) : null,
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isChecked
+                              ? const Color(0xFF6366F1).withValues(alpha: 0.08)
+                              : (widget.isDark ? const Color(0xFF161B22) : const Color(0xFFF8FAFC)),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isChecked
+                                ? const Color(0xFF6366F1)
+                                : (widget.isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0)),
+                            width: 1,
                           ),
-                        ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Top row: Checkbox, #idx, Badge, Delete
+                            Row(
+                              children: [
+                                if (widget.editable) ...[
+                                  SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: Checkbox(
+                                      value: isChecked,
+                                      activeColor: const Color(0xFF6366F1),
+                                      onChanged: (val) {
+                                        setState(() {
+                                          if (val == true) {
+                                            _selectedPunchIds.add(p.id);
+                                          } else {
+                                            _selectedPunchIds.remove(p.id);
+                                          }
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                ],
+                                Text(
+                                  '#${idx + 1}',
+                                  style: GoogleFonts.robotoMono(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: widget.isDark ? Colors.white54 : const Color(0xFF64748B),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                badgeWidget,
+                                const Spacer(),
+                                if (widget.editable)
+                                  InkWell(
+                                    onTap: () => _removePunch(p.id),
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(4),
+                                      child: Icon(Icons.close_rounded, size: 16, color: Color(0xFFEF4444)),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            // Bottom row: Time adjustment
+                            Row(
+                              children: [
+                                Text(
+                                  'Time:',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                    color: widget.isDark ? Colors.white38 : const Color(0xFF94A3B8),
+                                  ),
+                                ),
+                                const Spacer(),
+                                if (widget.editable) ...[
+                                  InkWell(
+                                    onTap: () => _stepPunchTime(p.id, -15),
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4),
+                                      child: Icon(
+                                        Icons.remove_circle_outline_rounded,
+                                        size: 16,
+                                        color: widget.isDark ? Colors.white60 : const Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                ],
+                                timeWidget,
+                                if (widget.editable) ...[
+                                  const SizedBox(width: 4),
+                                  InkWell(
+                                    onTap: () => _stepPunchTime(p.id, 15),
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4),
+                                      child: Icon(
+                                        Icons.add_circle_outline_rounded,
+                                        size: 16,
+                                        color: widget.isDark ? Colors.white60 : const Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   }
 
                   // Standard single row layout for >= 360px
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: widget.isDark ? const Color(0xFF161B22) : Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onDoubleTap: widget.editable ? () => _removePunch(p.id) : null,
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                      decoration: BoxDecoration(
                         color: isChecked
-                            ? const Color(0xFF6366F1)
-                            : (widget.isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0)),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        if (widget.editable) ...[
-                          SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: Checkbox(
-                              value: isChecked,
-                              activeColor: const Color(0xFF6366F1),
-                              onChanged: (val) {
-                                setState(() {
-                                  if (val == true) {
-                                    _selectedPunchIds.add(p.id);
-                                  } else {
-                                    _selectedPunchIds.remove(p.id);
-                                  }
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                        ],
-                        Text(
-                          '#${idx + 1}',
-                          style: GoogleFonts.robotoMono(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: widget.isDark ? Colors.white54 : const Color(0xFF64748B),
-                          ),
+                            ? const Color(0xFF6366F1).withValues(alpha: 0.08)
+                            : (widget.isDark ? const Color(0xFF161B22) : const Color(0xFFF8FAFC)),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isChecked
+                              ? const Color(0xFF6366F1)
+                              : (widget.isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0)),
+                          width: 1,
                         ),
-                        const SizedBox(width: 8),
-                        badgeWidget,
-                        const Spacer(),
-                        if (widget.editable) ...[
-                          InkWell(
-                            onTap: () => _stepPunchTime(p.id, -15),
-                            borderRadius: BorderRadius.circular(4),
-                            child: Padding(
-                              padding: const EdgeInsets.all(4),
-                              child: Icon(
-                                Icons.remove_circle_outline_rounded,
-                                size: 16,
-                                color: widget.isDark ? Colors.white60 : const Color(0xFF64748B),
+                      ),
+                      child: Row(
+                        children: [
+                          if (widget.editable) ...[
+                            SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: Checkbox(
+                                value: isChecked,
+                                activeColor: const Color(0xFF6366F1),
+                                onChanged: (val) {
+                                  setState(() {
+                                    if (val == true) {
+                                      _selectedPunchIds.add(p.id);
+                                    } else {
+                                      _selectedPunchIds.remove(p.id);
+                                    }
+                                  });
+                                },
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                        ],
-                        timeWidget,
-                        if (widget.editable) ...[
-                          const SizedBox(width: 4),
-                          InkWell(
-                            onTap: () => _stepPunchTime(p.id, 15),
-                            borderRadius: BorderRadius.circular(4),
-                            child: Padding(
-                              padding: const EdgeInsets.all(4),
-                              child: Icon(
-                                Icons.add_circle_outline_rounded,
-                                size: 16,
-                                color: widget.isDark ? Colors.white60 : const Color(0xFF64748B),
-                              ),
+                            const SizedBox(width: 6),
+                          ],
+                          Text(
+                            '#${idx + 1}',
+                            style: GoogleFonts.robotoMono(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: widget.isDark ? Colors.white54 : const Color(0xFF64748B),
                             ),
                           ),
                           const SizedBox(width: 8),
-                          InkWell(
-                            onTap: () => _removePunch(p.id),
-                            borderRadius: BorderRadius.circular(4),
-                            child: const Padding(
-                              padding: EdgeInsets.all(4),
-                              child: Icon(Icons.close_rounded, size: 16, color: Color(0xFFEF4444)),
+                          badgeWidget,
+                          const Spacer(),
+                          if (widget.editable) ...[
+                            InkWell(
+                              onTap: () => _stepPunchTime(p.id, -15),
+                              borderRadius: BorderRadius.circular(4),
+                              child: Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: Icon(
+                                  Icons.remove_circle_outline_rounded,
+                                  size: 16,
+                                  color: widget.isDark ? Colors.white60 : const Color(0xFF64748B),
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 4),
+                          ],
+                          timeWidget,
+                          if (widget.editable) ...[
+                            const SizedBox(width: 4),
+                            InkWell(
+                              onTap: () => _stepPunchTime(p.id, 15),
+                              borderRadius: BorderRadius.circular(4),
+                              child: Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: Icon(
+                                  Icons.add_circle_outline_rounded,
+                                  size: 16,
+                                  color: widget.isDark ? Colors.white60 : const Color(0xFF64748B),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: () => _removePunch(p.id),
+                              borderRadius: BorderRadius.circular(4),
+                              child: const Padding(
+                                padding: EdgeInsets.all(4),
+                                child: Icon(Icons.close_rounded, size: 16, color: Color(0xFFEF4444)),
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   );
                 },
               );
             }),
+        ],
+      );
+  }
+}
 
-          // Helper actions toolbar at bottom if callbacks exist
-          if (widget.editable && (widget.onAutoFillMissingOut != null || widget.onResetToOriginal != null)) ...[
-            const SizedBox(height: 8),
-            const Divider(height: 1, thickness: 1),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                if (widget.onAutoFillMissingOut != null)
-                  OutlinedButton.icon(
-                    onPressed: widget.onAutoFillMissingOut,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFF59E0B),
-                      side: BorderSide(color: const Color(0xFFF59E0B).withValues(alpha: 0.5)),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      minimumSize: Size.zero,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    icon: const Icon(Icons.auto_fix_high_rounded, size: 13),
-                    label: Text(
-                      'Auto-fill Missing Out',
-                      style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                if (widget.onResetToOriginal != null)
-                  OutlinedButton.icon(
-                    onPressed: widget.onResetToOriginal,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: widget.isDark ? Colors.white70 : const Color(0xFF64748B),
-                      side: BorderSide(
-                        color: widget.isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      minimumSize: Size.zero,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    icon: const Icon(Icons.restore_rounded, size: 13),
-                    label: Text(
-                      'Reset to Logged',
-                      style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-              ],
+/// Direct Editable Time Input Field for Correction Timeline Punches
+class DirectTimeInputField extends StatefulWidget {
+  final String initialTime;
+  final bool isDark;
+  final ValueChanged<String> onTimeChanged;
+  final VoidCallback onPickClock;
+
+  const DirectTimeInputField({
+    super.key,
+    required this.initialTime,
+    required this.isDark,
+    required this.onTimeChanged,
+    required this.onPickClock,
+  });
+
+  @override
+  State<DirectTimeInputField> createState() => _DirectTimeInputFieldState();
+}
+
+class _DirectTimeInputFieldState extends State<DirectTimeInputField> {
+  late TextEditingController _controller;
+  late FocusNode _focusNode;
+  String _lastCommitted = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialTime);
+    _lastCommitted = widget.initialTime;
+    _focusNode = FocusNode();
+    _focusNode.addListener(_handleFocusChange);
+  }
+
+  @override
+  void didUpdateWidget(covariant DirectTimeInputField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTime != oldWidget.initialTime && !_focusNode.hasFocus) {
+      _controller.text = widget.initialTime;
+      _lastCommitted = widget.initialTime;
+    }
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_handleFocusChange);
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleFocusChange() {
+    if (!_focusNode.hasFocus) {
+      _commit();
+    }
+  }
+
+  void _commit() {
+    final clean = _controller.text.trim();
+    if (clean.isEmpty) {
+      _controller.text = _lastCommitted;
+      return;
+    }
+
+    int? h;
+    int? m;
+
+    if (clean.contains(':')) {
+      final parts = clean.split(':');
+      h = int.tryParse(parts[0]);
+      m = int.tryParse(parts[1]);
+    } else if (clean.length == 3) {
+      h = int.tryParse(clean.substring(0, 1));
+      m = int.tryParse(clean.substring(1));
+    } else if (clean.length == 4) {
+      h = int.tryParse(clean.substring(0, 2));
+      m = int.tryParse(clean.substring(2));
+    } else if (clean.length <= 2) {
+      h = int.tryParse(clean);
+      m = 0;
+    }
+
+    if (h != null && m != null && h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+      final formatted = '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+      _controller.text = formatted;
+      if (formatted != _lastCommitted) {
+        _lastCommitted = formatted;
+        widget.onTimeChanged(formatted);
+      }
+    } else {
+      _controller.text = _lastCommitted;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    return Container(
+      width: 78,
+      height: 30,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0D1117) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: _focusNode.hasFocus
+              ? const Color(0xFF6366F1)
+              : (isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1)),
+          width: _focusNode.hasFocus ? 1.5 : 1.0,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: widget.onPickClock,
+            borderRadius: BorderRadius.circular(4),
+            child: const Padding(
+              padding: EdgeInsets.all(2),
+              child: Icon(Icons.access_time_rounded, size: 13, color: Color(0xFF6366F1)),
             ),
-          ],
+          ),
+          const SizedBox(width: 2),
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              focusNode: _focusNode,
+              keyboardType: TextInputType.datetime,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9:]')),
+                LengthLimitingTextInputFormatter(5),
+              ],
+              textInputAction: TextInputAction.done,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.robotoMono(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : const Color(0xFF1E293B),
+              ),
+              decoration: const InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+                hintText: 'HH:mm',
+              ),
+              onSubmitted: (_) => _commit(),
+            ),
+          ),
         ],
       ),
     );
   }
 }
+

@@ -21,6 +21,7 @@ import 'package:flutter_application/features/attendance/core/live_attendance_ite
 import 'package:flutter_application/features/attendance/core/attendance_provider.dart';
 import 'package:flutter_application/features/live_attendance/widgets/correction_requests_tablet_portrait_view.dart';
 import 'package:flutter_application/shared/widgets/interactive_image_viewer.dart';
+import 'package:flutter_application/shared/widgets/pfp_viewer_dialog.dart';
 
 class LiveAttendanceView extends StatefulWidget {
   const LiveAttendanceView({super.key});
@@ -1097,15 +1098,26 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
               padding: const EdgeInsets.symmetric(horizontal: 10.0),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 15,
-                    backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.15),
-                    child: Text(
-                      item.name.isNotEmpty ? item.name[0].toUpperCase() : '?',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).primaryColor,
+                  GestureDetector(
+                    onTap: () {
+                      PfpViewerDialog.show(
+                        context,
+                        imageUrl: item.user.profileImage,
+                        name: item.name,
+                        subtitle: 'ID: ${item.user.userId} • ${item.department}',
+                        heroTag: 'gantt-emp-${item.user.userId}',
+                      );
+                    },
+                    child: CircleAvatar(
+                      radius: 15,
+                      backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.15),
+                      child: Text(
+                        item.name.isNotEmpty ? item.name[0].toUpperCase() : '?',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).primaryColor,
+                        ),
                       ),
                     ),
                   ),
@@ -1882,7 +1894,7 @@ class _LiveAttendanceViewState extends State<LiveAttendanceView> with SingleTick
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  DateFormat('EEE, dd MMM yyyy').format(_selectedDate),
+                  DateFormat('d MMMM yyyy').format(_selectedDate),
                   style: GoogleFonts.poppins(fontWeight: FontWeight.w500, fontSize: 13),
                 ),
               ],

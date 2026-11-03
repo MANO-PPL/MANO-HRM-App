@@ -11,9 +11,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_application/shared/widgets/glass_container.dart';
 import 'package:flutter_application/shared/widgets/glass_date_picker.dart';
 import 'package:flutter_application/shared/widgets/loading_screen.dart';
+import 'package:flutter_application/shared/widgets/pfp_viewer_dialog.dart';
 import 'package:flutter_application/shared/constants/api_constants.dart';
 import 'package:flutter_application/shared/services/auth_service.dart';
-import 'package:flutter_application/features/dashboard/widgets/stat_card.dart';
 import 'package:flutter_application/features/employees/core/employee_service.dart';
 import 'package:flutter_application/features/employees/core/employee_model.dart';
 import 'package:flutter_application/features/attendance/core/attendance_service.dart';
@@ -81,21 +81,32 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
       avatarUrl = avatarUrl.startsWith('/') ? '${ApiConstants.baseUrl}$avatarUrl' : '${ApiConstants.baseUrl}/$avatarUrl';
     }
 
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: fallbackColor.withValues(alpha: 0.15),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
-        child: avatarUrl != null && avatarUrl.isNotEmpty
-            ? CachedNetworkImage(
-                imageUrl: avatarUrl,
-                fit: BoxFit.cover,
-                width: radius * 2,
-                height: radius * 2,
-                placeholder: (_, _) => _avatarFallback(employee.userName, fallbackColor, fontSize),
-                errorWidget: (_, _, _) => _avatarFallback(employee.userName, fallbackColor, fontSize),
-              )
-            : _avatarFallback(employee.userName, fallbackColor, fontSize),
+    return GestureDetector(
+      onTap: () {
+        PfpViewerDialog.show(
+          context,
+          imageUrl: avatarUrl,
+          name: employee.userName,
+          subtitle: 'ID: ${employee.userId} • ${employee.department ?? employee.designation ?? ""}',
+          heroTag: 'live-emp-${employee.userId}',
+        );
+      },
+      child: CircleAvatar(
+        radius: radius,
+        backgroundColor: fallbackColor.withValues(alpha: 0.15),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(radius),
+          child: avatarUrl != null && avatarUrl.isNotEmpty
+              ? CachedNetworkImage(
+                  imageUrl: avatarUrl,
+                  fit: BoxFit.cover,
+                  width: radius * 2,
+                  height: radius * 2,
+                  placeholder: (_, _) => _avatarFallback(employee.userName, fallbackColor, fontSize),
+                  errorWidget: (_, _, _) => _avatarFallback(employee.userName, fallbackColor, fontSize),
+                )
+              : _avatarFallback(employee.userName, fallbackColor, fontSize),
+        ),
       ),
     );
   }
@@ -451,7 +462,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  DateFormat('EEE, dd MMM').format(_selectedDate),
+                  DateFormat('d MMMM yyyy').format(_selectedDate),
                   style: GoogleFonts.poppins(fontWeight: FontWeight.w500, fontSize: 12),
                 ),
               ],
@@ -532,6 +543,7 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
   }
 
   Widget _buildKPIGrid() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final totalEmployees = _items.length;
 
     return GridView.count(
@@ -541,49 +553,127 @@ class _MobileLiveAttendanceContentState extends State<MobileLiveAttendanceConten
       crossAxisCount: 2, 
       crossAxisSpacing: 8,
       mainAxisSpacing: 8,
-      childAspectRatio: 1.52,
+      childAspectRatio: 2.85,
       children: [
-        StatCard(
+        _buildCompactStatCard(
           title: 'Total Present',
           value: '$_present',
           total: '/ $totalEmployees',
-          percentage: '',
-          contextText: 'For Selected Date',
-          isPositive: true,
-          icon: Icons.people_alt,
+          icon: Icons.people_alt_rounded,
           baseColor: const Color(0xFF5B60F6),
+          isDark: isDark,
         ),
-        StatCard(
+        _buildCompactStatCard(
           title: 'Late',
           value: '$_late',
-          total: '',
-          percentage: '',
-          contextText: 'Late Check-ins',
-          isPositive: false,
-          icon: Icons.access_time_filled,
+          icon: Icons.access_time_filled_rounded,
           baseColor: const Color(0xFFF59E0B),
+          isDark: isDark,
         ),
-        StatCard(
+        _buildCompactStatCard(
           title: 'Absent',
           value: '$_absent',
-          total: '',
-          percentage: '',
-          contextText: 'Not checked in',
-          isPositive: false,
-          icon: Icons.person_off,
+          icon: Icons.person_off_rounded,
           baseColor: const Color(0xFFEF4444),
+          isDark: isDark,
         ),
-        StatCard(
+        _buildCompactStatCard(
           title: 'Active Now',
           value: '$_active',
-          total: '',
-          percentage: '',
-          contextText: 'Currently Clocked In',
-          isPositive: true,
-          icon: Icons.coffee,
+          icon: Icons.coffee_rounded,
           baseColor: const Color(0xFF10B981),
+          isDark: isDark,
         ),
       ],
+    );
+  }
+
+  Widget _buildCompactStatCard({
+    required String title,
+    required String value,
+    String total = '',
+    required IconData icon,
+    required Color baseColor,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF161B22) : Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: baseColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: baseColor.withValues(alpha: 0.25)),
+            ),
+            child: Icon(icon, size: 15, color: baseColor),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        value,
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white : const Color(0xFF1E293B),
+                        ),
+                      ),
+                      if (total.isNotEmpty) ...[
+                        const SizedBox(width: 3),
+                        Text(
+                          total,
+                          style: GoogleFonts.poppins(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w500,
+                            color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white60 : const Color(0xFF64748B),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

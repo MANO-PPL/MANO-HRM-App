@@ -275,7 +275,7 @@ class _AiSummaryBottomSheetState extends State<AiSummaryBottomSheet> {
                         ],
                       ),
                       Text(
-                        'Generated for ${DateFormat('EEE, MMM dd, yyyy').format(widget.selectedDate)}',
+                        'Generated for ${DateFormat('d MMMM yyyy').format(widget.selectedDate)}',
                         style: GoogleFonts.inter(
                           fontSize: 11,
                           color: subtitleColor,

@@ -42,6 +42,11 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
   Position? _realtimePosition;
   DateTime? _lastResumeFetchTime;
 
+  bool get _isViewingToday {
+    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    return DateFormat('yyyy-MM-dd').format(_selectedDate) == todayStr;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -50,7 +55,11 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
     _attendanceService = AttendanceService(auth.dio);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
-      attProvider.fetchRecords(_selectedDate);
+      attProvider.fetchRecords(_selectedDate, forceRefresh: true);
+      final today = DateTime.now();
+      if (DateFormat('yyyy-MM-dd').format(_selectedDate) != DateFormat('yyyy-MM-dd').format(today)) {
+        attProvider.fetchRecords(today, forceRefresh: true, silentRefresh: true);
+      }
       attProvider.fetchShiftPolicy();
       _prewarmLocation();
       _startLocationListening();
@@ -68,9 +77,9 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       final now = DateTime.now();
-      if (_lastResumeFetchTime == null || now.difference(_lastResumeFetchTime!) > const Duration(seconds: 60)) {
+      if (_lastResumeFetchTime == null || now.difference(_lastResumeFetchTime!) > const Duration(seconds: 15)) {
         _lastResumeFetchTime = now;
-        _fetchRecords(silent: true);
+        _fetchRecords(silent: true, force: true);
       }
     }
   }
@@ -112,9 +121,13 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
     }
   }
 
-  Future<void> _fetchRecords({bool silent = false}) async {
-    await Provider.of<AttendanceProvider>(context, listen: false)
-        .fetchRecords(_selectedDate, forceRefresh: false, silentRefresh: silent);
+  Future<void> _fetchRecords({bool silent = false, bool force = false}) async {
+    final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+    await attProvider.fetchRecords(_selectedDate, forceRefresh: force, silentRefresh: silent);
+    final today = DateTime.now();
+    if (DateFormat('yyyy-MM-dd').format(_selectedDate) != DateFormat('yyyy-MM-dd').format(today)) {
+      await attProvider.fetchRecords(today, forceRefresh: force, silentRefresh: true);
+    }
   }
 
   Future<Position?> _getCurrentLocation() async {
@@ -226,6 +239,13 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
       );
     }
 
+    if (!_isViewingToday) {
+      if (mounted) {
+        context.showToast("Attendance punches are only allowed for today's date.", isWarning: true);
+      }
+      return;
+    }
+
     if (!NetworkMonitor().isOnline) {
       if (mounted) {
         context.showToast("No internet connection. Offline check-in/out is disabled.", isError: true);
@@ -254,9 +274,10 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
         shiftPolicy = provider.shiftPolicy;
       }
 
-      final isSelfieRequired = isTimeIn
-          ? (shiftPolicy?.entrySelfie ?? true)
-          : (shiftPolicy?.exitSelfie ?? false);
+      final bool isAssigned = shiftPolicy != null && shiftPolicy.isAssigned;
+      final bool isSelfieRequired = isAssigned
+          ? (isTimeIn ? shiftPolicy.entrySelfie : shiftPolicy.exitSelfie)
+          : false;
 
       XFile? photo;
       if (isSelfieRequired) {
@@ -272,7 +293,12 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
               _isTimeOutProcessing = false;
             });
             if (mounted) {
-              context.showToast('Camera permission is required for ${isTimeIn ? "Time In" : "Time Out"}.', isError: true);
+              context.showToast(
+                'Camera permission is required for ${isTimeIn ? "Time In" : "Time Out"}.',
+                isError: true,
+                actionLabel: status.isPermanentlyDenied ? "SETTINGS" : null,
+                onActionPressed: status.isPermanentlyDenied ? () async => await openAppSettings() : null,
+              );
             }
             return;
           }
@@ -284,9 +310,22 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
           photo = await _picker.pickImage(
             source: ImageSource.camera, 
             preferredCameraDevice: CameraDevice.front,
+            maxWidth: 1024,
+            maxHeight: 1024,
+            imageQuality: 70,
           );
         } catch (e) {
-          debugPrint('ImagePicker failed: $e');
+          debugPrint('ImagePicker front camera failed: $e, retrying standard camera...');
+          try {
+            photo = await _picker.pickImage(
+              source: ImageSource.camera,
+              maxWidth: 1024,
+              maxHeight: 1024,
+              imageQuality: 70,
+            );
+          } catch (e2) {
+            debugPrint('ImagePicker standard camera failed: $e2');
+          }
         }
         logStage('camera capture', cameraCaptureStopwatch);
         
@@ -360,6 +399,56 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
             msg.contains("lateness")
         )) {
            caughtReasonError = msg;
+        } else if (isTimeIn && (
+            msg.contains("already") || 
+            msg.contains("timed in") || 
+            msg.contains("clocked in") || 
+            msg.contains("time in") ||
+            msg.contains("time out first")
+        )) {
+          if (!mounted) return;
+          // Self-healing: Backend confirms user already timed in today!
+          final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+          attProvider.invalidateCache(DateTime.now());
+          await attProvider.fetchRecords(DateTime.now(), forceRefresh: true, silentRefresh: false);
+          if (mounted) {
+            setState(() {
+              _selectedDate = DateTime.now();
+              _isProcessing = false;
+              _isTimeInProcessing = false;
+              _isTimeOutProcessing = false;
+            });
+            context.showToast(
+              "You are already timed in today. Active shift is loaded below.",
+              isWarning: true,
+            );
+          }
+          return;
+        } else if (!isTimeIn && (
+            msg.contains("already") || 
+            msg.contains("timed out") || 
+            msg.contains("clocked out") || 
+            msg.contains("no active") ||
+            msg.contains("not timed in")
+        )) {
+          if (!mounted) return;
+          // Self-healing: Backend confirms no active session or already clocked out
+          final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+          attProvider.invalidateCache(DateTime.now());
+          await attProvider.fetchRecords(DateTime.now(), forceRefresh: true, silentRefresh: false);
+          if (mounted) {
+            setState(() {
+              _selectedDate = DateTime.now();
+              _isProcessing = false;
+              _isTimeInProcessing = false;
+              _isTimeOutProcessing = false;
+            });
+            context.showToast(
+              "No active session found or already clocked out.",
+              isWarning: true,
+            );
+          }
+          return;
         } else {
            if (mounted) {
              final lateReasonStopwatch = Stopwatch()..start();
@@ -503,16 +592,194 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
     return list;
   }
 
+  String _getElapsedTime(String? isoTime) {
+    if (isoTime == null) return '';
+    try {
+      final punchTime = DateTime.parse(isoTime).toLocal();
+      final diff = DateTime.now().difference(punchTime);
+      if (diff.isNegative) return 'Just now';
+      final h = diff.inHours;
+      final m = diff.inMinutes % 60;
+      if (h > 0) {
+        return '${h}h ${m}m';
+      }
+      return '${m}m';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Widget _buildActiveShiftGuidanceCard(
+    BuildContext context,
+    AttendanceRecord? activeRecord,
+    bool isViewingToday,
+    AttendanceProvider provider,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final timeInStr = activeRecord?.timeIn;
+    final formattedTime = timeInStr != null ? _formatTime(timeInStr) : 'Recorded';
+    final elapsed = _getElapsedTime(timeInStr);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F291E) : const Color(0xFFECFDF5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFF10B981).withValues(alpha: 0.45),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF10B981).withValues(alpha: 0.12),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 9,
+                height: 9,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF10B981),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'ACTIVE SHIFT IN PROGRESS',
+                style: GoogleFonts.poppins(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: const Color(0xFF059669),
+                ),
+              ),
+              const Spacer(),
+              if (elapsed.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.timer_outlined, size: 12, color: Color(0xFF059669)),
+                      const SizedBox(width: 4),
+                      Text(
+                        elapsed,
+                        style: GoogleFonts.poppins(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF059669),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          Row(
+            children: [
+              Icon(
+                Icons.login_rounded,
+                size: 15,
+                color: isDark ? Colors.white70 : Colors.black87,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Clocked in at $formattedTime',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            '• Ready to leave? Tap Time Out below to clock out.\n• Marking a location? Tap Checkpoint below.',
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              height: 1.4,
+              color: isDark ? Colors.white70 : const Color(0xFF065F46),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          if (!isViewingToday) ...[
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: () {
+                setState(() => _selectedDate = DateTime.now());
+                _fetchRecords(force: true);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.today_rounded, size: 14, color: Color(0xFF059669)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Viewing past date. Tap to view Today\'s active shift',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF059669),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AttendanceProvider>(
       builder: (context, provider, child) {
-        final records = provider.records;
+        final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+        final isViewingToday = DateFormat('yyyy-MM-dd').format(_selectedDate) == todayStr;
+
+        final dateRecords = provider.getRecordsForDate(_selectedDate);
+        final records = isViewingToday
+            ? (provider.todayRecords.isNotEmpty
+                ? provider.todayRecords.where((r) => provider.isRecordToday(r)).toList()
+                : dateRecords)
+            : dateRecords;
         final isLoading = provider.isLoading;
 
-        bool isCheckedIn = false;
-        if (records.isNotEmpty) {
-           isCheckedIn = records.any((r) => r.timeOut == null);
+        final bool hasActiveInSelectedDate = isViewingToday &&
+            records.any((r) => r.timeIn != null && r.timeOut == null && provider.isRecordToday(r));
+        final bool isCheckedIn = isViewingToday && (hasActiveInSelectedDate || provider.isCheckedInToday);
+
+        AttendanceRecord? activeRecord;
+        if (isCheckedIn) {
+          try {
+            activeRecord = records.firstWhere((r) => r.timeIn != null && r.timeOut == null && provider.isRecordToday(r));
+          } catch (_) {
+            activeRecord = provider.activeSessionRecord;
+          }
+        } else {
+          activeRecord = null;
         }
 
         final missedDate = provider.missedPunchDate;
@@ -520,7 +787,7 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
         return ListView(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(10, 8, 10, 16),
+          padding: const EdgeInsets.fromLTRB(10, 2, 10, 16),
           children: [
             // 0. Missed Punch Warning Banner
             if (missedDate != null) ...[
@@ -528,8 +795,14 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
               const SizedBox(height: 8),
             ],
 
+            // Active Shift Status & Next Steps Card
+            if (isCheckedIn && isViewingToday) ...[
+              _buildActiveShiftGuidanceCard(context, activeRecord, isViewingToday, provider),
+              const SizedBox(height: 4),
+            ],
+
             // 1. Action Buttons
-            _buildActionButtons(context, isCheckedIn),
+            _buildActionButtons(context, isCheckedIn, isViewingToday),
             const SizedBox(height: 10),
             
             // 2. Select Date Header
@@ -682,6 +955,13 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
   }
 
   void _showCheckpointModal() async {
+    if (!_isViewingToday) {
+      if (mounted) {
+        context.showToast("Checkpoints can only be marked for today's date.", isWarning: true);
+      }
+      return;
+    }
+
     if (!NetworkMonitor().isOnline) {
       if (mounted) {
         context.showToast("No internet connection. Offline checkpoint is disabled.", isError: true);
@@ -708,7 +988,8 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
       return;
     }
 
-    final bool isSelfieRequired = shiftPolicy?.checkpointSelfie ?? false;
+    final bool isAssigned = shiftPolicy != null && shiftPolicy.isAssigned;
+    final bool isSelfieRequired = isAssigned ? shiftPolicy.checkpointSelfie : false;
 
     // Immediately kick off parallel background GPS resolution
     final Future<Position?> locationFuture = _getCurrentLocation();
@@ -816,7 +1097,12 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
       }
       if (!status.isGranted) {
         if (ctx.mounted) {
-          ctx.showToast('Camera permission is required for checkpoint selfie.', isError: true);
+          ctx.showToast(
+            'Camera permission is required for checkpoint selfie.',
+            isError: true,
+            actionLabel: status.isPermanentlyDenied ? "SETTINGS" : null,
+            onActionPressed: status.isPermanentlyDenied ? () async => await openAppSettings() : null,
+          );
         }
         return;
       }
@@ -826,9 +1112,22 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
         photo = await _picker.pickImage(
           source: ImageSource.camera,
           preferredCameraDevice: CameraDevice.front,
+          maxWidth: 1024,
+          maxHeight: 1024,
+          imageQuality: 70,
         );
       } catch (e) {
-        debugPrint('Checkpoint camera error: $e');
+        debugPrint('Checkpoint front camera failed: $e, retrying standard camera...');
+        try {
+          photo = await _picker.pickImage(
+            source: ImageSource.camera,
+            maxWidth: 1024,
+            maxHeight: 1024,
+            imageQuality: 70,
+          );
+        } catch (e2) {
+          debugPrint('Checkpoint standard camera failed: $e2');
+        }
       }
 
       if (photo != null) {
@@ -1134,28 +1433,36 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
                         ),
                       )
                     else
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF6366F1).withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.2)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.camera_alt_outlined, size: 16, color: Color(0xFF6366F1)),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Camera will open automatically on submit',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: const Color(0xFF6366F1),
+                      InkWell(
+                        onTap: isSubmitting
+                            ? null
+                            : () async {
+                                await handleCameraAndSubmit(ctx, setModalState);
+                              },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF6366F1).withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.2)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.camera_alt_outlined, size: 16, color: Color(0xFF6366F1)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Tap here or Submit to capture selfie',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xFF6366F1),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     const SizedBox(height: 14),
@@ -1226,58 +1533,145 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
       ),
     );
   }
-  Widget _buildActionButtons(BuildContext context, bool isCheckedIn) {
+  Widget _buildActionButtons(BuildContext context, bool isCheckedIn, bool isViewingToday) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Column(
       children: [
+        if (!isViewingToday) ...[
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E1E38).withValues(alpha: 0.6) : const Color(0xFFEEF2FF),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: const Color(0xFF4F46E5).withValues(alpha: 0.25),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF4F46E5)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Viewing ${DateFormat('EEE, MMM d').format(_selectedDate)}. Time In, Time Out, and Checkpoint are only enabled for today.',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? const Color(0xFFC7D2FE) : const Color(0xFF3730A3),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         _buildLargeActionButton(
           context,
           label: 'Time In',
-          subLabel: isCheckedIn ? 'You are currently checked in' : 'Start shift for today',
+          subLabel: !isViewingToday
+              ? 'Disabled for past dates'
+              : (isCheckedIn ? 'You are currently timed in' : 'Start shift for today'),
           icon: Icons.arrow_forward_rounded,
           color: const Color(0xFF10B981),
-          isActive: !isCheckedIn, 
+          isActive: isViewingToday && !isCheckedIn, 
           isLoading: _isTimeInProcessing,
-          onTap: () {
+          onTap: () async {
             if (isCheckedIn) {
-              context.showToast("You have already checked in.", isWarning: true);
+              final attProvider = Provider.of<AttendanceProvider>(this.context, listen: false);
+              await attProvider.fetchRecords(DateTime.now(), forceRefresh: true, silentRefresh: true);
+              if (!attProvider.isCheckedInToday && mounted) {
+                _handleAttendanceAction(true);
+                return;
+              }
+              if (mounted) {
+                this.context.showToast("You are already timed in. To clock out, tap Time Out below.", isWarning: true);
+              }
             } else {
               _handleAttendanceAction(true);
             }
           },
+          onDisabledTap: !isViewingToday
+              ? () => context.showToast("Time In is only allowed for today's date.", isWarning: true)
+              : () async {
+                  // Healing recovery: if user is on today and taps Time In while the UI thinks they are checked in
+                  // (due to a race condition or stale cache), perform a forced live check with the server.
+                  final attProvider = Provider.of<AttendanceProvider>(this.context, listen: false);
+                  await attProvider.fetchRecords(DateTime.now(), forceRefresh: true, silentRefresh: true);
+                  if (!attProvider.isCheckedInToday && mounted) {
+                    _handleAttendanceAction(true);
+                  } else if (mounted) {
+                    this.context.showToast("You are already timed in. To clock out, tap Time Out below.", isWarning: true);
+                  }
+                },
         ),
         const SizedBox(height: 7),
         _buildLargeActionButton(
           context,
           label: 'Time Out',
-          subLabel: isCheckedIn ? 'End current shift' : 'No active session',
+          subLabel: !isViewingToday
+              ? 'Disabled for past dates'
+              : (isCheckedIn ? 'End current shift & clock out' : 'No active session'),
           icon: Icons.logout_rounded,
           color: const Color(0xFFEF4444),
-          isActive: isCheckedIn, 
+          isActive: isViewingToday && isCheckedIn, 
           isLoading: _isTimeOutProcessing,
-          onTap: () {
+          onTap: () async {
             if (!isCheckedIn) {
-              context.showToast("You have already checked out.", isWarning: true);
+              // Smart check: maybe the user timed in on another device/tab or cache was stale?
+              final attProvider = Provider.of<AttendanceProvider>(this.context, listen: false);
+              await attProvider.fetchRecords(DateTime.now(), forceRefresh: true, silentRefresh: true);
+              if (attProvider.isCheckedInToday) {
+                if (mounted) {
+                  setState(() => _selectedDate = DateTime.now());
+                  _handleAttendanceAction(false);
+                }
+                return;
+              }
+              if (mounted) {
+                this.context.showToast("No active session found to clock out. Please Time In first.", isWarning: true);
+              }
             } else {
               _handleAttendanceAction(false);
             }
           },
+          onDisabledTap: !isViewingToday
+              ? () => context.showToast("Time Out is only allowed for today's date.", isWarning: true)
+              : null,
         ),
         const SizedBox(height: 7),
         _buildLargeActionButton(
           context,
           label: 'Checkpoint',
-          subLabel: isCheckedIn ? 'Mark your current location' : 'Check in first',
+          subLabel: !isViewingToday
+              ? 'Disabled for past dates'
+              : (isCheckedIn ? 'Mark your current location' : 'Time in first'),
           icon: Icons.location_on_rounded,
           color: const Color(0xFF6366F1),
-          isActive: isCheckedIn, 
+          isActive: isViewingToday && isCheckedIn, 
           isLoading: _isCheckpointProcessing,
-          onTap: () {
+          onTap: () async {
             if (!isCheckedIn) {
-              context.showToast('Please check in first.', isWarning: true);
+              final attProvider = Provider.of<AttendanceProvider>(this.context, listen: false);
+              await attProvider.fetchRecords(DateTime.now(), forceRefresh: true, silentRefresh: true);
+              if (attProvider.isCheckedInToday) {
+                if (mounted) {
+                  setState(() => _selectedDate = DateTime.now());
+                  _showCheckpointModal();
+                }
+                return;
+              }
+              if (mounted) {
+                this.context.showToast('Please check in first to mark a checkpoint.', isWarning: true);
+              }
             } else {
               _showCheckpointModal();
             }
           },
+          onDisabledTap: !isViewingToday
+              ? () => context.showToast("Checkpoints can only be marked for today's date.", isWarning: true)
+              : null,
         ),
       ],
     );
@@ -1291,20 +1685,21 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
     required bool isActive,
     required bool isLoading,
     required VoidCallback onTap,
+    VoidCallback? onDisabledTap,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bool canTap = isActive && !_isProcessing;
+    final bool canTap = (isActive || onDisabledTap != null) && !_isProcessing;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: canTap ? onTap : null,
+      onTap: canTap ? (isActive ? onTap : onDisabledTap) : null,
       child: GlassContainer(
         width: double.infinity,
         borderRadius: 14,
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: canTap ? onTap : null,
+            onTap: canTap ? (isActive ? onTap : onDisabledTap) : null,
             borderRadius: BorderRadius.circular(14),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8.5),
@@ -1571,6 +1966,24 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
                 letterSpacing: 0.5,
               ),
             ),
+            const SizedBox(width: 6),
+            InkWell(
+              onTap: () async {
+                await _fetchRecords(force: true);
+                if (context.mounted) {
+                  context.showToast('Attendance synced', isSuccess: true);
+                }
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: Icon(
+                  Icons.sync_rounded,
+                  size: 17,
+                  color: Color(0xFF4F46E5),
+                ),
+              ),
+            ),
           ],
         ),
         
@@ -1617,9 +2030,12 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
 
   Widget _buildEmptyState(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final isToday = DateFormat('yyyy-MM-dd').format(_selectedDate) == todayStr;
+
     return Container(
       width: double.infinity,
-      height: 140,
+      padding: const EdgeInsets.symmetric(vertical: 20),
       margin: const EdgeInsets.only(top: 8),
       child: CustomPaint(
         painter: DashedRectPainter(
@@ -1636,13 +2052,41 @@ class _MarkAttendanceMobileState extends State<MarkAttendanceMobile> with Widget
               size: 32,
               color: isDark ? Colors.white30 : Colors.grey[400],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Text(
-              'No records found for today',
+              isToday ? 'No records found for today' : 'No records found for this date',
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: isDark ? Colors.white54 : Colors.grey[500],
+              ),
+            ),
+            const SizedBox(height: 6),
+            InkWell(
+              onTap: () async {
+                await _fetchRecords(force: true);
+                if (context.mounted) {
+                  context.showToast('Checked server for latest status', isSuccess: true);
+                }
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.refresh_rounded, size: 14, color: Color(0xFF4F46E5)),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Check with server',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF4F46E5),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

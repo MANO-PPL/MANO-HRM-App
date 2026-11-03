@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_application/features/attendance/widgets/attendance_admin_view.dart';
 
 class MobileCorrectionRequestsView extends StatelessWidget {
@@ -7,7 +7,7 @@ class MobileCorrectionRequestsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: AdminCorrectionRequests(),
     );
   }
