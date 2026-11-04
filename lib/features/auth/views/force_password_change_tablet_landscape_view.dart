@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_application/features/auth/core/force_password_change_screen.dart';
 
 class ForcePasswordChangeTabletLandscape extends StatelessWidget {
@@ -92,8 +92,8 @@ class ForcePasswordChangeTabletLandscape extends StatelessWidget {
                                 if (value == null || value.isEmpty) {
                                   return 'Please enter a password';
                                 }
-                                if (value.length < 6) {
-                                  return 'Password must be at least 6 characters';
+                                if (value.length < 8) {
+                                  return 'Password must be at least 8 characters';
                                 }
                                 return null;
                               },
