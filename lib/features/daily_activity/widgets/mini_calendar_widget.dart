@@ -230,7 +230,7 @@ class _MiniCalendarWidgetState extends State<MiniCalendarWidget> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  '${DateFormat('d MMM').format(DateTime.parse(widget.selectedDate))} → ${DateFormat('d MMM').format(DateTime.parse(widget.rangeEndDate!))}',
+                  '${DateFormat('d MMMM yyyy').format(DateTime.parse(widget.selectedDate))} → ${DateFormat('d MMMM yyyy').format(DateTime.parse(widget.rangeEndDate!))}',
                   style: GoogleFonts.poppins(
                     fontSize: 9,
                     color: isDark ? Colors.grey[400] : Colors.grey[600],

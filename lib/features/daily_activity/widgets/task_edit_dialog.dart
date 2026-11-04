@@ -559,7 +559,7 @@ class _TaskEditDialogState extends State<TaskEditDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final formattedDate = DateFormat('EEEE, d MMMM').format(DateTime.parse(_dateStr));
+    final formattedDate = DateFormat('d MMMM yyyy').format(DateTime.parse(_dateStr));
     final cardColor = Theme.of(context).cardColor;
     final dividerColor = Theme.of(context).dividerColor;
 

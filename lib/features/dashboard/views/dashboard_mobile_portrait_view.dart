@@ -84,13 +84,14 @@ class _MobileAdminDashboardContentState
         context,
         listen: false,
       ).fetchDashboardData();
-      Provider.of<AttendanceProvider>(context, listen: false)
-          .fetchRecords(DateTime.now(), forceRefresh: true)
-          .then((_) {
-            if (mounted) {
-              context.checkAndShowShiftStartBanner();
-            }
-          });
+      final attendance = Provider.of<AttendanceProvider>(context, listen: false);
+      attendance.fetchShiftPolicy();
+      attendance.checkMissedPunch();
+      attendance.fetchRecords(DateTime.now(), forceRefresh: true).then((_) {
+        if (mounted) {
+          context.checkAndShowShiftStartBanner();
+        }
+      });
     });
   }
 
@@ -115,18 +116,20 @@ class _MobileAdminDashboardContentState
                   userName: user?.name ?? 'Admin',
                   department: user?.department,
                   designation: user?.designation,
+                  shift: attendanceProvider.shiftPolicy,
+                  records: attendanceProvider.records,
                 ),
               ),
               if (missedPunchDate != null)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 6, 10, 0),
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
                     child: _buildMissedPunchBanner(context, missedPunchDate, attendanceProvider),
                   ),
                 ),
               // 1. KPI Section (Grid)
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(10, 6, 10, 0),
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     _buildMobileKPIStack(
@@ -278,8 +281,8 @@ class _MobileAdminDashboardContentState
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
       crossAxisSpacing: 8,
-      mainAxisSpacing: 8,
-      childAspectRatio: 1.52,
+      mainAxisSpacing: 6,
+      childAspectRatio: 2.15,
       children: kpis.map((data) {
         return StatCard(
           title: data['title'] as String,
@@ -290,13 +293,14 @@ class _MobileAdminDashboardContentState
           isPositive: data['isPositive'] as bool,
           icon: data['icon'] as IconData,
           baseColor: data['color'] as Color,
+          isCompact: true,
         );
       }).toList(),
     );
   }
 
   Widget _buildMissedPunchBanner(BuildContext context, DateTime missedDate, AttendanceProvider provider) {
-    final dateLabel = DateFormat('EEE, MMM d').format(missedDate);
+    final dateLabel = DateFormat('d MMMM yyyy').format(missedDate);
     final deadlineDays = provider.correctionDeadlineDays;
     final expiry = DateTime(missedDate.year, missedDate.month, missedDate.day)
         .add(Duration(days: deadlineDays + 1));
@@ -314,7 +318,11 @@ class _MobileAdminDashboardContentState
                 date: missedDate,
                 attendanceId: null,
                 type: CorrectionType.missedPunch,
-              ).then((_) => provider.clearMissedPunch());
+                onSuccess: () {
+                  provider.clearMissedPunch();
+                  provider.checkMissedPunch();
+                },
+              );
             },
       borderRadius: BorderRadius.circular(16),
       child: Container(
@@ -386,7 +394,11 @@ class _MobileAdminDashboardContentState
                     date: missedDate,
                     attendanceId: null,
                     type: CorrectionType.missedPunch,
-                  ).then((_) => provider.clearMissedPunch());
+                    onSuccess: () {
+                      provider.clearMissedPunch();
+                      provider.checkMissedPunch();
+                    },
+                  );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
@@ -457,13 +469,14 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
         context,
         listen: false,
       ).fetchDashboardData();
-      Provider.of<AttendanceProvider>(context, listen: false)
-          .fetchRecords(DateTime.now(), forceRefresh: true)
-          .then((_) {
-            if (mounted) {
-              context.checkAndShowShiftStartBanner();
-            }
-          });
+      final attendance = Provider.of<AttendanceProvider>(context, listen: false);
+      attendance.fetchShiftPolicy();
+      attendance.checkMissedPunch();
+      attendance.fetchRecords(DateTime.now(), forceRefresh: true).then((_) {
+        if (mounted) {
+          context.checkAndShowShiftStartBanner();
+        }
+      });
     });
   }
 
@@ -488,18 +501,20 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
                   userName: user?.name ?? 'HR Manager',
                   department: user?.department,
                   designation: user?.designation,
+                  shift: attendanceProvider.shiftPolicy,
+                  records: attendanceProvider.records,
                 ),
               ),
               if (missedPunchDate != null)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 6, 10, 0),
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
                     child: _buildMissedPunchBanner(context, missedPunchDate, attendanceProvider),
                   ),
                 ),
               // 1. KPI Section (Grid)
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(10, 6, 10, 0),
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     _buildMobileKPIStack(provider.stats, provider.trends),
@@ -643,8 +658,8 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
       crossAxisSpacing: 8,
-      mainAxisSpacing: 8,
-      childAspectRatio: 1.52,
+      mainAxisSpacing: 6,
+      childAspectRatio: 2.15,
       children: kpis.map((data) {
         return StatCard(
           title: data['title'] as String,
@@ -655,13 +670,14 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
           isPositive: data['isPositive'] as bool,
           icon: data['icon'] as IconData,
           baseColor: data['color'] as Color,
+          isCompact: true,
         );
       }).toList(),
     );
   }
 
   Widget _buildMissedPunchBanner(BuildContext context, DateTime missedDate, AttendanceProvider provider) {
-    final dateLabel = DateFormat('EEE, MMM d').format(missedDate);
+    final dateLabel = DateFormat('d MMMM yyyy').format(missedDate);
     final deadlineDays = provider.correctionDeadlineDays;
     final expiry = DateTime(missedDate.year, missedDate.month, missedDate.day)
         .add(Duration(days: deadlineDays + 1));
@@ -679,7 +695,11 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
                 date: missedDate,
                 attendanceId: null,
                 type: CorrectionType.missedPunch,
-              ).then((_) => provider.clearMissedPunch());
+                onSuccess: () {
+                  provider.clearMissedPunch();
+                  provider.checkMissedPunch();
+                },
+              );
             },
       borderRadius: BorderRadius.circular(16),
       child: Container(
@@ -751,7 +771,11 @@ class _MobileHrDashboardContentState extends State<MobileHrDashboardContent> {
                     date: missedDate,
                     attendanceId: null,
                     type: CorrectionType.missedPunch,
-                  ).then((_) => provider.clearMissedPunch());
+                    onSuccess: () {
+                      provider.clearMissedPunch();
+                      provider.checkMissedPunch();
+                    },
+                  );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,

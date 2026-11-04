@@ -37,7 +37,7 @@ class TabletLandscape extends StatelessWidget {
                     ? const Color(0xFF0D1117)
                     : Colors.transparent,
                 appBar: PreferredSize(
-                  preferredSize: const Size.fromHeight(kToolbarHeight),
+                  preferredSize: const Size.fromHeight(48),
                   child: ValueListenableBuilder<PageType>(
                     valueListenable: navigationNotifier,
                     builder: (context, currentPage, _) {

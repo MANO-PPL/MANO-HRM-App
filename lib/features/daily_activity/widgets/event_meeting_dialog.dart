@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application/features/daily_activity/core/dar_models.dart';
@@ -556,7 +556,7 @@ class _EventMeetingDialogState extends State<EventMeetingDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final formattedDate = DateFormat('EEEE, d MMMM').format(DateTime.parse(_dateStr));
+    final formattedDate = DateFormat('d MMMM yyyy').format(DateTime.parse(_dateStr));
 
     if (widget.isBottomSheet) {
       return Container(
