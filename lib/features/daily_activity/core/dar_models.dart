@@ -1,4 +1,4 @@
-
+import 'dart:convert';
 
 enum DarItemType { task, meeting, event }
 
@@ -196,6 +196,71 @@ class DarItem {
       isSaved: isSaved ?? this.isSaved,
       laneIndex: laneIndex,
       totalLanes: totalLanes,
+    );
+  }
+}
+
+class DarRequestItem {
+  final int requestId;
+  final int userId;
+  final String userName;
+  final String? userEmail;
+  final String? userRole;
+  final String? userDept;
+  final String requestDate;
+  final String reason;
+  final String status; // PENDING, APPROVED, REJECTED
+  final String? adminComment;
+  final List<dynamic> originalData;
+  final List<dynamic> proposedData;
+  final String? createdAt;
+
+  DarRequestItem({
+    required this.requestId,
+    required this.userId,
+    required this.userName,
+    this.userEmail,
+    this.userRole,
+    this.userDept,
+    required this.requestDate,
+    required this.reason,
+    required this.status,
+    this.adminComment,
+    required this.originalData,
+    required this.proposedData,
+    this.createdAt,
+  });
+
+  factory DarRequestItem.fromJson(Map<String, dynamic> json) {
+    List<dynamic> parseJsonList(dynamic val) {
+      if (val is List) return val;
+      if (val is String && val.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(val);
+          if (decoded is List) return decoded;
+        } catch (_) {}
+      }
+      return [];
+    }
+
+    return DarRequestItem(
+      requestId: json['request_id'] is int
+          ? json['request_id']
+          : int.tryParse(json['request_id']?.toString() ?? '0') ?? 0,
+      userId: json['user_id'] is int
+          ? json['user_id']
+          : int.tryParse(json['user_id']?.toString() ?? '0') ?? 0,
+      userName: json['user_name'] ?? json['userName'] ?? 'Employee',
+      userEmail: json['user_email'] ?? json['email'],
+      userRole: json['user_role'] ?? json['role'],
+      userDept: json['user_dept'] ?? json['dept_name'] ?? json['department'],
+      requestDate: json['request_date']?.toString().split('T').first ?? '',
+      reason: json['reason'] ?? '',
+      status: (json['status'] ?? 'PENDING').toString().toUpperCase(),
+      adminComment: json['comment'] ?? json['admin_comment'] ?? json['review_comments'],
+      originalData: parseJsonList(json['original_data']),
+      proposedData: parseJsonList(json['proposed_data']),
+      createdAt: json['created_at']?.toString(),
     );
   }
 }

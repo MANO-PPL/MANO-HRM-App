@@ -3,12 +3,18 @@ import 'package:intl/intl.dart';
 import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/features/employees/core/employee_service.dart';
 import 'package:flutter_application/features/employees/core/employee_model.dart';
+import 'package:flutter_application/features/daily_activity/core/dar_models.dart';
+import 'package:flutter_application/features/daily_activity/core/dar_service.dart';
 
 class DarAdminController extends ChangeNotifier {
   final AuthService auth;
+  late final DarService _darService;
 
   DarAdminController(this.auth) {
+    _darService = DarService(auth.dio);
     fetchAll();
+    fetchRequests();
+    fetchSettings();
   }
 
   // ── Date filter ──────────────────────────────────────────────────────────
@@ -28,6 +34,118 @@ class DarAdminController extends ChangeNotifier {
   List<dynamic> allActivities = [];
   List<dynamic> allEvents = [];
   String? errorMessage;
+
+  // ── Requests (Past activity revision requests) ──────────────
+  List<DarRequestItem> requests = [];
+  bool isLoadingRequests = false;
+  String requestStatusFilter = 'all'; // all, pending, approved, rejected
+
+  List<DarRequestItem> get filteredRequests {
+    if (requestStatusFilter == 'all') return requests;
+    return requests.where((r) => r.status.toLowerCase() == requestStatusFilter.toLowerCase()).toList();
+  }
+
+  int get pendingRequestsCount => requests.where((r) => r.status == 'PENDING').length;
+
+  Future<void> fetchRequests() async {
+    isLoadingRequests = true;
+    _notify();
+    try {
+      requests = await _darService.getRequestsList();
+    } catch (e) {
+      debugPrint("fetchRequests error: $e");
+    } finally {
+      isLoadingRequests = false;
+      _notify();
+    }
+  }
+
+  void setRequestStatusFilter(String status) {
+    requestStatusFilter = status;
+    _notify();
+  }
+
+  Future<bool> approveRequest(int id) async {
+    try {
+      final success = await _darService.approveRequest(id);
+      if (success) {
+        await fetchRequests();
+        await fetchAll();
+        return true;
+      }
+    } catch (e) {
+      debugPrint("approveRequest error: $e");
+    }
+    return false;
+  }
+
+  Future<bool> rejectRequest(int id, {String? comment}) async {
+    try {
+      final success = await _darService.rejectRequest(id, comment: comment);
+      if (success) {
+        await fetchRequests();
+        return true;
+      }
+    } catch (e) {
+      debugPrint("rejectRequest error: $e");
+    }
+    return false;
+  }
+
+  // ── Settings & Buffer & Categories ───────────────────────────
+  int bufferMinutes = 0;
+  List<String> categories = [];
+  bool isLoadingSettings = false;
+
+  Future<void> fetchSettings() async {
+    isLoadingSettings = true;
+    _notify();
+    try {
+      final settings = await _darService.getSettings();
+      bufferMinutes = int.tryParse(settings['buffer_minutes']?.toString() ?? '0') ?? 0;
+      final cats = settings['categories'];
+      if (cats is List) {
+        categories = cats.map((c) => c.toString()).toList();
+      }
+    } catch (e) {
+      debugPrint("fetchSettings error: $e");
+    } finally {
+      isLoadingSettings = false;
+      _notify();
+    }
+  }
+
+  Future<bool> updateSettings({int? buffer, List<String>? cats}) async {
+    try {
+      final newBuffer = buffer ?? bufferMinutes;
+      final newCats = cats ?? categories;
+      final success = await _darService.updateSettings(
+        bufferMinutes: newBuffer,
+        categories: newCats,
+      );
+      if (success) {
+        bufferMinutes = newBuffer;
+        categories = newCats;
+        _notify();
+        return true;
+      }
+    } catch (e) {
+      debugPrint("updateSettings error: $e");
+    }
+    return false;
+  }
+
+  Future<bool> addCategory(String cat) async {
+    final trimmed = cat.trim();
+    if (trimmed.isEmpty || categories.contains(trimmed)) return false;
+    final updated = [...categories, trimmed];
+    return await updateSettings(cats: updated);
+  }
+
+  Future<bool> removeCategory(String cat) async {
+    final updated = categories.where((c) => c != cat).toList();
+    return await updateSettings(cats: updated);
+  }
 
   bool _disposed = false;
 
@@ -234,7 +352,7 @@ class DarAdminController extends ChangeNotifier {
 
   String formatDate(String dateStr) {
     try {
-      return DateFormat('EEE, MMM d, yyyy').format(DateTime.parse(dateStr));
+      return DateFormat('d MMMM yyyy').format(DateTime.parse(dateStr));
     } catch (_) {
       return dateStr;
     }

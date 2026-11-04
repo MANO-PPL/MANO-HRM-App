@@ -723,9 +723,9 @@ class _TabletDailyActivityViewState extends State<TabletDailyActivityView> {
                   // Selection Date / Range Banner
                   Text(
                     _rangeEndDate != null
-                        ? '${DateFormat('EEE, d MMM').format(DateTime.parse(_selectedDate))} → ${DateFormat('EEE, d MMM yyyy').format(DateTime.parse(_rangeEndDate!))}'
+                        ? '${DateFormat('d MMMM yyyy').format(DateTime.parse(_selectedDate))} → ${DateFormat('d MMMM yyyy').format(DateTime.parse(_rangeEndDate!))}'
                         : DateFormat(
-                            'EEEE, MMM d, yyyy',
+                            'd MMMM yyyy',
                           ).format(DateTime.parse(_selectedDate)),
                     style: GoogleFonts.poppins(
                       fontSize: 12.5,

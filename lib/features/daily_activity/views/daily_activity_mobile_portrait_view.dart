@@ -913,7 +913,7 @@ class _MobileDailyActivityViewState extends State<MobileDailyActivityView> {
                   children: [
                     Text(
                       _rangeEndDate != null
-                          ? "${DateFormat('d MMM').format(DateTime.parse(_selectedDate))} - ${DateFormat('d MMM yyyy').format(DateTime.parse(_rangeEndDate!))}"
+                          ? "${DateFormat('d MMMM yyyy').format(DateTime.parse(_selectedDate))} - ${DateFormat('d MMMM yyyy').format(DateTime.parse(_rangeEndDate!))}"
                           : DateFormat(
                               'MMMM yyyy',
                             ).format(DateTime.parse(_selectedDate)),
@@ -964,7 +964,7 @@ class _MobileDailyActivityViewState extends State<MobileDailyActivityView> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '${DateFormat('d MMM').format(DateTime.parse(_selectedDate))} - ${DateFormat('d MMM yyyy').format(DateTime.parse(_rangeEndDate!))}',
+                        '${DateFormat('d MMMM yyyy').format(DateTime.parse(_selectedDate))} - ${DateFormat('d MMMM yyyy').format(DateTime.parse(_rangeEndDate!))}',
                         style: GoogleFonts.poppins(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,

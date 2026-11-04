@@ -224,6 +224,107 @@ class DarService {
       rethrow;
     }
   }
+
+  // 9. Admin: Get List of Requests (Pending, Approved, Rejected)
+  Future<List<DarRequestItem>> getRequestsList({String? status, int? requestId}) async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.darRequestsList,
+        queryParameters: {
+          if (status != null && status.isNotEmpty && status.toLowerCase() != 'all') 'status': status,
+          if (requestId != null) 'requestId': requestId,
+        },
+      );
+      if (response.statusCode == 200 && response.data['ok'] == true) {
+        final List<dynamic> list = response.data['data'] ?? [];
+        return list.map((json) => DarRequestItem.fromJson(Map<String, dynamic>.from(json as Map))).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint("DarService getRequestsList error: $e");
+      return [];
+    }
+  }
+
+  // 10. Employee: Get My Requests
+  Future<List<DarRequestItem>> getMyRequests({String? status, String? dateFrom, String? dateTo}) async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.darRequestsMyRequests,
+        queryParameters: {
+          if (status != null && status.isNotEmpty && status.toLowerCase() != 'all') 'status': status,
+          if (dateFrom != null) 'date_from': dateFrom,
+          if (dateTo != null) 'date_to': dateTo,
+        },
+      );
+      if (response.statusCode == 200 && response.data['ok'] == true) {
+        final List<dynamic> list = response.data['data'] ?? [];
+        return list.map((json) => DarRequestItem.fromJson(Map<String, dynamic>.from(json as Map))).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint("DarService getMyRequests error: $e");
+      return [];
+    }
+  }
+
+  // 11. Admin: Approve Request
+  Future<bool> approveRequest(int requestId) async {
+    try {
+      final response = await _dio.post('${ApiConstants.darRequestsApprove}/$requestId');
+      return response.statusCode == 200 && response.data['ok'] == true;
+    } catch (e) {
+      debugPrint("DarService approveRequest error: $e");
+      rethrow;
+    }
+  }
+
+  // 12. Admin: Reject Request
+  Future<bool> rejectRequest(int requestId, {String? comment}) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.darRequestsReject}/$requestId',
+        data: {
+          'comment': comment ?? 'Rejected by Admin',
+        },
+      );
+      return response.statusCode == 200 && response.data['ok'] == true;
+    } catch (e) {
+      debugPrint("DarService rejectRequest error: $e");
+      rethrow;
+    }
+  }
+
+  // 13. Admin: Get Full Settings
+  Future<Map<String, dynamic>> getSettings() async {
+    try {
+      final response = await _dio.get(ApiConstants.darSettingsList);
+      if (response.statusCode == 200 && response.data['ok'] == true) {
+        return Map<String, dynamic>.from(response.data['data'] ?? {});
+      }
+      return {};
+    } catch (e) {
+      debugPrint("DarService getSettings error: $e");
+      return {};
+    }
+  }
+
+  // 14. Admin: Update Settings
+  Future<bool> updateSettings({required int bufferMinutes, required List<String> categories}) async {
+    try {
+      final response = await _dio.post(
+        ApiConstants.darSettingsUpdate,
+        data: {
+          'buffer_minutes': bufferMinutes,
+          'categories': categories,
+        },
+      );
+      return response.statusCode == 200 && response.data['ok'] == true;
+    } catch (e) {
+      debugPrint("DarService updateSettings error: $e");
+      rethrow;
+    }
+  }
 }
 
 // [mod:2026-03-18T14:00:00+05:30]
