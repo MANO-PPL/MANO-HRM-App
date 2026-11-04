@@ -7,6 +7,8 @@ import 'package:flutter_application/features/daily_activity/widgets/dar_admin_co
 import 'package:flutter_application/features/daily_activity/widgets/dar_admin_sheet.dart';
 import 'package:flutter_application/shared/widgets/glass_date_picker.dart';
 import 'package:flutter_application/shared/widgets/loading_screen.dart';
+import 'package:flutter_application/features/daily_activity/widgets/dar_requests_sheet.dart';
+import 'package:flutter_application/features/daily_activity/widgets/dar_settings_dialog.dart';
 
 /// Mobile-portrait layout for the admin DAR overview.
 /// Uses a compact single-column list (not a grid) with a slim 2-row filter bar.
@@ -96,34 +98,96 @@ class _FilterBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Row 1: Search ─────────────────────────────────────────────
-          SizedBox(
-            height: _h,
-            child: TextField(
-              style: GoogleFonts.poppins(fontSize: 12),
-              decoration: InputDecoration(
-                hintText: 'Search employee or role…',
-                hintStyle: GoogleFonts.poppins(fontSize: 11.5, color: Colors.grey),
-                prefixIcon:
-                    const Icon(Icons.search, size: 16, color: Colors.grey),
-                prefixIconConstraints:
-                    const BoxConstraints(minWidth: 32, minHeight: 32),
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                filled: true,
-                fillColor: bg,
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: border)),
-                enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: border)),
-                focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide:
-                        const BorderSide(color: Color(0xFF5B60F6))),
+          // ── Row 1: Search + Requests + Settings ───────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: _h,
+                  child: TextField(
+                    style: GoogleFonts.poppins(fontSize: 12),
+                    decoration: InputDecoration(
+                      hintText: 'Search employee or role…',
+                      hintStyle: GoogleFonts.poppins(fontSize: 11.5, color: Colors.grey),
+                      prefixIcon:
+                          const Icon(Icons.search, size: 16, color: Colors.grey),
+                      prefixIconConstraints:
+                          const BoxConstraints(minWidth: 32, minHeight: 32),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                      filled: true,
+                      fillColor: bg,
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: border)),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: border)),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: Color(0xFF5B60F6))),
+                    ),
+                    onChanged: ctrl.setSearchQuery,
+                  ),
+                ),
               ),
-              onChanged: ctrl.setSearchQuery,
-            ),
+              const SizedBox(width: 6),
+              // Revision Requests Button
+              InkWell(
+                onTap: () => DarRequestsSheet.show(context, ctrl),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  height: _h,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: bg,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: border),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.assignment_turned_in_outlined,
+                          size: 16, color: Color(0xFF4F46E5)),
+                      if (ctrl.pendingRequestsCount > 0) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: Colors.amber[700],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${ctrl.pendingRequestsCount}',
+                            style: GoogleFonts.poppins(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              // Settings Button
+              InkWell(
+                onTap: () => DarSettingsDialog.show(context, ctrl),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  height: _h,
+                  width: _h,
+                  decoration: BoxDecoration(
+                    color: bg,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: border),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(Icons.tune_rounded,
+                      size: 16, color: isDark ? Colors.white70 : Colors.black87),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 6),
           // ── Row 2: Mode | Dates | Dept ────────────────────────────────
@@ -218,7 +282,7 @@ class _DateControls extends StatelessWidget {
     if (!ctrl.isRange) {
       return _dateBtn(
         context,
-        label: DateFormat('MMM d, yy').format(ctrl.singleDate),
+        label: DateFormat('d MMMM yyyy').format(ctrl.singleDate),
         icon: Icons.calendar_today_outlined,
         onTap: () async {
           await showDialog(
@@ -238,7 +302,7 @@ class _DateControls extends StatelessWidget {
         Expanded(
           child: _dateBtn(
             context,
-            label: DateFormat('MMM d').format(ctrl.startDate),
+            label: DateFormat('d MMMM yyyy').format(ctrl.startDate),
             icon: Icons.calendar_month_outlined,
             onTap: () async {
               await showDialog(
@@ -261,7 +325,7 @@ class _DateControls extends StatelessWidget {
         Expanded(
           child: _dateBtn(
             context,
-            label: DateFormat('MMM d').format(ctrl.endDate),
+            label: DateFormat('d MMMM yyyy').format(ctrl.endDate),
             icon: Icons.calendar_month,
             onTap: () async {
               await showDialog(

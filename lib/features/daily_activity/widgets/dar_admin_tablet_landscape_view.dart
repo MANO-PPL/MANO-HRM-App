@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -139,7 +139,7 @@ class _Sidebar extends StatelessWidget {
           if (!ctrl.isRange)
             _dateSidebarBtn(
               context,
-              label: DateFormat('MMM d, yyyy').format(ctrl.singleDate),
+              label: DateFormat('d MMMM yyyy').format(ctrl.singleDate),
               icon: Icons.calendar_today,
               onTap: () async {
                 await showDialog(
@@ -158,7 +158,7 @@ class _Sidebar extends StatelessWidget {
             _dateSidebarBtn(
               context,
               label:
-                  'From: ${DateFormat('MMM d, yyyy').format(ctrl.startDate)}',
+                  'From: ${DateFormat('d MMMM yyyy').format(ctrl.startDate)}',
               icon: Icons.calendar_month_outlined,
               onTap: () async {
                 await showDialog(
@@ -177,7 +177,7 @@ class _Sidebar extends StatelessWidget {
             _dateSidebarBtn(
               context,
               label:
-                  'To: ${DateFormat('MMM d, yyyy').format(ctrl.endDate)}',
+                  'To: ${DateFormat('d MMMM yyyy').format(ctrl.endDate)}',
               icon: Icons.calendar_month,
               onTap: () async {
                 await showDialog(

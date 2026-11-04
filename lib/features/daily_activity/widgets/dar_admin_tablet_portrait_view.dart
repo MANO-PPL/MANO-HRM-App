@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +7,8 @@ import 'package:flutter_application/features/daily_activity/widgets/dar_admin_co
 import 'package:flutter_application/features/daily_activity/widgets/dar_admin_sheet.dart';
 import 'package:flutter_application/shared/widgets/glass_date_picker.dart';
 import 'package:flutter_application/shared/widgets/loading_screen.dart';
+import 'package:flutter_application/features/daily_activity/widgets/dar_requests_sheet.dart';
+import 'package:flutter_application/features/daily_activity/widgets/dar_settings_dialog.dart';
 
 /// Tablet-portrait layout for the admin DAR overview.
 /// Full filter panel on top, 3-column employee grid below.
@@ -120,17 +122,49 @@ class _TabletFilterPanel extends StatelessWidget {
                       color: isDark ? Colors.white : Colors.black87),
                 ),
               ]),
-              // Mode toggle
-              Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                    color: fieldBg,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: border)),
-                child: Row(children: [
-                  _modeTab(ctrl, 'Single', !ctrl.isRange),
-                  _modeTab(ctrl, 'Range', ctrl.isRange),
-                ]),
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => DarRequestsSheet.show(context, ctrl),
+                    icon: const Icon(Icons.assignment_turned_in_outlined,
+                        size: 15, color: Color(0xFF4F46E5)),
+                    label: Text(
+                      ctrl.pendingRequestsCount > 0
+                          ? 'Revision Requests (${ctrl.pendingRequestsCount})'
+                          : 'Revision Requests',
+                      style: GoogleFonts.poppins(
+                          fontSize: 11.5, fontWeight: FontWeight.w600),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      side: BorderSide(
+                          color: ctrl.pendingRequestsCount > 0
+                              ? Colors.amber[700]!
+                              : border),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () => DarSettingsDialog.show(context, ctrl),
+                    icon: Icon(Icons.tune_rounded,
+                        size: 18,
+                        color: isDark ? Colors.white70 : Colors.black87),
+                    tooltip: 'DAR Configurations',
+                  ),
+                  const SizedBox(width: 12),
+                  // Mode toggle
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                        color: fieldBg,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: border)),
+                    child: Row(children: [
+                      _modeTab(ctrl, 'Single', !ctrl.isRange),
+                      _modeTab(ctrl, 'Range', ctrl.isRange),
+                    ]),
+                  ),
+                ],
               ),
             ],
           ),
@@ -182,7 +216,7 @@ class _TabletFilterPanel extends StatelessWidget {
               if (!ctrl.isRange)
                 _dateBtn(
                   context,
-                  label: DateFormat('MMM d, yyyy')
+                  label: DateFormat('d MMMM yyyy')
                       .format(ctrl.singleDate),
                   icon: Icons.calendar_today,
                   onTap: () async {
@@ -202,7 +236,7 @@ class _TabletFilterPanel extends StatelessWidget {
                 _dateBtn(
                   context,
                   label:
-                      'From: ${DateFormat('MMM d').format(ctrl.startDate)}',
+                      'From: ${DateFormat('d MMMM yyyy').format(ctrl.startDate)}',
                   icon: Icons.calendar_month_outlined,
                   onTap: () async {
                     await showDialog(
@@ -221,7 +255,7 @@ class _TabletFilterPanel extends StatelessWidget {
                 _dateBtn(
                   context,
                   label:
-                      'To: ${DateFormat('MMM d').format(ctrl.endDate)}',
+                      'To: ${DateFormat('d MMMM yyyy').format(ctrl.endDate)}',
                   icon: Icons.calendar_month,
                   onTap: () async {
                     await showDialog(
