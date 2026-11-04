@@ -10,6 +10,7 @@ import 'package:flutter_application/features/collaboration/core/chat_models.dart
 import 'package:flutter_application/features/collaboration/core/chat_service.dart';
 import 'package:flutter_application/features/collaboration/widgets/chat_workspace_widget.dart';
 import 'package:flutter_application/features/collaboration/widgets/chat_dialogs.dart';
+import 'package:flutter_application/features/collaboration/widgets/avatar_preview_dialog.dart';
 import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
 import 'package:flutter_application/shared/widgets/loading_screen.dart';
@@ -195,11 +196,11 @@ class _CollaborationTabletViewState extends State<CollaborationTabletView> {
         if (!aPinned && bPinned) return 1;
 
         final timeA = a.lastMessage != null
-            ? DateTime.parse(a.lastMessage!.createdAt)
-            : DateTime.parse(a.createdAt);
+            ? (DateTime.tryParse(a.lastMessage!.createdAt) ?? DateTime.tryParse(a.createdAt) ?? DateTime.now())
+            : (DateTime.tryParse(a.createdAt) ?? DateTime.now());
         final timeB = b.lastMessage != null
-            ? DateTime.parse(b.lastMessage!.createdAt)
-            : DateTime.parse(b.createdAt);
+            ? (DateTime.tryParse(b.lastMessage!.createdAt) ?? DateTime.tryParse(b.createdAt) ?? DateTime.now())
+            : (DateTime.tryParse(b.createdAt) ?? DateTime.now());
         return timeB.compareTo(timeA);
       });
   }
@@ -798,43 +799,54 @@ class _CollaborationTabletViewState extends State<CollaborationTabletView> {
                   ),
                 ),
                 SizedBox(width: isSelected ? 6 : 4),
-                Stack(
-                  children: [
-                    _buildAvatarWidget(
-                      displayName,
-                      initials,
-                      room.getRoomDisplayAvatar(_currentUserId),
-                      42,
-                      isDark,
-                      isSelected,
+                GestureDetector(
+                  onTap: () {
+                    AvatarPreviewDialog.show(
+                      context,
+                      displayName: displayName,
+                      initials: initials,
+                      avatarUrl: room.getRoomDisplayAvatar(_currentUserId),
                       isGroup: room.roomType == 'group',
-                    ),
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2EA043),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isSelected
-                                ? (isDark ? const Color(0xFF1E232B) : const Color(0xFFF3F4FE)) // card color
-                                : (isDark ? const Color(0xFF0D1117) : Colors.white), // page bg
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF2EA043).withValues(alpha: 0.4),
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
+                    );
+                  },
+                  child: Stack(
+                    children: [
+                      _buildAvatarWidget(
+                        displayName,
+                        initials,
+                        room.getRoomDisplayAvatar(_currentUserId),
+                        42,
+                        isDark,
+                        isSelected,
+                        isGroup: room.roomType == 'group',
+                      ),
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2EA043),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected
+                                  ? (isDark ? const Color(0xFF1E232B) : const Color(0xFFF3F4FE)) // card color
+                                  : (isDark ? const Color(0xFF0D1117) : Colors.white), // page bg
+                              width: 2,
                             ),
-                          ],
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF2EA043).withValues(alpha: 0.4),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -872,7 +884,7 @@ class _CollaborationTabletViewState extends State<CollaborationTabletView> {
                     if (room.lastMessage != null)
                       Text(
                         DateFormat('h:mm a').format(
-                          DateTime.parse(room.lastMessage!.createdAt).toLocal(),
+                          (DateTime.tryParse(room.lastMessage!.createdAt) ?? DateTime.now()).toLocal(),
                         ),
                         style: GoogleFonts.poppins(
                           fontSize: 9,

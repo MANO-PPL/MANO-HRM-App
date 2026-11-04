@@ -252,22 +252,34 @@ class ChatRoom {
   String getRoomDisplayName(int currentUserId) {
     if (roomType == 'direct') {
       final otherMember = members.firstWhere(
-        (m) => m.userId != currentUserId,
-        orElse: () => ChatMember(userId: 0, userName: 'Deleted User'),
+        (m) => m.userId != currentUserId && m.userId != 0,
+        orElse: () => ChatMember(userId: 0, userName: ''),
       );
-      return otherMember.userName;
+      if (otherMember.userName.isNotEmpty && otherMember.userName != 'Deleted User') {
+        return otherMember.userName;
+      }
+      if (roomName != null && roomName!.trim().isNotEmpty && roomName != 'Direct Message') {
+        return roomName!;
+      }
+      if (otherMember.userName.isNotEmpty) {
+        return otherMember.userName;
+      }
+      return 'Direct Message';
     }
-    return roomName ?? 'Group Chat';
+    return (roomName != null && roomName!.trim().isNotEmpty) ? roomName! : 'Group Chat';
   }
 
   // Get dynamic room display avatar
   String? getRoomDisplayAvatar(int currentUserId) {
     if (roomType == 'direct') {
       final otherMember = members.firstWhere(
-        (m) => m.userId != currentUserId,
-        orElse: () => ChatMember(userId: 0, userName: 'Deleted User'),
+        (m) => m.userId != currentUserId && m.userId != 0,
+        orElse: () => ChatMember(userId: 0, userName: ''),
       );
-      return otherMember.profileImage;
+      if (otherMember.profileImage != null && otherMember.profileImage!.isNotEmpty) {
+        return otherMember.profileImage;
+      }
+      return avatarUrl;
     }
     return avatarUrl;
   }
@@ -277,9 +289,19 @@ extension ChatStringExtension on String {
   String get initials {
     final trimmed = trim();
     if (trimmed.isEmpty) return '?';
-    final parts = trimmed.split(' ').where((e) => e.isNotEmpty);
+    final parts = trimmed.split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
     if (parts.isEmpty) return '?';
-    return parts.map((e) => e[0]).take(2).join().toUpperCase();
+    try {
+      if (parts.length == 1) {
+        final w = parts[0];
+        return (w.length >= 2 ? w.substring(0, 2) : w).toUpperCase();
+      }
+      final first = parts[0].isNotEmpty ? parts[0].substring(0, 1) : '?';
+      final second = parts[1].isNotEmpty ? parts[1].substring(0, 1) : '';
+      return '$first$second'.toUpperCase();
+    } catch (_) {
+      return '?';
+    }
   }
 }
 

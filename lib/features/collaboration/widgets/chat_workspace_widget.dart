@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -18,16 +18,19 @@ import 'package:flutter_application/shared/widgets/interactive_image_viewer.dart
 import 'package:flutter_application/shared/constants/api_constants.dart';
 import 'package:flutter_application/shared/navigation/navigation_controller.dart';
 import 'package:flutter_application/features/collaboration/widgets/chat_dialogs.dart';
+import 'package:flutter_application/features/collaboration/widgets/avatar_preview_dialog.dart';
 import 'package:flutter_application/features/collaboration/widgets/voice_note_player_widget.dart';
 
 class ChatWorkspaceWidget extends StatefulWidget {
   final ChatRoom initialRoom;
   final Function(ChatMessage)? onMessageSentOrReceived;
+  final bool showBackButton;
 
   const ChatWorkspaceWidget({
     super.key,
     required this.initialRoom,
     this.onMessageSentOrReceived,
+    this.showBackButton = false,
   });
 
   @override
@@ -62,11 +65,8 @@ class _ChatWorkspaceWidgetState extends State<ChatWorkspaceWidget> {
   bool _isUploading = false;
   Map<String, dynamic>? _uploadedAttachment;
 
-  // Reply Thread & Voice Note state
+  // Reply Thread state
   ChatMessage? _replyingToMessage;
-  bool _isRecordingVoice = false;
-  int _recordDuration = 0;
-  Timer? _recordTimer;
 
   @override
   void initState() {
@@ -101,6 +101,13 @@ class _ChatWorkspaceWidgetState extends State<ChatWorkspaceWidget> {
   @override
   void dispose() {
     _leaveCurrentRoomSocket(_room.roomId);
+    final s = _socketService?.socket;
+    if (s != null) {
+      s.off('message_received', _onSocketMessageReceived);
+      s.off('user_typing', _onSocketUserTyping);
+      s.off('user_stop_typing', _onSocketUserStopTyping);
+      s.off('group_updated', _onSocketGroupUpdated);
+    }
     _typingTimeoutTimer?.cancel();
     _messageController.dispose();
     _scrollController.dispose();
@@ -374,84 +381,7 @@ class _ChatWorkspaceWidgetState extends State<ChatWorkspaceWidget> {
     }
   }
 
-  void _startVoiceRecording() {
-    setState(() {
-      _isRecordingVoice = true;
-      _recordDuration = 0;
-    });
-    _recordTimer?.cancel();
-    _recordTimer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (!mounted) return;
-      setState(() {
-        _recordDuration++;
-      });
-    });
-  }
 
-  void _cancelVoiceRecording() {
-    _recordTimer?.cancel();
-    setState(() {
-      _isRecordingVoice = false;
-      _recordDuration = 0;
-    });
-  }
-
-  Future<void> _sendVoiceRecording() async {
-    _recordTimer?.cancel();
-    final duration = _recordDuration;
-    setState(() {
-      _isRecordingVoice = false;
-      _recordDuration = 0;
-    });
-
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final voiceAttachment = {
-      'name': 'VoiceNote_$timestamp.m4a',
-      'url': 'https://actions.google.com/sounds/v1/ambiences/outdoor_ambience.ogg',
-      'size': 256 * 1024,
-      'type': 'audio/m4a',
-      'duration': duration > 0 ? duration : 5,
-    };
-
-    final optimisticId = "optimistic-$timestamp";
-    final auth = context.read<AuthService>();
-    final newMsg = ChatMessage(
-      messageId: optimisticId,
-      roomId: _room.roomId,
-      senderId: _currentUserId,
-      messageText: '',
-      attachment: voiceAttachment,
-      createdAt: DateTime.now().toIso8601String(),
-      userName: auth.user?.name ?? 'You',
-      profileImageUrl: auth.user?.profileImage,
-      status: 'sending',
-    );
-
-    setState(() {
-      _messages.add(newMsg);
-    });
-    _scrollToBottom();
-
-    final responseMsg = await _chatService.sendMessage(
-      _room.roomId,
-      '',
-      voiceAttachment,
-    );
-
-    if (mounted) {
-      setState(() {
-        final index = _messages.indexWhere((m) => m.messageId == optimisticId);
-        if (index != -1) {
-          if (responseMsg != null) {
-            _messages[index] = responseMsg;
-            widget.onMessageSentOrReceived?.call(responseMsg);
-          } else {
-            _messages[index].status = 'failed';
-          }
-        }
-      });
-    }
-  }
 
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
@@ -584,7 +514,9 @@ class _ChatWorkspaceWidgetState extends State<ChatWorkspaceWidget> {
         // Header Row
         Container(
           height: 60,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: EdgeInsets.symmetric(
+            horizontal: widget.showBackButton ? 8 : 16,
+          ),
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF161B22) : Colors.white,
             border: Border(
@@ -595,6 +527,18 @@ class _ChatWorkspaceWidgetState extends State<ChatWorkspaceWidget> {
           ),
           child: Row(
             children: [
+              if (widget.showBackButton) ...[
+                IconButton(
+                  icon: Icon(
+                    Icons.arrow_back,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                ),
+                const SizedBox(width: 4),
+              ],
               _buildHeaderAvatar(isDark),
               const SizedBox(width: 12),
               Expanded(
@@ -671,8 +615,8 @@ class _ChatWorkspaceWidgetState extends State<ChatWorkspaceWidget> {
                             showDateHeader = true;
                           } else {
                             final prevMsg = _messages[index - 1];
-                            final curDate = DateTime.parse(msg.createdAt).toLocal();
-                            final prevDate = DateTime.parse(prevMsg.createdAt).toLocal();
+                            final curDate = (DateTime.tryParse(msg.createdAt) ?? DateTime.now()).toLocal();
+                            final prevDate = (DateTime.tryParse(prevMsg.createdAt) ?? DateTime.now()).toLocal();
                             if (curDate.year != prevDate.year ||
                                 curDate.month != prevDate.month ||
                                 curDate.day != prevDate.day) {
@@ -749,10 +693,7 @@ class _ChatWorkspaceWidgetState extends State<ChatWorkspaceWidget> {
             children: [
               if (_replyingToMessage != null) _buildReplyPreviewBar(),
               if (_pickedFile != null) _buildAttachmentPreviewBar(),
-              if (_isRecordingVoice)
-                _buildVoiceRecordingBar(isDark)
-              else
-                Row(
+              Row(
                   children: [
                     IconButton(
                       icon: Icon(Icons.attach_file, color: isDark ? Colors.grey : Colors.black54),
@@ -774,10 +715,7 @@ class _ChatWorkspaceWidgetState extends State<ChatWorkspaceWidget> {
                         ),
                       ),
                     ),
-                    IconButton(
-                      icon: Icon(Icons.mic, color: isDark ? const Color(0xFF818CF8) : const Color(0xFF5B60F6)),
-                      onPressed: _startVoiceRecording,
-                    ),
+
                     IconButton(
                       icon: const Icon(Icons.send, color: Color(0xFF5B60F6)),
                       onPressed: _sendMessage,
@@ -792,7 +730,7 @@ class _ChatWorkspaceWidgetState extends State<ChatWorkspaceWidget> {
   }
 
   Widget _buildDateHeader(String createdAt) {
-    final date = DateTime.parse(createdAt).toLocal();
+    final date = (DateTime.tryParse(createdAt) ?? DateTime.now()).toLocal();
     final today = DateTime.now();
     final yesterday = DateTime.now().subtract(const Duration(days: 1));
 
@@ -802,7 +740,7 @@ class _ChatWorkspaceWidgetState extends State<ChatWorkspaceWidget> {
     } else if (date.year == yesterday.year && date.month == yesterday.month && date.day == yesterday.day) {
       formatText = "Yesterday";
     } else {
-      formatText = DateFormat('MMMM d, yyyy').format(date);
+      formatText = DateFormat('d MMMM yyyy').format(date);
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -831,7 +769,7 @@ class _ChatWorkspaceWidgetState extends State<ChatWorkspaceWidget> {
   Widget _buildMessageBubble(ChatMessage msg, bool isSelf) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final initials = (msg.userName ?? '').initials;
-    final parsedTime = DateFormat('h:mm a').format(DateTime.parse(msg.createdAt).toLocal());
+    final parsedTime = DateFormat('h:mm a').format((DateTime.tryParse(msg.createdAt) ?? DateTime.now()).toLocal());
 
     final isSystemCard = msg.messageText.startsWith("[SYSTEM_CARD:");
     String cardType = "";
@@ -909,9 +847,9 @@ class _ChatWorkspaceWidgetState extends State<ChatWorkspaceWidget> {
             _buildMessageAvatar(msg, initials, isDark),
             const SizedBox(width: 8),
           ],
-          GestureDetector(
-            onLongPress: () => _showMessageActionSheet(msg),
-            child: Flexible(
+          Flexible(
+            child: GestureDetector(
+              onLongPress: () => _showMessageActionSheet(msg),
               child: Column(
               crossAxisAlignment: isSelf ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
@@ -1491,7 +1429,7 @@ class _ChatWorkspaceWidgetState extends State<ChatWorkspaceWidget> {
 
   String _formatTimePretty(String timeStr) {
     try {
-      final parsed = DateTime.parse(timeStr).toLocal();
+      final parsed = (DateTime.tryParse(timeStr) ?? DateTime.now()).toLocal();
       return DateFormat('h:mm a').format(parsed);
     } catch (_) {
       try {
@@ -1505,8 +1443,8 @@ class _ChatWorkspaceWidgetState extends State<ChatWorkspaceWidget> {
 
   String _formatDatePretty(String dateStr) {
     try {
-      final parsed = DateTime.parse(dateStr).toLocal();
-      return DateFormat('MMM d, yyyy').format(parsed);
+      final parsed = (DateTime.tryParse(dateStr) ?? DateTime.now()).toLocal();
+      return DateFormat('d MMMM yyyy').format(parsed);
     } catch (_) {
       return dateStr;
     }
@@ -1522,7 +1460,17 @@ class _ChatWorkspaceWidgetState extends State<ChatWorkspaceWidget> {
       }
     }
 
-    return Container(
+    return GestureDetector(
+      onTap: () {
+        AvatarPreviewDialog.show(
+          context,
+          displayName: displayName,
+          initials: initials,
+          avatarUrl: imageUrl,
+          isGroup: _room.roomType == 'group',
+        );
+      },
+      child: Container(
       width: 36,
       height: 36,
       decoration: BoxDecoration(
@@ -1555,6 +1503,7 @@ class _ChatWorkspaceWidgetState extends State<ChatWorkspaceWidget> {
                 ? _buildGroupHeaderFallbackAvatar(36)
                 : _buildInitialsHeaderAvatar(initials)),
       ),
+    ),
     );
   }
 
@@ -1621,9 +1570,19 @@ class _ChatWorkspaceWidgetState extends State<ChatWorkspaceWidget> {
       }
     }
 
-    return Container(
-      width: 32,
-      height: 32,
+    return GestureDetector(
+      onTap: () {
+        AvatarPreviewDialog.show(
+          context,
+          displayName: msg.userName ?? 'User',
+          initials: initials,
+          avatarUrl: imageUrl,
+          isGroup: false,
+        );
+      },
+      child: Container(
+        width: 32,
+        height: 32,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
@@ -1650,6 +1609,7 @@ class _ChatWorkspaceWidgetState extends State<ChatWorkspaceWidget> {
               )
             : _buildInitialsMessageAvatar(initials),
       ),
+    ),
     );
   }
 
@@ -1856,51 +1816,6 @@ class _ChatWorkspaceWidgetState extends State<ChatWorkspaceWidget> {
           IconButton(
             icon: const Icon(Icons.close, size: 16, color: Colors.grey),
             onPressed: () => setState(() => _replyingToMessage = null),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVoiceRecordingBar(bool isDark) {
-    final secs = _recordDuration;
-    final m = secs ~/ 60;
-    final s = secs % 60;
-    final timerText = "${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: const BoxDecoration(
-              color: Colors.redAccent,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            "Recording $timerText",
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-          ),
-          const Spacer(),
-          TextButton(
-            onPressed: _cancelVoiceRecording,
-            child: Text(
-              "Cancel",
-              style: GoogleFonts.poppins(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.send, color: Color(0xFF5B60F6)),
-            onPressed: _sendVoiceRecording,
           ),
         ],
       ),

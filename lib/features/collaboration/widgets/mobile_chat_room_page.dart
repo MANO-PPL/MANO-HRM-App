@@ -1,5 +1,4 @@
-﻿import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_application/features/collaboration/core/chat_models.dart';
 import 'package:flutter_application/features/collaboration/widgets/chat_workspace_widget.dart';
 
@@ -14,24 +13,11 @@ class MobileChatRoomPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: Text(
-          "Conversation",
-          style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: isDark ? const Color(0xFF161B22) : Colors.white,
-        foregroundColor: isDark ? Colors.white : Colors.black87,
-        elevation: 0,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(
-            color: isDark ? const Color(0xFF30363D) : Colors.grey[200]!,
-            height: 1,
-          ),
-        ),
-      ),
       body: SafeArea(
-        child: ChatWorkspaceWidget(initialRoom: room),
+        child: ChatWorkspaceWidget(
+          initialRoom: room,
+          showBackButton: true,
+        ),
       ),
     );
   }
