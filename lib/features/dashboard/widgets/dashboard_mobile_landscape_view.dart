@@ -14,8 +14,9 @@ import 'package:flutter_application/features/dashboard/widgets/trends_chart.dart
 import 'package:flutter_application/features/dashboard/widgets/employee_dashboard_widgets.dart';
 import 'package:flutter_application/shared/widgets/loading_screen.dart';
 import 'package:flutter_application/features/attendance/core/attendance_provider.dart';
-import 'package:flutter_application/features/leave/core/leave_provider.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
+import 'package:flutter_application/features/attendance/widgets/correction_request_dialog_mobile.dart';
+import 'package:flutter_application/features/attendance/core/correction_request.dart';
 
 import 'package:flutter_application/features/employees/views/employees_mobile_portrait_view.dart';
 import 'package:flutter_application/features/attendance/views/attendance_mobile_portrait_view.dart';
@@ -142,264 +143,135 @@ class _MobileEmployeeDashboardLandscapeState extends State<MobileEmployeeDashboa
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<DashboardProvider>(context, listen: false).fetchDashboardData(forceRefresh: true);
-      Provider.of<AttendanceProvider>(context, listen: false)
-          .fetchRecords(DateTime.now(), forceRefresh: true)
-          .then((_) {
-            if (mounted) {
-              context.checkAndShowShiftStartBanner();
-            }
-          });
-      Provider.of<LeaveProvider>(context, listen: false).fetchMyLeaves(forceRefresh: true);
+      final attendance = Provider.of<AttendanceProvider>(context, listen: false);
+      attendance.fetchShiftPolicy();
+      attendance.checkMissedPunch();
+      attendance.fetchRecords(DateTime.now(), forceRefresh: true).then((_) {
+        if (mounted) {
+          context.checkAndShowShiftStartBanner();
+        }
+      });
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthService>().user;
-    final leaveProvider = context.watch<LeaveProvider>();
-    final myLeaves = leaveProvider.myLeaves;
+    final attendanceProvider = context.watch<AttendanceProvider>();
+    final dashboardProvider = context.watch<DashboardProvider>();
+    final missedDate = attendanceProvider.missedPunchDate;
+    final canSubmitCorrection = attendanceProvider.canSubmitCorrection;
+    final stats = dashboardProvider.stats;
 
-    // Calculate real leave balance from approved requests
-    int approvedDays = 0;
-    for (var leave in myLeaves) {
-      if (leave.status.toLowerCase() == 'approved') {
-        final diff = leave.endDate.difference(leave.startDate).inDays + 1;
-        approvedDays += diff;
-      }
-    }
-    final leaveBalance = (12 - approvedDays).clamp(0, 12);
-    
-    return Consumer<DashboardProvider>(
-      builder: (context, provider, child) {
-        final stats = provider.stats;
+    return LoadingScreen(
+      isLoading: dashboardProvider.isLoading,
+      message: "Loading dashboard...",
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 1. Web Welcome Banner (Edge-to-edge flush from header)
+            EmployeeWelcomeBanner(
+              userName: user?.name ?? 'Employee',
+              department: user?.department,
+              designation: user?.designation,
+              shift: attendanceProvider.shiftPolicy,
+              records: attendanceProvider.records,
+            ),
+            const SizedBox(height: 10),
 
-        return LoadingScreen(
-          isLoading: provider.isLoading,
-          message: "Loading dashboard...",
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.only(bottom: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // 1. Edge-to-Edge Gradient Header
-                EmployeeHeaderStack(
-                  userName: user?.name ?? 'Employee',
-                  department: user?.department,
-                  designation: user?.designation,
-                ),
-                const SizedBox(height: 10),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: AttendanceStatusCard(),
-                ),
-                const SizedBox(height: 10),
-                
-                // 2. Dashboard content wrapped in horizontal padding
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 2. Missed Punch Banner (if applicable)
+                  if (missedDate != null && canSubmitCorrection) ...[
+                    MissedPunchBanner(
+                      missedDate: missedDate,
+                      onFixNow: () {
+                        CorrectionRequestDialogMobile.show(
+                          context,
+                          date: missedDate,
+                          attendanceId: null,
+                          type: CorrectionType.missedPunch,
+                          onSuccess: () {
+                            attendanceProvider.clearMissedPunch();
+                            attendanceProvider.checkMissedPunch();
+                          },
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+
+                  // 3. Quick Stats (1 Row with 4 Columns matching web)
+                  Row(
                     children: [
-                      // Left Column: Quick Actions & Work Location Info
                       Expanded(
-                        flex: 5,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const EmployeeQuickActions(),
-                            const SizedBox(height: 8),
-                            EmployeeInfoCard(
-                              title: 'Work Location',
-                              icon: Icons.location_on_outlined,
-                              child: Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).brightness == Brightness.dark 
-                                      ? Colors.white.withValues(alpha: 0.03) 
-                                      : Colors.grey[50],
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Theme.of(context).brightness == Brightness.dark 
-                                        ? Colors.white.withValues(alpha: 0.08) 
-                                        : Colors.grey[200]!,
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.verified_user_outlined, size: 14, color: Color(0xFF10B981)),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'Geofence Active & Protected',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                            color: const Color(0xFF10B981),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    if (provider.userWorkLocations.isNotEmpty) ...[
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'Assigned Locations:',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: Theme.of(context).brightness == Brightness.dark 
-                                              ? Colors.grey[300] 
-                                              : Colors.grey[700],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Wrap(
-                                        spacing: 6,
-                                        runSpacing: 6,
-                                        children: provider.userWorkLocations.map((loc) {
-                                          final locActive = loc.isActive;
-                                          return Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                            decoration: BoxDecoration(
-                                              color: locActive 
-                                                  ? const Color(0xFF3B82F6).withValues(alpha: 0.1) 
-                                                  : Colors.grey.withValues(alpha: 0.1),
-                                              borderRadius: BorderRadius.circular(10),
-                                              border: Border.all(
-                                                color: locActive 
-                                                    ? const Color(0xFF3B82F6).withValues(alpha: 0.25) 
-                                                    : Colors.grey.withValues(alpha: 0.25),
-                                              ),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(
-                                                  Icons.location_on_outlined, 
-                                                  size: 12, 
-                                                  color: locActive ? const Color(0xFF3B82F6) : Colors.grey
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  loc.name,
-                                                  style: GoogleFonts.poppins(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w500,
-                                                    color: locActive 
-                                                        ? (Theme.of(context).brightness == Brightness.dark ? Colors.blue[300] : Colors.blue[700]) 
-                                                        : Colors.grey,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        }).toList(),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
+                        child: EmployeeStatCard(
+                          label: 'Present Days',
+                          value: stats.presentToday.toString(),
+                          icon: Icons.check_circle_outline,
+                          iconColor: const Color(0xFF10B981),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      // Right Column: Stats Grid & Reminders Info
                       Expanded(
-                        flex: 5,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            GridView.count(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 8,
-                              mainAxisSpacing: 8,
-                              childAspectRatio: 1.6,
-                              children: [
-                                EmployeeStatCard(
-                                  label: 'Present Days',
-                                  value: stats.presentToday.toString(),
-                                  icon: Icons.check_circle_outline,
-                                  iconColor: const Color(0xFF10B981),
-                                ),
-                                EmployeeStatCard(
-                                  label: 'Absent Days',
-                                  value: stats.absentToday.toString(),
-                                  icon: Icons.cancel_outlined,
-                                  iconColor: const Color(0xFFEF4444),
-                                ),
-                                EmployeeStatCard(
-                                  label: 'Late Arrivals',
-                                  value: stats.lateCheckins.toString(),
-                                  icon: Icons.access_time,
-                                  iconColor: const Color(0xFFF59E0B),
-                                ),
-                                EmployeeStatCard(
-                                  label: 'Leave Balance',
-                                  value: leaveBalance.toString(),
-                                  badgeText: 'Yearly',
-                                  icon: Icons.coffee,
-                                  iconColor: const Color(0xFF3B82F6),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            EmployeeInfoCard(
-                              title: 'Reminders',
-                              icon: Icons.info_outline,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildBulletPoint(context, 'Mark before 09:30 AM.'),
-                                  const SizedBox(height: 4),
-                                  _buildBulletPoint(context, 'Leave 2 days prior.'),
-                                  const SizedBox(height: 4),
-                                  _buildBulletPoint(context, 'Submit DAR before shift end.'),
-                                ],
-                              ),
-                            ),
-                          ],
+                        child: EmployeeStatCard(
+                          label: 'Late Arrivals',
+                          value: stats.lateCheckins.toString(),
+                          icon: Icons.access_time_rounded,
+                          iconColor: const Color(0xFFF59E0B),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: EmployeeStatCard(
+                          label: 'Absent Days',
+                          value: stats.absentToday.toString(),
+                          icon: Icons.cancel_outlined,
+                          iconColor: const Color(0xFFEF4444),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: EmployeeStatCard(
+                          label: 'Avg Work Hours',
+                          value: '${stats.avgHours.toStringAsFixed(1)}h',
+                          icon: Icons.trending_up_rounded,
+                          iconColor: const Color(0xFF6366F1),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }
-    );
-  }
+                  const SizedBox(height: 10),
 
-  Widget _buildBulletPoint(BuildContext context, String text) {
-    final primaryColor = Theme.of(context).colorScheme.primary;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: CircleAvatar(radius: 3.5, backgroundColor: primaryColor),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              color: Theme.of(context).brightness == Brightness.dark 
-                  ? Colors.grey[300] 
-                  : Colors.grey[700],
-              height: 1.4,
+                  // 4. Two-Column Split Section: Recent Activity & Upcoming Holidays
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: EmployeeRecentActivityCard(
+                          records: attendanceProvider.records,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: EmployeeUpcomingHolidaysCard(
+                          holidays: dashboardProvider.upcomingHolidays,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -448,19 +320,21 @@ class _MobileAdminDashboardLandscapeState extends State<MobileAdminDashboardLand
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<DashboardProvider>(context, listen: false).fetchDashboardData();
-      Provider.of<AttendanceProvider>(context, listen: false)
-          .fetchRecords(DateTime.now(), forceRefresh: true)
-          .then((_) {
-            if (mounted) {
-              context.checkAndShowShiftStartBanner();
-            }
-          });
+      final attendance = Provider.of<AttendanceProvider>(context, listen: false);
+      attendance.fetchShiftPolicy();
+      attendance.checkMissedPunch();
+      attendance.fetchRecords(DateTime.now(), forceRefresh: true).then((_) {
+        if (mounted) {
+          context.checkAndShowShiftStartBanner();
+        }
+      });
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthService>().user;
+    final attendanceProvider = context.watch<AttendanceProvider>();
     return Consumer<DashboardProvider>(
       builder: (context, provider, child) {
         final content = SingleChildScrollView(
@@ -473,10 +347,12 @@ class _MobileAdminDashboardLandscapeState extends State<MobileAdminDashboardLand
                 userName: user?.name ?? 'Admin',
                 department: user?.department,
                 designation: user?.designation,
+                shift: attendanceProvider.shiftPolicy,
+                records: attendanceProvider.records,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -672,19 +548,21 @@ class _MobileHrDashboardLandscapeState extends State<MobileHrDashboardLandscape>
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<DashboardProvider>(context, listen: false).fetchDashboardData();
-      Provider.of<AttendanceProvider>(context, listen: false)
-          .fetchRecords(DateTime.now(), forceRefresh: true)
-          .then((_) {
-            if (mounted) {
-              context.checkAndShowShiftStartBanner();
-            }
-          });
+      final attendance = Provider.of<AttendanceProvider>(context, listen: false);
+      attendance.fetchShiftPolicy();
+      attendance.checkMissedPunch();
+      attendance.fetchRecords(DateTime.now(), forceRefresh: true).then((_) {
+        if (mounted) {
+          context.checkAndShowShiftStartBanner();
+        }
+      });
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthService>().user;
+    final attendanceProvider = context.watch<AttendanceProvider>();
     return Consumer<DashboardProvider>(
       builder: (context, provider, child) {
         final content = SingleChildScrollView(
@@ -697,10 +575,12 @@ class _MobileHrDashboardLandscapeState extends State<MobileHrDashboardLandscape>
                 userName: user?.name ?? 'HR Manager',
                 department: user?.department,
                 designation: user?.designation,
+                shift: attendanceProvider.shiftPolicy,
+                records: attendanceProvider.records,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

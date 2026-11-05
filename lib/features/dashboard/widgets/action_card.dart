@@ -25,24 +25,25 @@ class ActionCard extends StatelessWidget {
 
     return GlassContainer(
       padding: EdgeInsets.zero, // Remove padding from container to let InkWell fill it
+      borderRadius: 10,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          customBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          customBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(7),
                   ),
-                  child: Icon(icon, color: color, size: 20),
+                  child: Icon(icon, color: color, size: 16),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -51,16 +52,16 @@ class ActionCard extends StatelessWidget {
                       Text(
                         title,
                         style: GoogleFonts.poppins(
-                          fontSize: 14,
+                          fontSize: 12.5,
                           fontWeight: FontWeight.w600,
                           color: textColor,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 1),
                       Text(
                         subtitle,
                         style: GoogleFonts.poppins(
-                          fontSize: 11,
+                          fontSize: 10,
                           color: subTextColor,
                         ),
                         maxLines: 1,
