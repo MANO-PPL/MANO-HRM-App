@@ -998,7 +998,7 @@ class _LabourMobileContentState extends State<LabourMobileContent> with SingleTi
                               const SizedBox(width: 6),
                               Flexible(
                                 child: Text(
-                                  DateFormat('dd MMM yyyy').format(_attendanceDate),
+                                  DateFormat('d MMMM yyyy').format(_attendanceDate),
                                   style: GoogleFonts.poppins(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,

@@ -852,7 +852,7 @@ class _LabourTabletLandscapeViewState extends State<LabourTabletLandscapeView> w
                               const Icon(Icons.calendar_today_rounded, size: 15, color: Color(0xFF6366F1)),
                               const SizedBox(width: 6),
                               Text(
-                                DateFormat('EEEE, dd MMM yyyy').format(_attendanceDate),
+                                DateFormat('d MMMM yyyy').format(_attendanceDate),
                                 style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87),
                               ),
                               if (isToday) ...[

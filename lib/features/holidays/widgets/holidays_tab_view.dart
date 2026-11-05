@@ -31,6 +31,33 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
   DateTime _currentMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime? _selectedDate;
   final TextEditingController _searchCtrl = TextEditingController();
+  bool _showCalendar = true;
+  String _filterMode = 'month'; // 'month', 'upcoming', 'all'
+
+  int get _monthHolidayCount {
+    final y = _currentMonth.year;
+    final m = _currentMonth.month;
+    return _holidays.where((h) {
+      try {
+        final d = DateTime.parse(h.date);
+        return d.year == y && d.month == m;
+      } catch (_) {
+        return false;
+      }
+    }).length;
+  }
+
+  int get _upcomingHolidayCount {
+    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    return _holidays.where((h) {
+      try {
+        final d = DateTime.parse(h.date);
+        return !d.isBefore(today);
+      } catch (_) {
+        return false;
+      }
+    }).length;
+  }
 
   @override
   void initState() {
@@ -216,7 +243,7 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
   List<Holiday> _getVisibleHolidays() {
     final query = _searchCtrl.text.trim().toLowerCase();
 
-    // If searching, search across all holidays
+    // 1. If searching, search across all holidays
     if (query.isNotEmpty) {
       return _holidays.where((h) {
         return h.name.toLowerCase().contains(query) ||
@@ -225,13 +252,30 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
       }).toList();
     }
 
-    // If a specific date is selected on the calendar
+    // 2. If a specific date is selected on the calendar
     if (_selectedDate != null) {
       final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate!);
       return _holidays.where((h) => h.date == selectedDateStr).toList();
     }
 
-    // Default: holidays for current month
+    // 3. Filter mode based
+    if (_filterMode == 'all') {
+      return List<Holiday>.from(_holidays);
+    }
+
+    if (_filterMode == 'upcoming') {
+      final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+      return _holidays.where((h) {
+        try {
+          final d = DateTime.parse(h.date);
+          return !d.isBefore(today);
+        } catch (_) {
+          return false;
+        }
+      }).toList();
+    }
+
+    // Default: 'month'
     final currentYear = _currentMonth.year;
     final currentMonthNum = _currentMonth.month;
 
@@ -263,10 +307,10 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
           onRefresh: () => _fetchHolidays(forceRefresh: true),
           child: Padding(
             padding: EdgeInsets.fromLTRB(
-              isLandscape ? 24 : (isTabletPortrait ? 20 : 16),
-              4,
-              isLandscape ? 24 : (isTabletPortrait ? 20 : 16),
-              20,
+              isLandscape ? 16 : (isTabletPortrait ? 14 : 10),
+              2,
+              isLandscape ? 16 : (isTabletPortrait ? 14 : 10),
+              10,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -274,7 +318,10 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
                 // Top Search + Actions Sub-bar
                 _buildSubBar(isAdmin, isDark),
 
-                const SizedBox(height: 16),
+                // Compact Filter Bar & Calendar Toggle
+                _buildFilterBar(isDark),
+
+                const SizedBox(height: 6),
 
                 // Responsive Body Content
                 Expanded(
@@ -291,6 +338,109 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildFilterBar(bool isDark) {
+    if (_searchCtrl.text.trim().isNotEmpty) return const SizedBox.shrink();
+
+    final options = [
+      {'id': 'month', 'label': '${DateFormat('MMM').format(_currentMonth)} ($_monthHolidayCount)'},
+      {'id': 'upcoming', 'label': 'Upcoming ($_upcomingHolidayCount)'},
+      {'id': 'all', 'label': 'All (${_holidays.length})'},
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 2),
+      child: Row(
+        children: [
+          Expanded(
+            child: SizedBox(
+              height: 28,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: options.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 5),
+                itemBuilder: (context, i) {
+                  final opt = options[i];
+                  final isSelected = _selectedDate == null && _filterMode == opt['id'];
+
+                  return ChoiceChip(
+                    label: Text(opt['label']!),
+                    selected: isSelected,
+                    onSelected: (_) {
+                      setState(() {
+                        _selectedDate = null;
+                        _filterMode = opt['id']!;
+                      });
+                    },
+                    selectedColor: const Color(0xFF6366F1),
+                    backgroundColor: isDark ? const Color(0xFF161B22) : Colors.white,
+                    labelStyle: GoogleFonts.inter(
+                      fontSize: 10.5,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: isSelected
+                          ? Colors.white
+                          : (isDark ? Colors.white70 : Colors.grey.shade700),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                    visualDensity: VisualDensity.compact,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      side: BorderSide(
+                        color: isSelected
+                            ? const Color(0xFF6366F1)
+                            : (isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0)),
+                      ),
+                    ),
+                    showCheckmark: false,
+                  );
+                },
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          // Calendar Toggle Button
+          InkWell(
+            onTap: () => setState(() => _showCalendar = !_showCalendar),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              height: 28,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: _showCalendar
+                    ? const Color(0xFF6366F1).withValues(alpha: isDark ? 0.25 : 0.1)
+                    : (isDark ? const Color(0xFF161B22) : Colors.white),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: _showCalendar
+                      ? const Color(0xFF6366F1)
+                      : (isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0)),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _showCalendar ? Icons.calendar_month : Icons.calendar_month_outlined,
+                    size: 13,
+                    color: _showCalendar ? const Color(0xFF6366F1) : (isDark ? Colors.white60 : Colors.grey.shade600),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Calendar',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: _showCalendar ? const Color(0xFF6366F1) : (isDark ? Colors.white60 : Colors.grey.shade600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -420,7 +570,7 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
     );
   }
 
-  // 2. Landscape: Left 65% List / Empty card + Right 35% Calendar Card
+  // 2. Landscape: Left List + Right Calendar Card (if toggled)
   Widget _buildLandscapeLayout(
     List<Holiday> visibleHolidays,
     String monthName,
@@ -432,17 +582,20 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
       children: [
         // Left Main Container (Holidays List or Empty State)
         Expanded(
-          flex: 13,
           child: _buildMainHolidayCard(visibleHolidays, monthName, isAdmin, isDark),
         ),
 
-        const SizedBox(width: 20),
-
-        // Right Calendar Card
-        SizedBox(
-          width: 350,
-          child: _buildCalendarCard(),
-        ),
+        if (_showCalendar) ...[
+          const SizedBox(width: 12),
+          // Right Calendar Card
+          SizedBox(
+            width: 290,
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: _buildCalendarCard(),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -458,29 +611,39 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          flex: 11,
           child: _buildMainHolidayCard(visibleHolidays, monthName, isAdmin, isDark),
         ),
-        const SizedBox(width: 16),
-        SizedBox(
-          width: 320,
-          child: _buildCalendarCard(),
-        ),
+        if (_showCalendar) ...[
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 270,
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: _buildCalendarCard(),
+            ),
+          ),
+        ],
       ],
     );
   }
 
-  // 4. Mobile Portrait Layout
+  // 4. Mobile Portrait Layout (Compact & tight spacing)
   Widget _buildMobileLayout(
     List<Holiday> visibleHolidays,
     String monthName,
     bool isAdmin,
     bool isDark,
   ) {
+    final isSearching = _searchCtrl.text.trim().isNotEmpty;
+
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
       children: [
-        _buildCalendarCard(),
-        const SizedBox(height: 16),
+        if (!isSearching && _showCalendar) ...[
+          _buildCalendarCard(),
+          const SizedBox(height: 8),
+        ],
         _buildMainHolidayCard(visibleHolidays, monthName, isAdmin, isDark, shrinkWrap: true),
       ],
     );
@@ -527,38 +690,90 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
     final hasSelection = _selectedDate != null;
 
     if (visibleHolidays.isEmpty) {
-      return Container(
+      final emptyCard = Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF161B22) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
-        child: Center(
-          child: Text(
-            hasSearch
-                ? "No holidays found matching '${_searchCtrl.text.trim()}'"
-                : (hasSelection
-                    ? "No holidays on ${DateFormat('d MMMM yyyy').format(_selectedDate!)}"
-                    : "No holidays in $monthName"),
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: isDark ? const Color(0xFF58A6FF) : const Color(0xFF2563EB),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              hasSearch
+                  ? Icons.search_off_rounded
+                  : (hasSelection ? Icons.event_busy_rounded : Icons.beach_access_outlined),
+              size: 28,
+              color: isDark ? Colors.white38 : Colors.grey.shade400,
             ),
-            textAlign: TextAlign.center,
-          ),
+            const SizedBox(height: 6),
+            Text(
+              hasSearch
+                  ? "No holidays found matching '${_searchCtrl.text.trim()}'"
+                  : (hasSelection
+                      ? "No holidays on ${DateFormat('d MMMM yyyy').format(_selectedDate!)}"
+                      : "No holidays in $monthName"),
+              style: GoogleFonts.inter(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white70 : const Color(0xFF475569),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (!hasSearch && _filterMode == 'month' && _upcomingHolidayCount > 0) ...[
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () => setState(() {
+                  _selectedDate = null;
+                  _filterMode = 'upcoming';
+                }),
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6366F1).withValues(alpha: isDark ? 0.25 : 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.arrow_forward_rounded, size: 12, color: Color(0xFF6366F1)),
+                      const SizedBox(width: 4),
+                      Text(
+                        'View Upcoming Holidays ($_upcomingHolidayCount)',
+                        style: GoogleFonts.inter(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF6366F1),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
+      );
+
+      if (shrinkWrap) return emptyCard;
+      return SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: emptyCard,
       );
     }
 
@@ -579,17 +794,17 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
     groups.forEach((monthYear, hList) {
       groupWidgets.add(
         Container(
-          margin: const EdgeInsets.only(bottom: 14),
+          margin: const EdgeInsets.only(bottom: 8),
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF161B22) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
-                blurRadius: 8,
+                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                blurRadius: 6,
                 offset: const Offset(0, 2),
               ),
             ],
@@ -599,25 +814,25 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
             children: [
               // Month Heading with Indigo Pill Accent (Matching Web)
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
                       children: [
                         Container(
-                          width: 5,
-                          height: 15,
+                          width: 4,
+                          height: 14,
                           decoration: BoxDecoration(
                             color: const Color(0xFF6366F1),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(3),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Text(
                           monthYear,
                           style: GoogleFonts.inter(
-                            fontSize: 14,
+                            fontSize: 12.5,
                             fontWeight: FontWeight.bold,
                             color: isDark ? Colors.white : const Color(0xFF0F172A),
                           ),
@@ -625,7 +840,7 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
                       ],
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
                         color: isDark ? const Color(0xFF21262D) : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(6),
@@ -636,7 +851,7 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
                       child: Text(
                         '${hList.length} ${hList.length == 1 ? "Holiday" : "Holidays"}',
                         style: GoogleFonts.inter(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.w600,
                           color: isDark ? Colors.white70 : Colors.grey.shade700,
                         ),
@@ -660,8 +875,8 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
                     if (idx < hList.length - 1)
                       Divider(
                         height: 1,
-                        indent: 14,
-                        endIndent: 14,
+                        indent: 10,
+                        endIndent: 10,
                         color: isDark ? const Color(0xFF21262D) : const Color(0xFFF1F5F9),
                       ),
                   ],
@@ -699,18 +914,18 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
 
     return InkWell(
       onTap: () => HolidayDetailDialog.show(context, holiday),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(10),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Row(
           children: [
             // Date Badge (Day + Weekday)
             Container(
-              width: 52,
-              height: 52,
+              width: 42,
+              height: 42,
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
                 ),
@@ -721,7 +936,7 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
                   Text(
                     dayNum,
                     style: GoogleFonts.inter(
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                       color: isDark ? Colors.white : const Color(0xFF0F172A),
                     ),
@@ -729,36 +944,8 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
                   Text(
                     weekday,
                     style: GoogleFonts.inter(
-                      fontSize: 9.5,
+                      fontSize: 8.5,
                       fontWeight: FontWeight.w700,
-                      color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(width: 14),
-
-            // Holiday Name + Date formatted
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    holiday.name,
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    DateFormat('EEEE, d MMMM yyyy').format(parsedDate),
-                    style: GoogleFonts.inter(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
                       color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
                     ),
                   ),
@@ -768,26 +955,54 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
 
             const SizedBox(width: 10),
 
+            // Holiday Name + Date formatted
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    holiday.name,
+                    style: GoogleFonts.inter(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    DateFormat('d MMMM yyyy').format(parsedDate),
+                    style: GoogleFonts.inter(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(width: 8),
+
             // Type Chip (PUBLIC or OPTIONAL)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
               decoration: BoxDecoration(
                 color: isPublic
                     ? const Color(0xFF9333EA).withValues(alpha: 0.15)
                     : const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: isPublic
-                      ? const Color(0xFF9333EA).withValues(alpha: 0.4)
-                      : const Color(0xFFF59E0B).withValues(alpha: 0.4),
+                    ? const Color(0xFF9333EA).withValues(alpha: 0.4)
+                    : const Color(0xFFF59E0B).withValues(alpha: 0.4),
                 ),
               ),
               child: Text(
                 holiday.type.toUpperCase(),
                 style: GoogleFonts.inter(
-                  fontSize: 10,
+                  fontSize: 9,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
+                  letterSpacing: 0.4,
                   color: isPublic ? const Color(0xFFA855F7) : const Color(0xFFFBBF24),
                 ),
               ),
@@ -795,18 +1010,22 @@ class _HolidaysTabViewState extends State<HolidaysTabView> {
 
             // Admin Actions (Edit & Delete)
             if (isAdmin) ...[
-              const SizedBox(width: 10),
+              const SizedBox(width: 6),
               IconButton(
-                icon: const Icon(Icons.edit_outlined, size: 18),
+                icon: const Icon(Icons.edit_outlined, size: 15),
                 color: isDark ? Colors.white60 : Colors.black54,
                 onPressed: () => _showEditDialog(holiday),
                 tooltip: "Edit",
+                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                padding: EdgeInsets.zero,
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline, size: 18),
+                icon: const Icon(Icons.delete_outline, size: 15),
                 color: Colors.redAccent.withValues(alpha: 0.8),
                 onPressed: () => _confirmDelete(holiday),
                 tooltip: "Delete",
+                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                padding: EdgeInsets.zero,
               ),
             ],
           ],

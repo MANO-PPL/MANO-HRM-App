@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
@@ -552,7 +552,7 @@ class _HolidayManagementScreenState extends State<HolidayManagementScreen> {
   String _formatDate(String isoDate) {
     try {
       final dt = DateTime.parse(isoDate);
-      return DateFormat('EEE, d MMM yyyy').format(dt);
+      return DateFormat('d MMMM yyyy').format(dt);
     } catch (e) {
       return isoDate;
     }
