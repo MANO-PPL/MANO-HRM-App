@@ -691,9 +691,12 @@ class _EmployeesMobileViewState extends State<EmployeesMobileView> {
                 )
               : GestureDetector(
                   onTap: () {
-                    if (emp.profileImage != null && emp.profileImage!.isNotEmpty) {
-                      EmployeeDetailSheet.showFullscreenAvatar(context, emp.profileImage!, emp.userName);
-                    }
+                    EmployeeDetailSheet.showFullscreenAvatar(
+                      context,
+                      emp.profileImage,
+                      emp.userName,
+                      subtitle: "ID: ${emp.userId} • ${emp.designation ?? emp.department ?? ''}",
+                    );
                   },
                   child: Container(
                     decoration: BoxDecoration(

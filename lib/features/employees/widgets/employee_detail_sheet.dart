@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/features/employees/core/employee_model.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
+import 'package:flutter_application/shared/widgets/pfp_viewer_dialog.dart';
 
 class EmployeeDetailSheet extends StatefulWidget {
   final Employee employee;
@@ -53,48 +54,17 @@ class EmployeeDetailSheet extends StatefulWidget {
     );
   }
 
-  static void showFullscreenAvatar(BuildContext context, String imageUrl, String name) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.9),
-      builder: (context) => Stack(
-        children: [
-          Center(
-            child: InteractiveViewer(
-              child: CachedNetworkImage(
-                imageUrl: imageUrl,
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
-          Positioned(
-            top: 40,
-            right: 20,
-            child: Material(
-              color: Colors.transparent,
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 30),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 40,
-            left: 20,
-            child: Material(
-              color: Colors.transparent,
-              child: Text(
-                name,
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+  static void showFullscreenAvatar(
+    BuildContext context,
+    String? imageUrl,
+    String name, {
+    String? subtitle,
+  }) {
+    PfpViewerDialog.show(
+      context,
+      imageUrl: imageUrl,
+      name: name,
+      subtitle: subtitle,
     );
   }
 
@@ -176,9 +146,12 @@ class _EmployeeDetailSheetState extends State<EmployeeDetailSheet> {
                     // Avatar
                     GestureDetector(
                       onTap: () {
-                        if (employee.profileImage != null && employee.profileImage!.isNotEmpty) {
-                          EmployeeDetailSheet.showFullscreenAvatar(context, employee.profileImage!, employee.userName);
-                        }
+                        EmployeeDetailSheet.showFullscreenAvatar(
+                          context,
+                          employee.profileImage,
+                          employee.userName,
+                          subtitle: "ID: ${employee.userId} • ${employee.designation ?? employee.department ?? ''}",
+                        );
                       },
                       child: Container(
                         decoration: BoxDecoration(

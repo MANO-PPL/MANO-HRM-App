@@ -30,13 +30,14 @@ class _HrDashboardViewState extends State<HrDashboardView> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<DashboardProvider>(context, listen: false).fetchDashboardData();
-      Provider.of<AttendanceProvider>(context, listen: false)
-          .fetchRecords(DateTime.now(), forceRefresh: true)
-          .then((_) {
-            if (mounted) {
-              context.checkAndShowShiftStartBanner();
-            }
-          });
+      final attendance = Provider.of<AttendanceProvider>(context, listen: false);
+      attendance.fetchShiftPolicy();
+      attendance.checkMissedPunch();
+      attendance.fetchRecords(DateTime.now(), forceRefresh: true).then((_) {
+        if (mounted) {
+          context.checkAndShowShiftStartBanner();
+        }
+      });
     });
   }
 
@@ -97,10 +98,12 @@ class _HrDashboardViewState extends State<HrDashboardView> {
                     userName: user?.name ?? 'HR Manager',
                     department: user?.department,
                     designation: user?.designation,
+                    shift: attendanceProvider.shiftPolicy,
+                    records: attendanceProvider.records,
                   ),
                   const SizedBox(height: 12),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -181,9 +184,9 @@ class _HrDashboardViewState extends State<HrDashboardView> {
         children: kpis.map((data) {
           return Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
               child: SizedBox(
-                height: 110,
+                height: 98,
                 child: StatCard(
                   title: data['title'] as String,
                   value: data['value'] as String,
@@ -205,9 +208,9 @@ class _HrDashboardViewState extends State<HrDashboardView> {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 2.5,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: 2.8,
         children: kpis.map((data) {
           return StatCard(
             title: data['title'] as String,
@@ -225,42 +228,28 @@ class _HrDashboardViewState extends State<HrDashboardView> {
   }
 
   Widget _buildQuickActions(bool isLandscape) {
-    final actions = hrQuickActions.map((data) {
-      return ActionCard(
-        title: data['title'],
-        subtitle: data['subtitle'],
-        icon: data['icon'],
-        color: data['color'],
-        onTap: () {
-          if (data['page'] != null) {
-            navigateTo(data['page'] as PageType);
-          }
-        },
-      );
-    }).toList();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'QUICK ACTIONS',
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: FontWeight.w600,
             color: Colors.grey[500],
-            letterSpacing: 1,
+            letterSpacing: 0.8,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         if (isLandscape)
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 4,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 2.4,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 2.8,
             ),
             itemCount: hrQuickActions.length,
             itemBuilder: (context, index) {
@@ -279,18 +268,31 @@ class _HrDashboardViewState extends State<HrDashboardView> {
             },
           )
         else
-          // Portrait: Stack actions one below the other
-          Column(
-            children: actions.map((card) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 76,
-                  child: card,
-                ),
+          // Portrait: 2x2 Grid for compact tablet layout
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 2.8,
+            ),
+            itemCount: hrQuickActions.length,
+            itemBuilder: (context, index) {
+              final data = hrQuickActions[index];
+              return ActionCard(
+                title: data['title'],
+                subtitle: data['subtitle'],
+                icon: data['icon'],
+                color: data['color'],
+                onTap: () {
+                  if (data['page'] != null) {
+                    navigateTo(data['page'] as PageType);
+                  }
+                },
               );
-            }).toList(),
+            },
           ),
       ],
     );
@@ -305,15 +307,15 @@ class _HrDashboardViewState extends State<HrDashboardView> {
           Expanded(
             flex: 3,
             child: SizedBox(
-              height: 340,
+              height: 280,
               child: TrendsChart(chartData: provider.chartData),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             flex: 2,
             child: SizedBox(
-              height: 340,
+              height: 280,
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 child: ActivityFeed(activities: provider.activities),
@@ -327,10 +329,10 @@ class _HrDashboardViewState extends State<HrDashboardView> {
       return Column(
         children: [
           SizedBox(
-            height: 300,
+            height: 240,
             child: TrendsChart(chartData: provider.chartData),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           ActivityFeed(activities: provider.activities),
         ],
       );
@@ -338,7 +340,7 @@ class _HrDashboardViewState extends State<HrDashboardView> {
   }
 
   Widget _buildMissedPunchBanner(BuildContext context, DateTime missedDate, AttendanceProvider provider) {
-    final dateLabel = DateFormat('EEE, MMM d').format(missedDate);
+    final dateLabel = DateFormat('d MMMM yyyy').format(missedDate);
     final deadlineDays = provider.correctionDeadlineDays;
     final expiry = DateTime(missedDate.year, missedDate.month, missedDate.day)
         .add(Duration(days: deadlineDays + 1));
@@ -356,7 +358,11 @@ class _HrDashboardViewState extends State<HrDashboardView> {
                 date: missedDate,
                 attendanceId: null,
                 type: CorrectionType.missedPunch,
-              ).then((_) => provider.clearMissedPunch());
+                onSuccess: () {
+                  provider.clearMissedPunch();
+                  provider.checkMissedPunch();
+                },
+              );
             },
       borderRadius: BorderRadius.circular(16),
       child: Container(
@@ -428,7 +434,11 @@ class _HrDashboardViewState extends State<HrDashboardView> {
                     date: missedDate,
                     attendanceId: null,
                     type: CorrectionType.missedPunch,
-                  ).then((_) => provider.clearMissedPunch());
+                    onSuccess: () {
+                      provider.clearMissedPunch();
+                      provider.checkMissedPunch();
+                    },
+                  );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,

@@ -11,6 +11,7 @@ class StatCard extends StatelessWidget {
   final bool isPositive;
   final IconData icon;
   final Color baseColor;
+  final bool isCompact;
 
   const StatCard({
     super.key,
@@ -22,6 +23,7 @@ class StatCard extends StatelessWidget {
     required this.isPositive,
     required this.icon,
     required this.baseColor,
+    this.isCompact = false,
   });
 
   @override
@@ -30,9 +32,118 @@ class StatCard extends StatelessWidget {
     final textColor = Theme.of(context).textTheme.bodyLarge?.color;
     final subTextColor = Theme.of(context).textTheme.bodySmall?.color;
 
+    if (isCompact) {
+      return GlassContainer(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        borderRadius: 12,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Header Row: Title on left, small icon on right
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: subTextColor,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Container(
+                  width: 18,
+                  height: 18,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: baseColor.withValues(alpha: 0.4),
+                      width: 1,
+                    ),
+                    color: baseColor.withValues(alpha: 0.12),
+                  ),
+                  child: Icon(icon, color: baseColor, size: 10),
+                ),
+              ],
+            ),
+
+            // Value Row
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    value,
+                    style: GoogleFonts.poppins(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
+                  ),
+                  if (total.isNotEmpty) ...[
+                    const SizedBox(width: 3),
+                    Text(
+                      total,
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: subTextColor,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            // Trend / Context Row
+            if (percentage.isNotEmpty || contextText.isNotEmpty)
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  children: [
+                    if (percentage.isNotEmpty) ...[
+                      Text(
+                        percentage,
+                        style: GoogleFonts.poppins(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          color: isPositive ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                    ],
+                    if (contextText.isNotEmpty)
+                      Text(
+                        contextText,
+                        style: GoogleFonts.poppins(
+                          fontSize: 9.5,
+                          color: subTextColor,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              )
+            else
+              const SizedBox(height: 2),
+          ],
+        ),
+      );
+    }
+
     return GlassContainer(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      borderRadius: 12,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      borderRadius: 10,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -44,7 +155,7 @@ class StatCard extends StatelessWidget {
                 child: Text(
                   title,
                   style: GoogleFonts.poppins(
-                    fontSize: 11,
+                    fontSize: 10.5,
                     fontWeight: FontWeight.w500,
                     color: subTextColor,
                   ),
@@ -52,17 +163,17 @@ class StatCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
               Container(
-                width: 24,
-                height: 24,
+                width: 20,
+                height: 20,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(color: baseColor.withValues(alpha: 0.5)),
                   color: baseColor.withValues(alpha: 0.1),
                 ),
-                child: Icon(icon, color: baseColor, size: 12),
+                child: Icon(icon, color: baseColor, size: 11),
               ),
             ],
           ),
@@ -81,7 +192,7 @@ class StatCard extends StatelessWidget {
                     Text(
                       value,
                       style: GoogleFonts.poppins(
-                        fontSize: 20,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: textColor,
                       ),
@@ -91,7 +202,7 @@ class StatCard extends StatelessWidget {
                       Text(
                         total,
                         style: GoogleFonts.poppins(
-                          fontSize: 11,
+                          fontSize: 10.5,
                           color: subTextColor,
                         ),
                       ),
@@ -112,16 +223,16 @@ class StatCard extends StatelessWidget {
                   Text(
                     percentage,
                     style: GoogleFonts.poppins(
-                      fontSize: 10,
+                      fontSize: 9.5,
                       fontWeight: FontWeight.w600,
                       color: isPositive ? const Color(0xFF10B981) : const Color(0xFFEF4444),
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 3),
                   Text(
                     contextText,
                     style: GoogleFonts.poppins(
-                      fontSize: 10,
+                      fontSize: 9.5,
                       color: subTextColor,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -130,7 +241,7 @@ class StatCard extends StatelessWidget {
               ),
             )
           else
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
         ],
       ),
     );
@@ -138,9 +249,3 @@ class StatCard extends StatelessWidget {
 }
 
 // commit-marker: 2026-02-22T14:20:00+05:30
-
-// [mod:2026-02-22T09:30:00+05:30]
-
-// [upd:2026-05-10T14:00:00+05:30]
-
-// [rev:2026-08-24T15:30:00+05:30]

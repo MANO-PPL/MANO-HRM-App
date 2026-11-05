@@ -809,48 +809,58 @@ class _EmployeesViewState extends State<EmployeesView> {
             padding: const EdgeInsets.symmetric(vertical: 2),
             child: Row(
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: isDark ? Border.all(color: Colors.blue, width: 1.5) : null,
-                  ),
-                  child: CircleAvatar(
-                    radius: 15,
-                    backgroundColor: isDark ? const Color(0xFF0D1117) : Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                    child: data.profileImage != null && data.profileImage!.isNotEmpty
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(15),
-                            child: CachedNetworkImage(
-                              imageUrl: data.profileImage!,
-                              width: 30,
-                              height: 30,
-                              fit: BoxFit.cover,
-                              errorWidget: (context, url, error) => Text(
-                                nameInitial,
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600, 
-                                  color: isDark ? Colors.white : Theme.of(context).primaryColor,
-                                  fontSize: 12,
+                GestureDetector(
+                  onTap: () {
+                    EmployeeDetailSheet.showFullscreenAvatar(
+                      context,
+                      data.profileImage,
+                      data.userName,
+                      subtitle: "ID: ${data.userId} • ${data.designation ?? data.department ?? ''}",
+                    );
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: isDark ? Border.all(color: Colors.blue, width: 1.5) : null,
+                    ),
+                    child: CircleAvatar(
+                      radius: 15,
+                      backgroundColor: isDark ? const Color(0xFF0D1117) : Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                      child: data.profileImage != null && data.profileImage!.isNotEmpty
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(15),
+                              child: CachedNetworkImage(
+                                imageUrl: data.profileImage!,
+                                width: 30,
+                                height: 30,
+                                fit: BoxFit.cover,
+                                errorWidget: (context, url, error) => Text(
+                                  nameInitial,
+                                  style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w600, 
+                                    color: isDark ? Colors.white : Theme.of(context).primaryColor,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                placeholder: (context, url) => Text(
+                                  nameInitial,
+                                  style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w600, 
+                                    color: isDark ? Colors.white : Theme.of(context).primaryColor,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
-                              placeholder: (context, url) => Text(
-                                nameInitial,
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600, 
-                                  color: isDark ? Colors.white : Theme.of(context).primaryColor,
-                                  fontSize: 12,
-                                ),
+                            )
+                          : Text(
+                              nameInitial,
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w600, 
+                                color: isDark ? Colors.white : Theme.of(context).primaryColor,
+                                fontSize: 12,
                               ),
                             ),
-                          )
-                        : Text(
-                            nameInitial,
-                            style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w600, 
-                              color: isDark ? Colors.white : Theme.of(context).primaryColor,
-                              fontSize: 12,
-                            ),
-                          ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
