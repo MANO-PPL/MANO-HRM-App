@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application/shared/widgets/glass_date_picker.dart';
@@ -187,7 +187,7 @@ class HolidayFormDialogState extends State<HolidayFormDialog> {
                                       : const Color(0xFF6366F1)),
                               const SizedBox(width: 12),
                               Text(
-                                DateFormat('MMMM dd, yyyy').format(_selectedDate),
+                                DateFormat('d MMMM yyyy').format(_selectedDate),
                                 style: GoogleFonts.poppins(color: textColor),
                               ),
                             ],

@@ -31,107 +31,112 @@ class HolidayCalendarCard extends StatelessWidget {
     final leadingDays = firstDayOfMonth.weekday % 7; // Sunday is 7 in Dart, 7 % 7 = 0
     final gridStartDate = firstDayOfMonth.subtract(Duration(days: leadingDays));
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF161B22) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 1. Month / Year Header + < TODAY > Button Group
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  DateFormat('MMMM\nyyyy').format(currentMonth),
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    height: 1.15,
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final content = Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 1. Month / Year Header + < TODAY > Button Group
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    DateFormat('MMMM yyyy').format(currentMonth),
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              _buildNavigationGroup(isDark),
-            ],
-          ),
+                const SizedBox(width: 8),
+                _buildNavigationGroup(isDark),
+              ],
+            ),
 
-          const SizedBox(height: 20),
+            const SizedBox(height: 8),
 
-          // 2. Weekday Header Row (SUN - SAT)
-          Row(
-            children: const [
-              _WeekdayCell(label: 'SUN'),
-              _WeekdayCell(label: 'MON'),
-              _WeekdayCell(label: 'TUE'),
-              _WeekdayCell(label: 'WED'),
-              _WeekdayCell(label: 'THU'),
-              _WeekdayCell(label: 'FRI'),
-              _WeekdayCell(label: 'SAT'),
-            ],
-          ),
+            // 2. Weekday Header Row (SUN - SAT)
+            Row(
+              children: const [
+                _WeekdayCell(label: 'SUN'),
+                _WeekdayCell(label: 'MON'),
+                _WeekdayCell(label: 'TUE'),
+                _WeekdayCell(label: 'WED'),
+                _WeekdayCell(label: 'THU'),
+                _WeekdayCell(label: 'FRI'),
+                _WeekdayCell(label: 'SAT'),
+              ],
+            ),
 
-          const SizedBox(height: 12),
+            const SizedBox(height: 4),
 
-          // 3. 42-day Month Grid
-          Column(
-            children: List.generate(6, (rowIndex) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  children: List.generate(7, (colIndex) {
-                    final dayIndex = rowIndex * 7 + colIndex;
-                    final cellDate = gridStartDate.add(Duration(days: dayIndex));
-                    return Expanded(
-                      child: _buildDayCell(cellDate, now, isDark),
-                    );
-                  }),
+            // 3. 42-day Month Grid
+            Column(
+              children: List.generate(6, (rowIndex) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Row(
+                    children: List.generate(7, (colIndex) {
+                      final dayIndex = rowIndex * 7 + colIndex;
+                      final cellDate = gridStartDate.add(Duration(days: dayIndex));
+                      return Expanded(
+                        child: _buildDayCell(cellDate, now, isDark),
+                      );
+                    }),
+                  ),
+                );
+              }),
+            ),
+
+            const SizedBox(height: 6),
+            Divider(
+              color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+              height: 1,
+            ),
+            const SizedBox(height: 6),
+
+            // 4. Legend Row: ■ PUBLIC    ■ OPTIONAL
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildLegendItem(
+                  color: const Color(0xFF9333EA), // Purple
+                  label: 'PUBLIC',
+                  isDark: isDark,
                 ),
-              );
-            }),
-          ),
+                const SizedBox(width: 16),
+                _buildLegendItem(
+                  color: const Color(0xFFF59E0B), // Orange/Amber
+                  label: 'OPTIONAL',
+                  isDark: isDark,
+                ),
+              ],
+            ),
+          ],
+        );
 
-          const SizedBox(height: 16),
-          Divider(
-            color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
-            height: 1,
-          ),
-          const SizedBox(height: 14),
-
-          // 4. Legend Row: ■ PUBLIC    ■ OPTIONAL
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildLegendItem(
-                color: const Color(0xFF9333EA), // Purple
-                label: 'PUBLIC',
-                isDark: isDark,
-              ),
-              const SizedBox(width: 20),
-              _buildLegendItem(
-                color: const Color(0xFFF59E0B), // Orange/Amber
-                label: 'OPTIONAL',
-                isDark: isDark,
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF161B22) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-        ],
-      ),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: content,
+        );
+      },
     );
   }
 
@@ -155,10 +160,10 @@ class HolidayCalendarCard extends StatelessWidget {
             },
             borderRadius: const BorderRadius.horizontal(left: Radius.circular(7)),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
               child: Icon(
                 Icons.chevron_left,
-                size: 18,
+                size: 16,
                 color: isDark ? Colors.white70 : Colors.black87,
               ),
             ),
@@ -166,7 +171,7 @@ class HolidayCalendarCard extends StatelessWidget {
 
           Container(
             width: 1,
-            height: 16,
+            height: 14,
             color: isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1),
           ),
 
@@ -174,13 +179,13 @@ class HolidayCalendarCard extends StatelessWidget {
           InkWell(
             onTap: onTodayPressed,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               child: Text(
                 'TODAY',
                 style: GoogleFonts.inter(
-                  fontSize: 10.5,
+                  fontSize: 9.5,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 0.6,
+                  letterSpacing: 0.5,
                   color: isDark ? Colors.white : const Color(0xFF0F172A),
                 ),
               ),
@@ -189,7 +194,7 @@ class HolidayCalendarCard extends StatelessWidget {
 
           Container(
             width: 1,
-            height: 16,
+            height: 14,
             color: isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1),
           ),
 
@@ -201,10 +206,10 @@ class HolidayCalendarCard extends StatelessWidget {
             },
             borderRadius: const BorderRadius.horizontal(right: Radius.circular(7)),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
               child: Icon(
                 Icons.chevron_right,
-                size: 18,
+                size: 16,
                 color: isDark ? Colors.white70 : Colors.black87,
               ),
             ),
@@ -244,14 +249,14 @@ class HolidayCalendarCard extends StatelessWidget {
           onDateSelected!(cellDate);
         }
       },
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(15),
       child: Container(
-        height: 38,
+        height: 28,
         margin: const EdgeInsets.symmetric(horizontal: 1),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: isToday
-              ? const Color(0xFF4F46E5) // Solid indigo circle matching screenshot
+              ? const Color(0xFF4F46E5)
               : (isSelected
                   ? (isDark ? const Color(0xFF21262D) : const Color(0xFFE0E7FF))
                   : Colors.transparent),
@@ -265,7 +270,7 @@ class HolidayCalendarCard extends StatelessWidget {
             Text(
               '${cellDate.day}',
               style: GoogleFonts.inter(
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: isToday || isSelected ? FontWeight.w700 : FontWeight.w500,
                 color: textColor,
               ),

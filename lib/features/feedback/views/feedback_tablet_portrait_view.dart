@@ -9,6 +9,7 @@ import 'package:flutter_application/shared/services/mail_service.dart';
 import 'package:flutter_application/shared/widgets/glass_container.dart';
 import 'package:flutter_application/shared/widgets/dashed_container.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
+import 'package:flutter_application/features/feedback/widgets/feedback_admin_review_tab.dart';
 
 class FeedbackTabletPortrait extends StatefulWidget {
   const FeedbackTabletPortrait({super.key});
@@ -122,6 +123,22 @@ class _FeedbackTabletPortraitState extends State<FeedbackTabletPortrait>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final user = Provider.of<AuthService>(context).user;
+    final bool isAdmin = user != null && !user.isEmployee;
+    final tabCount = isAdmin ? 3 : 2;
+
+    if (_tabController == null || _tabController!.length != tabCount) {
+      _tabController?.dispose();
+      _tabController = TabController(length: tabCount, vsync: this);
+      _tabController!.addListener(() {
+        if (_tabController!.indexIsChanging ||
+            _tabController!.index != _selectedTabIndex) {
+          setState(() => _selectedTabIndex = _tabController!.index);
+          FocusManager.instance.primaryFocus?.unfocus();
+        }
+      });
+    }
+
     return Column(
       children: [
         // Custom Tab Switcher
@@ -158,6 +175,16 @@ class _FeedbackTabletPortraitState extends State<FeedbackTabletPortrait>
                     isDark,
                   ),
                 ),
+                if (isAdmin)
+                  Expanded(
+                    child: _buildCustomTab(
+                      "Admin Review",
+                      Icons.rate_review_outlined,
+                      2,
+                      const Color(0xFF10B981), // Green
+                      isDark,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -166,7 +193,6 @@ class _FeedbackTabletPortraitState extends State<FeedbackTabletPortrait>
         Expanded(
           child: TabBarView(
             controller: _tabController!,
-            // physics: const NeverScrollableScrollPhysics(), // Enable swipe
             children: [
               _buildFormContent(
                 isBugReport: true,
@@ -178,6 +204,11 @@ class _FeedbackTabletPortraitState extends State<FeedbackTabletPortrait>
                 isDark: isDark,
                 primaryColor: const Color(0xFF5B60F6),
               ),
+              if (isAdmin)
+                FeedbackAdminReviewTab(
+                  feedbackService: _feedbackService,
+                  isDark: isDark,
+                ),
             ],
           ),
         ),

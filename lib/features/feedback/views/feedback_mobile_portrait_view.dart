@@ -8,6 +8,7 @@ import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/shared/services/feedback_service.dart';
 import 'package:flutter_application/shared/services/mail_service.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
+import 'package:flutter_application/features/feedback/widgets/feedback_admin_review_tab.dart';
 
 class FeedbackMobileView extends StatefulWidget {
   const FeedbackMobileView({super.key});
@@ -42,17 +43,6 @@ class _FeedbackMobileViewState extends State<FeedbackMobileView>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final dio = Provider.of<AuthService>(context, listen: false).dio;
       _feedbackService = FeedbackService(dio);
-    });
-  }
-
-  void _initTabController() {
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController!.addListener(() {
-      if (_tabController!.indexIsChanging ||
-          _tabController!.index != _selectedTabIndex) {
-        setState(() => _selectedTabIndex = _tabController!.index);
-        FocusManager.instance.primaryFocus?.unfocus();
-      }
     });
   }
 
@@ -127,9 +117,21 @@ class _FeedbackMobileViewState extends State<FeedbackMobileView>
 
   @override
   Widget build(BuildContext context) {
-    // Lazy init for Hot Reload support
-    if (_tabController == null) {
-      _initTabController();
+    final user = Provider.of<AuthService>(context).user;
+    final bool isAdmin = user != null && !user.isEmployee;
+    final tabCount = isAdmin ? 3 : 2;
+
+    // Lazy init for Hot Reload support or role change
+    if (_tabController == null || _tabController!.length != tabCount) {
+      _tabController?.dispose();
+      _tabController = TabController(length: tabCount, vsync: this);
+      _tabController!.addListener(() {
+        if (_tabController!.indexIsChanging ||
+            _tabController!.index != _selectedTabIndex) {
+          setState(() => _selectedTabIndex = _tabController!.index);
+          FocusManager.instance.primaryFocus?.unfocus();
+        }
+      });
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -213,6 +215,20 @@ class _FeedbackMobileViewState extends State<FeedbackMobileView>
                         ),
                       ),
                     ),
+                    if (isAdmin)
+                      Tab(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(Icons.rate_review_outlined, size: 14),
+                              SizedBox(width: 6),
+                              Text("Admin Review"),
+                            ],
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -232,6 +248,11 @@ class _FeedbackMobileViewState extends State<FeedbackMobileView>
                     isDark: isDark,
                     primaryColor: primaryColor,
                   ),
+                  if (isAdmin)
+                    FeedbackAdminReviewTab(
+                      feedbackService: _feedbackService,
+                      isDark: isDark,
+                    ),
                 ],
               ),
             ),

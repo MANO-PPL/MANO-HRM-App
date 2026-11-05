@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application/features/holidays/core/holiday_model.dart';
@@ -77,7 +77,7 @@ class HolidayDetailDialog extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        DateFormat('EEEE, MMMM d, y').format(date),
+                        DateFormat('d MMMM yyyy').format(date),
                         style: GoogleFonts.poppins(
                           color: const Color(0xFF6366F1),
                           fontWeight: FontWeight.w600,
