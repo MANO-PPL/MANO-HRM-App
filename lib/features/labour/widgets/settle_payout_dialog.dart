@@ -303,7 +303,7 @@ class _SettlePayoutDialogState extends State<SettlePayoutDialog> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          DateFormat('dd MMM yyyy').format(_selectedDate),
+                          DateFormat('d MMMM yyyy').format(_selectedDate),
                           style: GoogleFonts.poppins(fontSize: 13, color: isDark ? Colors.white : Colors.black87),
                         ),
                         const Icon(Icons.calendar_today, size: 16, color: Color(0xFF10B981)),

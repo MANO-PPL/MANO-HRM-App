@@ -5,6 +5,7 @@ import 'package:flutter_application/features/labour/core/labour_models.dart';
 import 'package:flutter_application/features/labour/core/labour_service.dart';
 import 'package:flutter_application/features/labour/widgets/labour_common_widgets.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
+import 'package:flutter_application/shared/widgets/custom_dialog.dart';
 
 class WageRevisionDialog extends StatefulWidget {
   final LabourWorker worker;
@@ -191,26 +192,16 @@ class _WageRevisionDialogState extends State<WageRevisionDialog> {
   }
 
   Future<void> _deleteRevision(LabourWageRevision rev) async {
-    final confirm = await showDialog<bool>(
+    final confirm = await CustomDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text("Delete Revision?", style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 15)),
-        content: Text(
-          "Are you sure you want to delete the wage revision effective from ${rev.effectiveDate}?",
-          style: GoogleFonts.poppins(fontSize: 12.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("Delete", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
+      title: "Delete Revision?",
+      message: "Are you sure you want to delete the wage revision effective from ${rev.effectiveDate}?",
+      positiveButtonText: "Delete",
+      negativeButtonText: "Cancel",
+      isDestructive: true,
+      icon: Icons.delete_outline_rounded,
+      iconColor: const Color(0xFFEF4444),
+      onPositivePressed: () {},
     );
 
     if (confirm != true) return;
@@ -432,7 +423,7 @@ class _WageRevisionDialogState extends State<WageRevisionDialog> {
                             const SizedBox(width: 6),
                             Flexible(
                               child: Text(
-                                DateFormat('dd MMM yyyy').format(_newEffectiveDate),
+                                DateFormat('d MMMM yyyy').format(_newEffectiveDate),
                                 style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -547,7 +538,7 @@ class _WageRevisionDialogState extends State<WageRevisionDialog> {
 
   Widget _buildRevisionCard(LabourWageRevision rev, bool isDark, {bool isLatest = false}) {
     DateTime? effectiveDt = DateTime.tryParse(rev.effectiveDate);
-    String dateFmt = effectiveDt != null ? DateFormat('dd MMM yyyy').format(effectiveDt) : rev.effectiveDate;
+    String dateFmt = effectiveDt != null ? DateFormat('d MMMM yyyy').format(effectiveDt) : rev.effectiveDate;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -716,7 +707,7 @@ class _WageRevisionDialogState extends State<WageRevisionDialog> {
                       border: Border.all(color: isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1)),
                     ),
                     child: Text(
-                      DateFormat('dd MMM yyyy').format(_editEffectiveDate ?? DateTime.now()),
+                      DateFormat('d MMMM yyyy').format(_editEffectiveDate ?? DateTime.now()),
                       style: GoogleFonts.poppins(fontSize: 11),
                     ),
                   ),

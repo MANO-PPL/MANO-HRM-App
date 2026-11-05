@@ -193,7 +193,7 @@ class _DailyScheduleDialogState extends State<DailyScheduleDialog> {
                         const Icon(Icons.calendar_today, size: 15, color: Color(0xFF6366F1)),
                         const SizedBox(width: 8),
                         Text(
-                          DateFormat('EEEE, dd MMMM yyyy').format(_selectedDate),
+                          DateFormat('d MMMM yyyy').format(_selectedDate),
                           style: GoogleFonts.poppins(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,

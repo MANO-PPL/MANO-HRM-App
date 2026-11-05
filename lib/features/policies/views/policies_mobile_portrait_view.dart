@@ -3,9 +3,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_application/shared/navigation/navigation_controller.dart';
 import 'package:flutter_application/features/policy_engine/views/policy_engine_tablet_portrait_view.dart';
 import 'package:flutter_application/features/geo_fencing/views/geo_fencing_mobile_portrait_view.dart';
-import 'package:flutter_application/features/policies/widgets/salary_packages_tab_view.dart';
 import 'package:flutter_application/features/leave/widgets/leave_policies_tab.dart';
 
+/// PoliciesMobileView - Mobile Portrait View
+/// Replicates Attendance-Web PolicyManagement-mv.jsx exactly:
+/// 3-tab unified hub: Work Shifts, Geofence Zones, and Leave Policies.
+/// Gracefully redirects salary package routes to the Payroll module.
 class PoliciesMobileView extends StatefulWidget {
   final String? initialTab;
   const PoliciesMobileView({super.key, this.initialTab});
@@ -20,7 +23,15 @@ class _PoliciesMobileViewState extends State<PoliciesMobileView> {
   @override
   void initState() {
     super.initState();
-    _currentTab = widget.initialTab ?? policiesTabNotifier.value;
+    final tab = widget.initialTab ?? policiesTabNotifier.value;
+    if (tab == 'salary_packages' || tab == 'packages') {
+      _currentTab = 'shifts';
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        navigateTo(PageType.payroll);
+      });
+    } else {
+      _currentTab = _normalizeTab(tab);
+    }
     policiesTabNotifier.addListener(_syncTab);
   }
 
@@ -30,9 +41,27 @@ class _PoliciesMobileViewState extends State<PoliciesMobileView> {
     super.dispose();
   }
 
+  String _normalizeTab(String tab) {
+    if (tab == 'leave_policies' || tab == 'leaves' || tab == 'leave' || tab == 'policies') {
+      return 'leave_policies';
+    }
+    if (tab == 'geofencing' || tab == 'geofence') {
+      return 'geofencing';
+    }
+    return 'shifts';
+  }
+
   void _syncTab() {
-    if (mounted && policiesTabNotifier.value != _currentTab) {
-      setState(() => _currentTab = policiesTabNotifier.value);
+    if (mounted) {
+      final tab = policiesTabNotifier.value;
+      if (tab == 'salary_packages' || tab == 'packages') {
+        navigateTo(PageType.payroll);
+        return;
+      }
+      final normalized = _normalizeTab(tab);
+      if (normalized != _currentTab) {
+        setState(() => _currentTab = normalized);
+      }
     }
   }
 
@@ -48,28 +77,40 @@ class _PoliciesMobileViewState extends State<PoliciesMobileView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Full-Width Mobile Header Strip (Occupies full page from left to right)
+        // Mobile Tabs Strip - Matching Web PolicyManagement-mv.jsx
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: isDark ? Colors.transparent : Colors.white,
+            color: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
+            border: Border(
+              bottom: BorderSide(
+                color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+                width: 1,
+              ),
+            ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
+              color: isDark ? const Color(0xFF161B22) : Colors.white,
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1),
+                color: isDark ? const Color(0xFF30363D) : const Color(0xFFD0D7DE),
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ],
             ),
             child: Row(
               children: [
                 _buildTabPill('shifts', 'Shifts', Icons.access_time_rounded, isDark),
-                _buildTabPill('geofencing', 'Geo', Icons.location_on_outlined, isDark),
-                _buildTabPill('salary_packages', 'Salary', Icons.layers_outlined, isDark),
+                _buildTabPill('geofencing', 'Geofence', Icons.location_on_outlined, isDark),
                 _buildTabPill('leave_policies', 'Leaves', Icons.event_available_outlined, isDark),
               ],
             ),
@@ -93,49 +134,47 @@ class _PoliciesMobileViewState extends State<PoliciesMobileView> {
     return Expanded(
       child: GestureDetector(
         onTap: () => _setTab(tabKey),
+        behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 4.5, horizontal: 2),
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
           decoration: BoxDecoration(
             color: isSelected
-                ? (isDark ? const Color(0xFF21262D) : Colors.white)
+                ? (isDark ? const Color(0xFF21262D) : const Color(0xFFF6F8FA))
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(8),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
-                      blurRadius: 3,
+                      color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
+                      blurRadius: 2,
                       offset: const Offset(0, 1),
                     )
                   ]
                 : null,
           ),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  size: 13,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 13,
+                color: isSelected
+                    ? const Color(0xFF6366F1)
+                    : (isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 11.5,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   color: isSelected
-                      ? const Color(0xFF6366F1)
+                      ? (isDark ? const Color(0xFF818CF8) : const Color(0xFF4F46E5))
                       : (isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)),
                 ),
-                const SizedBox(width: 3),
-                Text(
-                  label,
-                  style: GoogleFonts.poppins(
-                    fontSize: 10.5,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color: isSelected
-                        ? (isDark ? Colors.white : const Color(0xFF0F172A))
-                        : (isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -146,12 +185,7 @@ class _PoliciesMobileViewState extends State<PoliciesMobileView> {
     switch (tab) {
       case 'geofencing':
         return const MobileGeoFencingContent(key: ValueKey('geofencing'));
-      case 'salary_packages':
-        return const SalaryPackagesTabView(key: ValueKey('salary_packages'));
       case 'leave_policies':
-      case 'leaves':
-      case 'leave':
-      case 'policies':
         return const LeavePoliciesTab(key: ValueKey('leave_policies'));
       case 'shifts':
       default:
@@ -159,5 +193,3 @@ class _PoliciesMobileViewState extends State<PoliciesMobileView> {
     }
   }
 }
-
-// [upd:2026-04-09T08:30:00+05:30]

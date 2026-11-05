@@ -278,16 +278,20 @@ class _BulkTransferDialogState extends State<BulkTransferDialog> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    "SELECT ALL WORKERS (${filtered.length} AVAILABLE)",
-                    style: GoogleFonts.poppins(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? const Color(0xFF8B949E) : const Color(0xFF475569),
-                      letterSpacing: 0.5,
+                  Expanded(
+                    child: Text(
+                      "SELECT ALL WORKERS (${filtered.length} AVAILABLE)",
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? const Color(0xFF8B949E) : const Color(0xFF475569),
+                        letterSpacing: 0.5,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
@@ -394,24 +398,52 @@ class _BulkTransferDialogState extends State<BulkTransferDialog> {
             const SizedBox(height: 14),
 
             // Actions
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "${_selectedIds.length} worker(s) will be transferred",
-                  style: GoogleFonts.poppins(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[600]),
-                ),
-                Row(
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text("Cancel", style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
+            if (widget.isBottomSheet) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      "${_selectedIds.length} worker(s) will be transferred",
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        side: BorderSide(
+                          color: isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1),
+                        ),
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(
+                        "Cancel",
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF6366F1),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       onPressed: (_selectedIds.isEmpty || _destinationSiteId == null)
@@ -428,13 +460,67 @@ class _BulkTransferDialogState extends State<BulkTransferDialog> {
                       icon: const Icon(Icons.check, color: Colors.white, size: 16),
                       label: Text(
                         "Execute Transfer (${_selectedIds.length})",
-                        style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+            ] else ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      "${_selectedIds.length} worker(s) will be transferred",
+                      style: GoogleFonts.poppins(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text("Cancel", style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF6366F1),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: (_selectedIds.isEmpty || _destinationSiteId == null)
+                            ? null
+                            : () {
+                                widget.onTransfer(
+                                  sourceSiteId: _sourceSiteId,
+                                  destinationSiteId: _destinationSiteId!,
+                                  labourIds: _selectedIds.toList(),
+                                  roleFilter: _roleFilter,
+                                );
+                                Navigator.pop(context);
+                              },
+                        icon: const Icon(Icons.check, color: Colors.white, size: 16),
+                        label: Text(
+                          "Execute Transfer (${_selectedIds.length})",
+                          style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
           ],
     );
 
