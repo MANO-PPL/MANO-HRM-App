@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application/shared/widgets/glass_container.dart';
@@ -96,7 +96,7 @@ class HolidayDetailsDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        DateFormat('EEEE, yyyy').format(dt),
+                        DateFormat('d MMMM yyyy').format(dt),
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           color: Colors.grey,
@@ -114,7 +114,7 @@ class HolidayDetailsDialog extends StatelessWidget {
             const SizedBox(height: 32),
             
             // Details Section
-            _buildDetailRow(context, Icons.event, "Date", DateFormat('MMMM dd, yyyy').format(dt)),
+            _buildDetailRow(context, Icons.event, "Date", DateFormat('d MMMM yyyy').format(dt)),
             const SizedBox(height: 16),
             _buildDetailRow(context, Icons.category, "Type", "Public Holiday"), 
             const SizedBox(height: 16),
@@ -236,7 +236,7 @@ class HolidayDetailsBottomSheet extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          DateFormat('EEEE, MMMM dd, yyyy').format(dt),
+                          DateFormat('d MMMM yyyy').format(dt),
                           style: GoogleFonts.poppins(
                             fontSize: 14,
                             color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),

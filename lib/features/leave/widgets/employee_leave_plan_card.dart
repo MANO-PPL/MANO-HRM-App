@@ -52,14 +52,14 @@ class EmployeeLeavePlanCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF161B22) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
         ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
-            blurRadius: 8,
+            blurRadius: 6,
             offset: const Offset(0, 2),
           ),
         ],
@@ -70,11 +70,11 @@ class EmployeeLeavePlanCard extends StatelessWidget {
           children: [
             // Left Accent Panel with Circular Ring
             Container(
-              width: 110,
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              width: 90,
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
               decoration: BoxDecoration(
                 color: primaryColor.withValues(alpha: isDark ? 0.12 : 0.06),
-                borderRadius: const BorderRadius.horizontal(left: Radius.circular(15)),
+                borderRadius: const BorderRadius.horizontal(left: Radius.circular(11)),
                 border: Border(
                   right: BorderSide(
                     color: primaryColor.withValues(alpha: isDark ? 0.25 : 0.15),
@@ -85,32 +85,32 @@ class EmployeeLeavePlanCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   CustomPaint(
-                    size: const Size(64, 64),
+                    size: const Size(50, 50),
                     painter: _CircularProgressPainter(
                       progress: progress,
                       color: primaryColor,
                       backgroundColor: primaryColor.withValues(alpha: 0.15),
                     ),
                     child: SizedBox(
-                      width: 64,
-                      height: 64,
+                      width: 50,
+                      height: 50,
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
                             displayDays % 1 == 0 ? displayDays.toInt().toString() : displayDays.toStringAsFixed(1),
                             style: GoogleFonts.inter(
-                              fontSize: 16,
+                              fontSize: 14,
                               fontWeight: FontWeight.bold,
                               color: primaryColor,
                               height: 1.0,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 1),
                           Text(
                             'days',
                             style: GoogleFonts.inter(
-                              fontSize: 9,
+                              fontSize: 8.5,
                               fontWeight: FontWeight.w500,
                               color: isDark ? Colors.white54 : Colors.grey.shade600,
                               height: 1.0,
@@ -120,17 +120,17 @@ class EmployeeLeavePlanCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                     decoration: BoxDecoration(
                       color: primaryColor.withValues(alpha: isDark ? 0.25 : 0.15),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       ruleCode,
                       style: GoogleFonts.inter(
-                        fontSize: 10,
+                        fontSize: 9.5,
                         fontWeight: FontWeight.w700,
                         color: primaryColor,
                       ),
@@ -143,7 +143,7 @@ class EmployeeLeavePlanCard extends StatelessWidget {
             // Right Content Area
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

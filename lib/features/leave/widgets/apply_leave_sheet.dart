@@ -212,7 +212,7 @@ class _ApplyLeaveSheetState extends State<ApplyLeaveSheet> {
     final provider = context.watch<LeaveProvider>();
     final balances = provider.myLeaveBalances;
 
-    final dateFormat = DateFormat('MMM dd, yyyy');
+    final dateFormat = DateFormat('d MMMM yyyy');
 
     final selectedBalance = !_isCustomType && _selectedRuleId != null
         ? balances.firstWhere(

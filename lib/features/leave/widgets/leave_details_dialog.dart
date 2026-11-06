@@ -11,6 +11,7 @@ import 'package:flutter_application/shared/constants/api_constants.dart';
 import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
 import 'package:flutter_application/shared/widgets/app_custom_dropdown.dart';
+import 'package:flutter_application/shared/widgets/pfp_viewer_dialog.dart';
 
 class LeaveDetailsDialog extends StatefulWidget {
   final LeaveRequest request;
@@ -172,9 +173,9 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
-    final startDateStr = DateFormat('MM/dd/yyyy').format(widget.request.startDate);
-    final endDateStr = DateFormat('MM/dd/yyyy').format(widget.request.endDate);
-    final appliedOnStr = DateFormat('MM/dd/yyyy').format(widget.request.appliedAt);
+    final startDateStr = DateFormat('d MMMM yyyy').format(widget.request.startDate);
+    final endDateStr = DateFormat('d MMMM yyyy').format(widget.request.endDate);
+    final appliedOnStr = DateFormat('d MMMM yyyy').format(widget.request.appliedAt);
     final duration = widget.request.endDate.difference(widget.request.startDate).inDays + 1;
 
     Color statusColor = Colors.grey;
@@ -371,22 +372,33 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
-                backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                    ? CachedNetworkImageProvider(avatarUrl)
-                    : null,
-                child: avatarUrl != null && avatarUrl.isNotEmpty
-                    ? null
-                    : Text(
-                        displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : const Color(0xFF4F46E5),
+              GestureDetector(
+                onTap: () {
+                  PfpViewerDialog.show(
+                    context,
+                    imageUrl: avatarUrl,
+                    name: displayName,
+                    subtitle: widget.request.userDesignation ?? widget.request.userEmail,
+                    heroTag: 'leave_details_avatar_${widget.request.id}',
+                  );
+                },
+                child: CircleAvatar(
+                  radius: 20,
+                  backgroundColor: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+                  backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                      ? CachedNetworkImageProvider(avatarUrl)
+                      : null,
+                  child: avatarUrl != null && avatarUrl.isNotEmpty
+                      ? null
+                      : Text(
+                          displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : const Color(0xFF4F46E5),
+                          ),
                         ),
-                      ),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -565,7 +577,7 @@ class _LeaveDetailsDialogState extends State<LeaveDetailsDialog> {
 
   Widget _buildReviewBox(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final reviewedAt = widget.request.reviewedAt != null ? DateFormat('MM/dd/yyyy').format(widget.request.reviewedAt!) : '';
+    final reviewedAt = widget.request.reviewedAt != null ? DateFormat('d MMMM yyyy').format(widget.request.reviewedAt!) : '';
     
     return Container(
       width: double.infinity,

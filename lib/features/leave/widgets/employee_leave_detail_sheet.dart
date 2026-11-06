@@ -7,6 +7,7 @@ import 'package:flutter_application/features/leave/core/leave_provider.dart';
 import 'package:flutter_application/shared/widgets/custom_dialog.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
 import 'package:flutter_application/features/leave/widgets/attachment_viewer_dialog.dart';
+import 'package:flutter_application/features/leave/widgets/leave_audit_trail_widget.dart';
 
 class EmployeeLeaveDetailSheet extends StatelessWidget {
   final LeaveRequest leave;
@@ -57,8 +58,8 @@ class EmployeeLeaveDetailSheet extends StatelessWidget {
       statusIcon = Icons.schedule_rounded;
     }
 
-    final dateFormat = DateFormat('EEE, MMM d, yyyy');
-    final appliedFormat = DateFormat('MMM d, yyyy');
+    final dateFormat = DateFormat('d MMMM yyyy');
+    final appliedFormat = DateFormat('d MMMM yyyy');
 
     return Container(
       constraints: BoxConstraints(
@@ -492,6 +493,34 @@ class EmployeeLeaveDetailSheet extends StatelessWidget {
                           ),
                         );
                       }),
+                    ],
+
+                    // Audit Trail Section
+                    if (leave.auditTrail.isNotEmpty) ...[
+                      const SizedBox(height: 18),
+                      Text(
+                        'Audit Trail & Timeline',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white70 : Colors.grey.shade700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        child: LeaveAuditTrailWidget(
+                          auditTrail: leave.auditTrail,
+                          compact: true,
+                        ),
+                      ),
                     ],
 
                     const SizedBox(height: 10),
