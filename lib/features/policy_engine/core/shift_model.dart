@@ -4,6 +4,13 @@ bool _asBool(dynamic val, {bool defaultValue = false}) {
   if (val == null) return defaultValue;
   if (val is bool) return val;
   if (val is num) return val != 0;
+  if (val is Map) {
+    if (val.containsKey('required')) return _asBool(val['required'], defaultValue: defaultValue);
+    if (val.containsKey('enabled')) return _asBool(val['enabled'], defaultValue: defaultValue);
+    if (val.containsKey('value')) return _asBool(val['value'], defaultValue: defaultValue);
+    if (val.isEmpty) return defaultValue;
+    return true;
+  }
   if (val is String) {
     final s = val.toLowerCase().trim();
     if (s == 'true' || s == '1' || s == 'yes' || s == 'on' || s == 'active') return true;
@@ -35,33 +42,45 @@ class Shift {
 
   final Map<String, dynamic> policyRules;
 
-  bool get entrySelfie {
-    final entry = policyRules['entry_requirements'] ?? policyRules['entryRequirements'];
-    if (entry is Map && entry.containsKey('selfie')) return _asBool(entry['selfie'], defaultValue: true);
+  bool get isAssigned {
+    if (id == null || id == 0) return false;
+    final lowerName = name.toLowerCase().trim();
+    if (lowerName == 'open shift' || lowerName == 'no shift' || lowerName.isEmpty) return false;
     return true;
+  }
+
+  bool get entrySelfie {
+    if (!isAssigned) return false;
+    final entry = _parseJson(policyRules['entry_requirements'] ?? policyRules['entryRequirements']);
+    if (entry is Map && entry.containsKey('selfie')) return _asBool(entry['selfie'], defaultValue: false);
+    return false;
   }
   bool get entryGeofence {
-    final entry = policyRules['entry_requirements'] ?? policyRules['entryRequirements'];
-    if (entry is Map && entry.containsKey('geofence')) return _asBool(entry['geofence'], defaultValue: true);
-    return true;
+    if (!isAssigned) return false;
+    final entry = _parseJson(policyRules['entry_requirements'] ?? policyRules['entryRequirements']);
+    if (entry is Map && entry.containsKey('geofence')) return _asBool(entry['geofence'], defaultValue: false);
+    return false;
   }
   bool get exitSelfie {
-    final exit = policyRules['exit_requirements'] ?? policyRules['exitRequirements'];
+    if (!isAssigned) return false;
+    final exit = _parseJson(policyRules['exit_requirements'] ?? policyRules['exitRequirements']);
     if (exit is Map && exit.containsKey('selfie')) return _asBool(exit['selfie'], defaultValue: false);
     return false;
   }
   bool get exitGeofence {
-    final exit = policyRules['exit_requirements'] ?? policyRules['exitRequirements'];
-    if (exit is Map && exit.containsKey('geofence')) return _asBool(exit['geofence'], defaultValue: true);
+    if (!isAssigned) return false;
+    final exit = _parseJson(policyRules['exit_requirements'] ?? policyRules['exitRequirements']);
+    if (exit is Map && exit.containsKey('geofence')) return _asBool(exit['geofence'], defaultValue: false);
     return false;
   }
   bool get checkpointEnabled {
-    final cp = policyRules['checkpoint_requirements'] ?? policyRules['checkpointRequirements'];
+    final cp = _parseJson(policyRules['checkpoint_requirements'] ?? policyRules['checkpointRequirements']);
     if (cp is Map && cp.containsKey('enabled')) return _asBool(cp['enabled'], defaultValue: true);
     return true;
   }
   bool get checkpointSelfie {
-    final cp = policyRules['checkpoint_requirements'] ?? policyRules['checkpointRequirements'];
+    if (!isAssigned) return false;
+    final cp = _parseJson(policyRules['checkpoint_requirements'] ?? policyRules['checkpointRequirements']);
     if (cp is Map && cp.containsKey('selfie')) return _asBool(cp['selfie'], defaultValue: false);
     return false;
   }

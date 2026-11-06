@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/features/policies/core/salary_package_service.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
+import 'package:flutter_application/shared/widgets/custom_dialog.dart';
 
 class SalaryPackagesTabView extends StatefulWidget {
   const SalaryPackagesTabView({super.key});
@@ -920,30 +921,16 @@ class _SalaryPackagesTabViewState extends State<SalaryPackagesTabView> {
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                   ),
                                   onPressed: () async {
-                                    final confirm = await showDialog<bool>(
+                                    final confirm = await CustomDialog.show(
                                       context: sheetCtx,
-                                      builder: (dlgCtx) => AlertDialog(
-                                        backgroundColor: bgColor,
-                                        title: Text(
-                                          "Delete Package Group?",
-                                          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: textColor),
-                                        ),
-                                        content: Text(
-                                          "Are you sure you want to delete '$name'? This action will soft-delete the package from the database.",
-                                          style: GoogleFonts.poppins(fontSize: 11.5, color: isDark ? Colors.white70 : Colors.black87),
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(dlgCtx, false),
-                                            child: Text("Cancel", style: GoogleFonts.poppins(color: Colors.grey, fontSize: 11.5)),
-                                          ),
-                                          ElevatedButton(
-                                            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                                            onPressed: () => Navigator.pop(dlgCtx, true),
-                                            child: Text("Delete", style: GoogleFonts.poppins(color: Colors.white, fontSize: 11.5)),
-                                          ),
-                                        ],
-                                      ),
+                                      title: "Delete Package Group?",
+                                      message: "Are you sure you want to delete '$name'? This action will soft-delete the package from the database.",
+                                      positiveButtonText: "Delete",
+                                      negativeButtonText: "Cancel",
+                                      isDestructive: true,
+                                      icon: Icons.delete_outline_rounded,
+                                      iconColor: const Color(0xFFEF4444),
+                                      onPositivePressed: () {},
                                     );
 
                                     if (confirm == true) {

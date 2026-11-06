@@ -1,4 +1,4 @@
-﻿import 'package:dio/dio.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_application/features/policy_engine/core/shift_model.dart';
 import 'package:flutter_application/shared/constants/api_constants.dart';
 
@@ -88,6 +88,38 @@ class ShiftService {
        String msg = e.toString();
       if (e is DioException && e.response?.data != null && e.response!.data is Map) {
          msg = e.response!.data['message'] ?? msg;
+      }
+      throw Exception(msg);
+    }
+  }
+
+  // 5. Get Shift Users (Staff Assignments)
+  Future<List<Map<String, dynamic>>> getShiftUsers() async {
+    try {
+      final response = await _dio.get(ApiConstants.policyShiftUsers);
+      if (response.statusCode == 200 && (response.data['ok'] == true || response.data['success'] == true)) {
+        final List<dynamic> list = response.data['users'] ?? [];
+        return list.map((u) => Map<String, dynamic>.from(u as Map)).toList();
+      }
+      return [];
+    } catch (e) {
+      // Return empty or fallback without breaking
+      return [];
+    }
+  }
+
+  // 6. Assign User to Shift
+  Future<bool> assignUserShift(dynamic userId, dynamic shiftId) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.policyUsersShift}/$userId/shift',
+        data: {'shift_id': shiftId},
+      );
+      return response.statusCode == 200 && (response.data['ok'] == true || response.data['success'] == true);
+    } catch (e) {
+      String msg = e.toString();
+      if (e is DioException && e.response?.data != null && e.response!.data is Map) {
+        msg = e.response!.data['message'] ?? msg;
       }
       throw Exception(msg);
     }
