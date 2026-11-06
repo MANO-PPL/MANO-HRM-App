@@ -9,6 +9,9 @@ import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/shared/widgets/custom_dialog.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
 import 'package:flutter_application/shared/widgets/app_custom_dropdown.dart';
+import 'package:flutter_application/features/leave/widgets/policy_form_dialog.dart';
+import 'package:flutter_application/features/leave/widgets/policy_rule_form_dialog.dart';
+import 'package:flutter_application/features/leave/widgets/policy_rule_details_dialog.dart';
 
 class LeavePoliciesTab extends StatefulWidget {
   const LeavePoliciesTab({super.key});
@@ -47,6 +50,109 @@ class _LeavePoliciesTabState extends State<LeavePoliciesTab> {
     _searchController.dispose();
     _staffSearchController.dispose();
     super.dispose();
+  }
+
+  void _showPolicyDialog({Map<String, dynamic>? policy}) {
+    showDialog(
+      context: context,
+      builder: (_) => PolicyFormDialog(
+        editingPolicy: policy,
+        onSaved: () {
+          final provider = context.read<LeaveProvider>();
+          provider.fetchMyLeaveBalancesAndPolicies(forceRefresh: true);
+        },
+      ),
+    );
+  }
+
+  Future<void> _deletePolicy(Map<String, dynamic> policy) async {
+    final confirm = await CustomDialog.show(
+      context: context,
+      title: 'Delete Leave Policy',
+      message: 'Are you sure you want to delete "${policy['name']}"? All associated rules and employee assignments will be removed.',
+      positiveButtonText: 'Delete',
+      negativeButtonText: 'Cancel',
+      isDestructive: true,
+      icon: Icons.delete_outline_rounded,
+      iconColor: const Color(0xFFEF4444),
+      onPositivePressed: () {},
+    );
+
+    if (confirm == true && mounted) {
+      final provider = context.read<LeaveProvider>();
+      try {
+        final lpId = policy['lp_id'] as int;
+        await provider.leaveService.deleteLeavePolicy(lpId);
+        if (mounted) context.showToast('Policy deleted successfully', isSuccess: true);
+        await provider.fetchMyLeaveBalancesAndPolicies(forceRefresh: true);
+        setState(() {
+          _selectedPolicyId = null;
+        });
+      } catch (e) {
+        if (mounted) context.showToast(e.toString().replaceAll('Exception:', '').trim(), isError: true);
+      }
+    }
+  }
+
+  void _showRuleDialog(int policyId, String policyName, {Map<String, dynamic>? rule}) {
+    showDialog(
+      context: context,
+      builder: (_) => PolicyRuleFormDialog(
+        selectedPolicyId: policyId,
+        policyName: policyName,
+        editingRule: rule,
+        onSaved: () {
+          final provider = context.read<LeaveProvider>();
+          provider.fetchMyLeaveBalancesAndPolicies(forceRefresh: true);
+        },
+      ),
+    );
+  }
+
+  void _showRuleDetailsDialog(
+    int? policyId,
+    String policyName,
+    Map<String, dynamic> rule, {
+    required bool isAdmin,
+  }) {
+    PolicyRuleDetailsDialog.show(
+      context,
+      rule: rule,
+      policyName: policyName,
+      isAdmin: isAdmin,
+      onEdit: (policyId != null && isAdmin)
+          ? () => _showRuleDialog(policyId, policyName, rule: rule)
+          : null,
+      onDelete: (policyId != null && isAdmin)
+          ? () => _deleteRule(policyId, rule)
+          : null,
+    );
+  }
+
+  Future<void> _deleteRule(int policyId, Map<String, dynamic> rule) async {
+    final confirm = await CustomDialog.show(
+      context: context,
+      title: 'Delete Entitlement Rule',
+      message: 'Are you sure you want to delete rule "${rule['name']}" (${rule['code']})?',
+      positiveButtonText: 'Delete',
+      negativeButtonText: 'Cancel',
+      isDestructive: true,
+      icon: Icons.delete_outline_rounded,
+      iconColor: const Color(0xFFEF4444),
+      onPositivePressed: () {},
+    );
+
+    if (confirm == true && mounted) {
+      final provider = context.read<LeaveProvider>();
+      try {
+        final ruleId = rule['rule_id'] as int;
+        await provider.leaveService.deleteLeavePolicyRule(policyId, ruleId);
+        if (mounted) context.showToast('Rule deleted successfully', isSuccess: true);
+        await provider.fetchMyLeaveBalancesAndPolicies(forceRefresh: true);
+      } catch (e) {
+        if (mounted) context.showToast(e.toString().replaceAll('Exception:', '').trim(), isError: true);
+      }
+    }
   }
 
   @override
@@ -141,6 +247,21 @@ class _LeavePoliciesTabState extends State<LeavePoliciesTab> {
                 color: const Color(0xFF6366F1),
                 tooltip: 'Refresh',
               ),
+              if (isAdmin) ...[
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () => _showPolicyDialog(),
+                  icon: const Icon(Icons.add, size: 14),
+                  label: Text('Add Policy', style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6366F1),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
             ],
           ),
 
@@ -191,7 +312,7 @@ class _LeavePoliciesTabState extends State<LeavePoliciesTab> {
           // Admin Sub-Tab Switcher: "Policy Rules" vs "Staff Assignment"
           if (isAdmin)
             Container(
-              margin: const EdgeInsets.only(bottom: 14),
+              margin: const EdgeInsets.only(bottom: 6),
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
@@ -251,6 +372,7 @@ class _LeavePoliciesTabState extends State<LeavePoliciesTab> {
                         : _buildPolicyRulesView(
                             selectedPolicy: selectedPolicy,
                             rules: rules,
+                            isAdmin: isAdmin,
                             isDark: isDark,
                           ),
           ),
@@ -341,15 +463,19 @@ class _LeavePoliciesTabState extends State<LeavePoliciesTab> {
   Widget _buildPolicyRulesView({
     required Map<String, dynamic> selectedPolicy,
     required List<dynamic> rules,
+    required bool isAdmin,
     required bool isDark,
   }) {
+    final policyId = selectedPolicy['lp_id'] as int?;
+    final policyName = selectedPolicy['name']?.toString() ?? 'Policy';
+
     return ListView(
+      padding: EdgeInsets.zero,
       children: [
         // Policy Description Card
         if (selectedPolicy.isNotEmpty)
           Container(
             margin: const EdgeInsets.only(bottom: 14),
-            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF161B22) : Colors.white,
               borderRadius: BorderRadius.circular(14),
@@ -357,46 +483,119 @@ class _LeavePoliciesTabState extends State<LeavePoliciesTab> {
                 color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.shield_outlined, size: 20, color: Color(0xFF6366F1)),
-                    const SizedBox(width: 8),
-                    Text(
-                      selectedPolicy['name']?.toString() ?? 'Policy',
-                      style: GoogleFonts.inter(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () {
+                  if (isAdmin) {
+                    _showPolicyDialog(policy: selectedPolicy);
+                  }
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                const Icon(Icons.shield_outlined, size: 20, color: Color(0xFF6366F1)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    policyName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isAdmin && policyId != null) ...[
+                            const SizedBox(width: 8),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit_outlined, size: 16),
+                                  onPressed: () => _showPolicyDialog(policy: selectedPolicy),
+                                  padding: const EdgeInsets.all(4),
+                                  constraints: const BoxConstraints(),
+                                  tooltip: 'Edit Policy',
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Color(0xFFEF4444)),
+                                  onPressed: () => _deletePolicy(selectedPolicy),
+                                  padding: const EdgeInsets.all(4),
+                                  constraints: const BoxConstraints(),
+                                  tooltip: 'Delete Policy',
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-                if (selectedPolicy['description'] != null &&
-                    selectedPolicy['description'].toString().isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    selectedPolicy['description'].toString(),
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: isDark ? Colors.white60 : Colors.grey.shade600,
-                    ),
+                      if (selectedPolicy['description'] != null &&
+                          selectedPolicy['description'].toString().isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          selectedPolicy['description'].toString(),
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: isDark ? Colors.white60 : Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
-              ],
+                ),
+              ),
             ),
           ),
 
         // Policy Rules Heading
-        Text(
-          'Policy Rules (${rules.length})',
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : const Color(0xFF0F172A),
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                'Policy Rules (${rules.length})',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                ),
+              ),
+            ),
+            if (isAdmin && policyId != null) ...[
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: () => _showRuleDialog(policyId, policyName),
+                icon: const Icon(Icons.add, size: 13),
+                label: Text('Add Rule', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6366F1),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 10),
 
@@ -419,14 +618,21 @@ class _LeavePoliciesTabState extends State<LeavePoliciesTab> {
             final name = rule['name']?.toString() ?? 'Rule';
             final code = rule['code']?.toString() ?? 'R';
             final maxBalance = rule['max_balance']?.toString() ?? '12';
-            final accrual = rule['accural_type']?.toString() ?? 'No Accrual';
+            final rawAccrual = rule['accural_type']?.toString() ?? 'No Accrual';
             final isPaid = rule['is_paid'] == 1 || rule['is_paid'] == true;
             final requiresDoc = rule['requires_doc'] == 1 || rule['requires_doc'] == true;
             final carryForward = rule['carry_forward'] == 1 || rule['carry_forward'] == true;
 
+            String displayAccrual = rawAccrual;
+            final lower = rawAccrual.toLowerCase();
+            if (lower == 'comp_off' || lower == 'comp off' || lower == 'compoff') {
+              displayAccrual = 'Comp Off';
+            } else if (lower == 'one_time') {
+              displayAccrual = 'One Time';
+            }
+
             return Container(
               margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF161B22) : Colors.white,
                 borderRadius: BorderRadius.circular(14),
@@ -434,71 +640,119 @@ class _LeavePoliciesTabState extends State<LeavePoliciesTab> {
                   color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            name,
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : const Color(0xFF0F172A),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF6366F1).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              code,
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF6366F1),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => _showRuleDetailsDialog(policyId, policyName, rule, isAdmin: isAdmin),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      code,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF6366F1),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: isPaid
-                              ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFD1FAE5))
-                              : (isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFEE2E8)),
-                          borderRadius: BorderRadius.circular(8),
+                            const SizedBox(width: 8),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: isPaid
+                                        ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFD1FAE5))
+                                        : (isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFEE2E8)),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    isPaid ? 'Paid' : 'Unpaid',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: isPaid ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                                    ),
+                                  ),
+                                ),
+                                if (isAdmin && policyId != null) ...[
+                                  const SizedBox(width: 6),
+                                  IconButton(
+                                    icon: const Icon(Icons.edit_outlined, size: 15),
+                                    onPressed: () => _showRuleDialog(policyId, policyName, rule: rule),
+                                    padding: const EdgeInsets.all(3),
+                                    constraints: const BoxConstraints(),
+                                    tooltip: 'Edit Rule',
+                                  ),
+                                  const SizedBox(width: 4),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline_rounded, size: 15, color: Color(0xFFEF4444)),
+                                    onPressed: () => _deleteRule(policyId, rule),
+                                    padding: const EdgeInsets.all(3),
+                                    constraints: const BoxConstraints(),
+                                    tooltip: 'Delete Rule',
+                                  ),
+                                ],
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 18,
+                                  color: isDark ? const Color(0xFF8B949E) : const Color(0xFF94A3B8),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                        child: Text(
-                          isPaid ? 'Paid' : 'Unpaid',
-                          style: GoogleFonts.inter(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: isPaid ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-                          ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 6,
+                          children: [
+                            _buildTag('Max: $maxBalance days', isDark),
+                            _buildTag(displayAccrual, isDark),
+                            if (carryForward) _buildTag('Carry Forward Enabled', isDark),
+                            if (requiresDoc) _buildTag('Doc Required', isDark, isWarning: true),
+                          ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 6,
-                    children: [
-                      _buildTag('Max: $maxBalance days', isDark),
-                      _buildTag(accrual, isDark),
-                      if (carryForward) _buildTag('Carry Forward Enabled', isDark),
-                      if (requiresDoc) _buildTag('Doc Required', isDark, isWarning: true),
-                    ],
-                  ),
-                ],
+                ),
               ),
             );
           }),
@@ -522,10 +776,11 @@ class _LeavePoliciesTabState extends State<LeavePoliciesTab> {
     final policyId = selectedPolicy['lp_id'] as int?;
 
     return ListView(
+      padding: EdgeInsets.zero,
       children: [
         // Year Selector & Staff Search
         Container(
-          margin: const EdgeInsets.only(bottom: 14),
+          margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF161B22) : Colors.white,
@@ -557,7 +812,7 @@ class _LeavePoliciesTabState extends State<LeavePoliciesTab> {
 
                   // Year Dropdown
                   SizedBox(
-                    width: 115,
+                    width: 125,
                     child: AppCustomDropdown<int>(
                       hintText: 'Year',
                       initialValue: provider.staffAssignmentYear,
@@ -948,11 +1203,15 @@ class _LeavePoliciesTabState extends State<LeavePoliciesTab> {
                             ),
                             if (emp.designation != null && emp.designation!.isNotEmpty) ...[
                               const SizedBox(width: 6),
-                              Text(
-                                '• ${emp.designation!}',
-                                style: GoogleFonts.inter(
-                                  fontSize: 11,
-                                  color: isDark ? Colors.white54 : Colors.grey.shade600,
+                              Flexible(
+                                child: Text(
+                                  '• ${emp.designation!}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    color: isDark ? Colors.white54 : Colors.grey.shade600,
+                                  ),
                                 ),
                               ),
                             ],

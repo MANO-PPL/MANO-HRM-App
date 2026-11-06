@@ -8,12 +8,14 @@ class LeaveHistoryItem extends StatelessWidget {
   final LeaveRequest request;
   final VoidCallback? onDelete;
   final VoidCallback? onTap;
+  final EdgeInsetsGeometry? margin;
 
   const LeaveHistoryItem({
     super.key,
     required this.request,
     this.onDelete,
     this.onTap,
+    this.margin,
   });
 
   @override
@@ -24,7 +26,6 @@ class LeaveHistoryItem extends StatelessWidget {
     final Color statusPillBg;
     final Color statusTextColor;
     final Color statusDotColor;
-
     if (status == 'approved') {
       statusPillBg = isDark ? const Color(0xFF064E3B) : const Color(0xFFD1FAE5);
       statusTextColor = isDark ? const Color(0xFF6EE7B7) : const Color(0xFF047857);
@@ -39,12 +40,12 @@ class LeaveHistoryItem extends StatelessWidget {
       statusDotColor = const Color(0xFFF59E0B);
     }
 
-    final dateFormat = DateFormat('MMM d');
-    final endFormat = DateFormat('MMM d, yyyy');
-    final appliedFormat = DateFormat('MMM d, yyyy');
+    final dateFormat = DateFormat('d MMMM yyyy');
+    final endFormat = DateFormat('d MMMM yyyy');
+    final appliedFormat = DateFormat('d MMMM yyyy');
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      margin: margin ?? const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF161B22) : Colors.white,
         borderRadius: BorderRadius.circular(14),

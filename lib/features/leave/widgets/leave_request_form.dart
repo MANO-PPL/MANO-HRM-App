@@ -310,7 +310,7 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
                                     child: Text(
                                       _startDate == null 
                                           ? 'Select' 
-                                          : DateFormat('MMM dd, yyyy').format(_startDate!),
+                                          : DateFormat('d MMMM yyyy').format(_startDate!),
                                       style: GoogleFonts.poppins(
                                         fontSize: 13,
                                         fontWeight: _startDate != null ? FontWeight.w600 : FontWeight.normal,
@@ -366,7 +366,7 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
                                     child: Text(
                                       _endDate == null 
                                           ? 'Select' 
-                                          : DateFormat('MMM dd, yyyy').format(_endDate!),
+                                          : DateFormat('d MMMM yyyy').format(_endDate!),
                                       style: GoogleFonts.poppins(
                                         fontSize: 13,
                                         fontWeight: _endDate != null ? FontWeight.w600 : FontWeight.normal,
