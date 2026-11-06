@@ -45,11 +45,9 @@ class _LeaveTabletLandscapeState extends State<LeaveTabletLandscape> {
     final isAdmin = authService.user?.isAdmin ?? false;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
-      body: SafeArea(
-        child: isAdmin ? _buildAdminSplitView(context, isDark) : _buildEmployeeView(context, isDark),
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: isAdmin ? _buildAdminSplitView(context, isDark) : _buildEmployeeView(context, isDark),
     );
   }
 
@@ -338,7 +336,8 @@ class _LeaveTabletLandscapeState extends State<LeaveTabletLandscape> {
                   Row(
                     children: [
                       // Month Selector
-                      Expanded(
+                      SizedBox(
+                        width: 145,
                         child: AppCustomDropdown<int>(
                           hintText: 'Month',
                           initialValue: provider.selectedMonth,
@@ -554,8 +553,13 @@ class _LeaveTabletLandscapeState extends State<LeaveTabletLandscape> {
                   final bal = balances[idx];
                   final rule = {
                     'name': bal['leave_type'] ?? 'General Leave',
-                    'code': bal['leave_code'] ?? 'GL',
-                    'accural_type': 'Standard Accrual',
+                    'code': bal['leave_code'] ?? bal['code'] ?? 'GL',
+                    'accural_type': bal['accural_type'] ?? '',
+                    'max_balance': bal['max_balance'],
+                    'is_paid': bal['is_paid'],
+                    'carry_forward': bal['carry_forward'],
+                    'encashable': bal['encashable'],
+                    'requires_doc': bal['requires_doc'],
                   };
                   return EmployeeLeavePlanCard(
                     rule: rule,

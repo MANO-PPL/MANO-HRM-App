@@ -7,6 +7,8 @@ import 'package:flutter_application/features/leave/core/leave_provider.dart';
 import 'package:flutter_application/shared/widgets/custom_dialog.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
 import 'package:flutter_application/features/leave/widgets/attachment_viewer_dialog.dart';
+import 'package:flutter_application/features/leave/widgets/leave_audit_trail_widget.dart';
+import 'package:flutter_application/shared/widgets/pfp_viewer_dialog.dart';
 
 class AdminLeaveDetailView extends StatefulWidget {
   final LeaveRequest? request;
@@ -137,8 +139,8 @@ class _AdminLeaveDetailViewState extends State<AdminLeaveDetailView> {
         ? req.userName![0].toUpperCase()
         : 'U';
 
-    final dateFormat = DateFormat('EEE, MMM d, yyyy');
-    final appliedFormat = DateFormat('MMM d, yyyy');
+    final dateFormat = DateFormat('d MMMM yyyy');
+    final appliedFormat = DateFormat('d MMMM yyyy');
 
     final provider = context.watch<LeaveProvider>();
     final employeeBalances = provider.selectedEmployeeBalances;
@@ -153,22 +155,33 @@ class _AdminLeaveDetailViewState extends State<AdminLeaveDetailView> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                backgroundImage: (req.userAvatar != null && req.userAvatar!.startsWith('http'))
-                    ? NetworkImage(req.userAvatar!)
-                    : null,
-                child: (req.userAvatar == null || !req.userAvatar!.startsWith('http'))
-                    ? Text(
-                        initial,
-                        style: GoogleFonts.inter(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white70 : const Color(0xFF475569),
-                        ),
-                      )
-                    : null,
+              GestureDetector(
+                onTap: () {
+                  PfpViewerDialog.show(
+                    context,
+                    imageUrl: req.userAvatar,
+                    name: req.userName ?? 'Employee',
+                    subtitle: '${req.userDesignation ?? req.userEmail ?? ''} • ${req.leaveType}',
+                    heroTag: 'leave-applicant-pfp-${req.id}',
+                  );
+                },
+                child: CircleAvatar(
+                  radius: 24,
+                  backgroundColor: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                  backgroundImage: (req.userAvatar != null && req.userAvatar!.startsWith('http'))
+                      ? NetworkImage(req.userAvatar!)
+                      : null,
+                  child: (req.userAvatar == null || !req.userAvatar!.startsWith('http'))
+                      ? Text(
+                          initial,
+                          style: GoogleFonts.inter(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white70 : const Color(0xFF475569),
+                          ),
+                        )
+                      : null,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -704,6 +717,14 @@ class _AdminLeaveDetailViewState extends State<AdminLeaveDetailView> {
               ),
             ),
           ],
+
+          // Audit Trail Timeline
+          const SizedBox(height: 18),
+          LeaveAuditTrailWidget(
+            auditTrail: req.auditTrail,
+            compact: true,
+          ),
+          const SizedBox(height: 10),
         ],
       ),
     );

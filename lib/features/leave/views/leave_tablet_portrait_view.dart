@@ -69,11 +69,9 @@ class _LeaveTabletPortraitState extends State<LeaveTabletPortrait> {
     final isAdmin = authService.user?.isAdmin ?? false;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
-      body: SafeArea(
-        child: isAdmin ? _buildAdminView(context, isDark) : _buildEmployeeView(context, isDark),
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: isAdmin ? _buildAdminView(context, isDark) : _buildEmployeeView(context, isDark),
     );
   }
 
@@ -254,16 +252,16 @@ class _LeaveTabletPortraitState extends State<LeaveTabletPortrait> {
       onRefresh: () => provider.fetchLeaves(forceRefresh: true),
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Top Action Bar Card
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF161B22) : Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
                 ),
@@ -334,7 +332,8 @@ class _LeaveTabletPortraitState extends State<LeaveTabletPortrait> {
                   Row(
                     children: [
                       // Month Selector
-                      Expanded(
+                      SizedBox(
+                        width: 140,
                         child: AppCustomDropdown<int>(
                           hintText: 'Month',
                           initialValue: provider.selectedMonth,
@@ -541,17 +540,22 @@ class _LeaveTabletPortraitState extends State<LeaveTabletPortrait> {
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  childAspectRatio: 2.3,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: 2.6,
                 ),
                 itemCount: balances.length,
                 itemBuilder: (context, idx) {
                   final bal = balances[idx];
                   final rule = {
                     'name': bal['leave_type'] ?? 'General Leave',
-                    'code': bal['leave_code'] ?? 'GL',
-                    'accural_type': 'Standard Accrual',
+                    'code': bal['leave_code'] ?? bal['code'] ?? 'GL',
+                    'accural_type': bal['accural_type'] ?? '',
+                    'max_balance': bal['max_balance'],
+                    'is_paid': bal['is_paid'],
+                    'carry_forward': bal['carry_forward'],
+                    'encashable': bal['encashable'],
+                    'requires_doc': bal['requires_doc'],
                   };
                   return EmployeeLeavePlanCard(
                     rule: rule,
