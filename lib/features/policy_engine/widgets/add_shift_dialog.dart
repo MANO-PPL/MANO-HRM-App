@@ -17,7 +17,7 @@ class _AddShiftDialogState extends State<AddShiftDialog> {
   final _nameCtrl = TextEditingController();
   final _graceCtrl = TextEditingController(text: "0");
   final _otThresholdCtrl = TextEditingController(text: "8.0");
-  final _correctionDeadlineCtrl = TextEditingController(text: "2");
+  final _correctionDeadlineCtrl = TextEditingController(text: "30");
   
   TimeOfDay _startTime = const TimeOfDay(hour: 9, minute: 0);
   TimeOfDay _endTime = const TimeOfDay(hour: 18, minute: 0);
@@ -79,7 +79,7 @@ class _AddShiftDialogState extends State<AddShiftDialog> {
        _checkpointSelfie = false;
        _otBufferCtrl.text = "0.5";
        _otMaxCtrl.text = "3.0";
-       _correctionDeadlineCtrl.text = "2";
+       _correctionDeadlineCtrl.text = "30";
        _workingDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
        _weekOffRules = [];
        _halfDayRules = [];
@@ -156,7 +156,7 @@ class _AddShiftDialogState extends State<AddShiftDialog> {
         'enabled': _checkpointEnabled,
         'selfie': _checkpointSelfie,
       },
-      'correction_deadline': int.tryParse(_correctionDeadlineCtrl.text) ?? 2,
+      'correction_deadline': int.tryParse(_correctionDeadlineCtrl.text) ?? 30,
       'week_off_policy': weekOffPolicyJson,
     };
 

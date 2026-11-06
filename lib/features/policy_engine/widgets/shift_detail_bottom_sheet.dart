@@ -6,6 +6,7 @@ import 'package:flutter_application/features/employees/core/employee_service.dar
 import 'package:flutter_application/features/employees/core/employee_model.dart' as emp_model;
 import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/shared/constants/api_constants.dart';
+import 'package:flutter_application/shared/widgets/pfp_viewer_dialog.dart';
 import 'package:flutter_application/features/policy_engine/core/week_off_policy_helper.dart';
 
 class ShiftDetailBottomSheet extends StatefulWidget {
@@ -657,15 +658,26 @@ class _ShiftDetailBottomSheetState extends State<ShiftDetailBottomSheet> {
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: Colors.indigoAccent.withValues(alpha: 0.1),
-                backgroundImage: (profileImage != null && profileImage.isNotEmpty)
-                    ? NetworkImage(profileImage)
-                    : null,
-                child: (profileImage == null || profileImage.isEmpty)
-                    ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(color: Colors.indigoAccent, fontWeight: FontWeight.bold, fontSize: 13))
-                    : null,
+              GestureDetector(
+                onTap: () {
+                  PfpViewerDialog.show(
+                    context,
+                    imageUrl: profileImage,
+                    name: name,
+                    subtitle: role,
+                    heroTag: 'shift-staff-avatar-${emp.userId}',
+                  );
+                },
+                child: CircleAvatar(
+                  radius: 18,
+                  backgroundColor: Colors.indigoAccent.withValues(alpha: 0.1),
+                  backgroundImage: (profileImage != null && profileImage.isNotEmpty)
+                      ? NetworkImage(profileImage)
+                      : null,
+                  child: (profileImage == null || profileImage.isEmpty)
+                      ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(color: Colors.indigoAccent, fontWeight: FontWeight.bold, fontSize: 13))
+                      : null,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -839,24 +851,35 @@ class _ShiftDetailBottomSheetState extends State<ShiftDetailBottomSheet> {
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: isDark
-                    ? Colors.indigo.withValues(alpha: 0.2)
-                    : Colors.indigo[100],
-                backgroundImage: (profileImage != null && profileImage.isNotEmpty)
-                    ? NetworkImage(profileImage)
-                    : null,
-                child: (profileImage == null || profileImage.isEmpty)
-                    ? Text(
-                        name.isNotEmpty ? name[0].toUpperCase() : '?',
-                        style: const TextStyle(
-                          color: Colors.indigo,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      )
-                    : null,
+              GestureDetector(
+                onTap: () {
+                  PfpViewerDialog.show(
+                    context,
+                    imageUrl: profileImage,
+                    name: name,
+                    subtitle: role,
+                    heroTag: 'shift-assign-staff-${emp.userId}',
+                  );
+                },
+                child: CircleAvatar(
+                  radius: 18,
+                  backgroundColor: isDark
+                      ? Colors.indigo.withValues(alpha: 0.2)
+                      : Colors.indigo[100],
+                  backgroundImage: (profileImage != null && profileImage.isNotEmpty)
+                      ? NetworkImage(profileImage)
+                      : null,
+                  child: (profileImage == null || profileImage.isEmpty)
+                      ? Text(
+                          name.isNotEmpty ? name[0].toUpperCase() : '?',
+                          style: const TextStyle(
+                            color: Colors.indigo,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        )
+                      : null,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(

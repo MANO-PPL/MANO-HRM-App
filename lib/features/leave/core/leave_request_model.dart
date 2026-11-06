@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class LeaveAttachment {
   final int id;
   final int leaveId;
@@ -45,7 +47,7 @@ class LeaveRequest {
   final String reason;
   final DateTime startDate;
   final DateTime endDate;
-  final String status; // 'pending', 'approved', 'rejected'
+  final String status; // 'pending', 'approved', 'rejected', 'withdrawn'
   final DateTime appliedAt;
   final int? reviewedBy;
   final DateTime? reviewedAt;
@@ -57,11 +59,14 @@ class LeaveRequest {
   final String? userEmail; // For admin view
   final String? userPhone; // For admin view
   final String? userAvatar; // For avatar display
+  final String? userDesignation;
+  final String? reviewerName;
   final String? policyName;
   final String? leaveCode;
   final bool isActive;
   final bool isDeleted;
   final List<LeaveAttachment> attachments;
+  final List<Map<String, dynamic>> auditTrail;
 
   LeaveRequest({
     required this.id,
@@ -82,11 +87,14 @@ class LeaveRequest {
     this.userEmail,
     this.userPhone,
     this.userAvatar,
+    this.userDesignation,
+    this.reviewerName,
     this.policyName,
     this.leaveCode,
     this.isActive = true,
     this.isDeleted = false,
     this.attachments = const [],
+    this.auditTrail = const [],
   });
 
   int get durationDays {
@@ -119,33 +127,84 @@ class LeaveRequest {
       return defaultVal;
     }
 
+    final appliedAtDate = DateTime.parse(json['applied_at'] ?? DateTime.now().toIso8601String()).toLocal();
+    final reviewedAtDate = json['reviewed_at'] != null ? DateTime.parse(json['reviewed_at']).toLocal() : null;
+
+    final parsedComment = json['admin_comment']?.toString() == "0" ? null : json['admin_comment']?.toString();
+    final parsedUserName = json['user_name']?.toString() ?? json['name']?.toString();
+    final parsedReviewerName = json['reviewer_name']?.toString() ?? json['reviewed_by_name']?.toString();
+
+    // Parse or synthesize normalized audit trail
+    List<Map<String, dynamic>> trail = [];
+    final rawTrail = json['audit_trail'] ?? json['auditTrail'];
+    if (rawTrail is List) {
+      trail = rawTrail
+          .map((e) => e is Map ? Map<String, dynamic>.from(e) : <String, dynamic>{})
+          .where((m) => m.isNotEmpty)
+          .toList();
+    } else if (rawTrail is String && rawTrail.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawTrail);
+        if (decoded is List) {
+          trail = decoded
+              .map((e) => e is Map ? Map<String, dynamic>.from(e) : <String, dynamic>{})
+              .where((m) => m.isNotEmpty)
+              .toList();
+        }
+      } catch (_) {}
+    }
+
+    if (trail.isEmpty) {
+      final uId = json['user_id'] is int ? json['user_id'] : int.tryParse(json['user_id']?.toString() ?? '0') ?? 0;
+      trail.add({
+        'action': 'submitted',
+        'by': uId,
+        'by_name': parsedUserName ?? 'Employee',
+        'at': appliedAtDate.toIso8601String(),
+        'comments': null,
+      });
+
+      if (['approved', 'rejected', 'cancelled', 'withdrawn'].contains(statusValue)) {
+        trail.add({
+          'action': statusValue,
+          'by': json['reviewed_by'],
+          'by_name': parsedReviewerName ?? (json['reviewed_by'] != null ? 'Admin' : 'System'),
+          'at': (reviewedAtDate ?? appliedAtDate).toIso8601String(),
+          'comments': parsedComment,
+        });
+      }
+    }
+
     return LeaveRequest(
       id: idValue is int ? idValue : int.tryParse(idValue.toString()) ?? 0,
-      adminComment: json['admin_comment']?.toString() == "0" ? null : json['admin_comment']?.toString(), 
+      adminComment: parsedComment,
       leaveType: cleanString(json['leave_type']),
       reason: cleanString(json['reason']),
       startDate: DateTime.parse(json['start_date'] ?? DateTime.now().toIso8601String()).toLocal(),
       endDate: DateTime.parse(json['end_date'] ?? DateTime.now().toIso8601String()).toLocal(),
       status: statusValue,
-      appliedAt: DateTime.parse(json['applied_at'] ?? DateTime.now().toIso8601String()).toLocal(),
+      appliedAt: appliedAtDate,
       reviewedBy: json['reviewed_by'],
-      reviewedAt: json['reviewed_at'] != null ? DateTime.parse(json['reviewed_at']).toLocal() : null,
+      reviewedAt: reviewedAtDate,
       orgId: json['org_id'] is int ? json['org_id'] : int.tryParse(json['org_id']?.toString() ?? '0') ?? 0,
       userId: json['user_id'] is int ? json['user_id'] : int.tryParse(json['user_id']?.toString() ?? '0') ?? 0,
       payPercentage: json['pay_percentage'],
       payType: json['pay_type'],
-      userName: json['user_name'],
-      userEmail: json['email'],
-      userPhone: json['phone_no'],
+      userName: parsedUserName,
+      userEmail: json['email']?.toString() ?? json['user_email']?.toString(),
+      userPhone: json['phone_no']?.toString(),
       userAvatar: json['profile_image_url'] ?? json['profile_image'] ?? json['profile_pic'] ?? json['avatar_url'],
-      policyName: json['policy_name'],
-      leaveCode: json['leave_code'],
+      userDesignation: json['designation']?.toString() ?? json['desg_name']?.toString() ?? json['role']?.toString(),
+      reviewerName: parsedReviewerName,
+      policyName: json['policy_name']?.toString(),
+      leaveCode: json['leave_code']?.toString(),
       isActive: parseBool(json['is_active'], true),
       isDeleted: parseBool(json['is_deleted'], false),
       attachments: (json['attachments'] as List<dynamic>?)
               ?.map((e) => LeaveAttachment.fromJson(e))
               .toList() ??
           [],
+      auditTrail: trail,
     );
   }
 
@@ -169,11 +228,14 @@ class LeaveRequest {
       'email': userEmail,
       'phone_no': userPhone,
       'profile_image': userAvatar,
+      'designation': userDesignation,
+      'reviewer_name': reviewerName,
       'policy_name': policyName,
       'leave_code': leaveCode,
       'is_active': isActive ? 1 : 0,
       'is_deleted': isDeleted ? 1 : 0,
       'attachments': attachments.map((e) => e.toJson()).toList(),
+      'audit_trail': auditTrail,
     };
   }
 
@@ -196,11 +258,14 @@ class LeaveRequest {
     String? userEmail,
     String? userPhone,
     String? userAvatar,
+    String? userDesignation,
+    String? reviewerName,
     String? policyName,
     String? leaveCode,
     bool? isActive,
     bool? isDeleted,
     List<LeaveAttachment>? attachments,
+    List<Map<String, dynamic>>? auditTrail,
   }) {
     return LeaveRequest(
       id: id ?? this.id,
@@ -221,11 +286,14 @@ class LeaveRequest {
       userEmail: userEmail ?? this.userEmail,
       userPhone: userPhone ?? this.userPhone,
       userAvatar: userAvatar ?? this.userAvatar,
+      userDesignation: userDesignation ?? this.userDesignation,
+      reviewerName: reviewerName ?? this.reviewerName,
       policyName: policyName ?? this.policyName,
       leaveCode: leaveCode ?? this.leaveCode,
       isActive: isActive ?? this.isActive,
       isDeleted: isDeleted ?? this.isDeleted,
       attachments: attachments ?? this.attachments,
+      auditTrail: auditTrail ?? this.auditTrail,
     );
   }
 }

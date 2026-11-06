@@ -284,6 +284,72 @@ class LeaveService {
       rethrow;
     }
   }
+
+  // 14. Admin - Create Leave Policy (matching web PolicyFormDrawer)
+  Future<bool> createLeavePolicy(Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.post(ApiConstants.leavesPolicies, data: data);
+      return response.statusCode == 200 && (response.data['ok'] == true || response.data['success'] == true);
+    } catch (e) {
+      debugPrint('LeaveService.createLeavePolicy error: $e');
+      rethrow;
+    }
+  }
+
+  // 15. Admin - Update Leave Policy
+  Future<bool> updateLeavePolicy(int lpId, Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.put('${ApiConstants.leavesPolicies}/$lpId', data: data);
+      return response.statusCode == 200 && (response.data['ok'] == true || response.data['success'] == true);
+    } catch (e) {
+      debugPrint('LeaveService.updateLeavePolicy error: $e');
+      rethrow;
+    }
+  }
+
+  // 16. Admin - Delete Leave Policy
+  Future<bool> deleteLeavePolicy(int lpId) async {
+    try {
+      final response = await _dio.delete('${ApiConstants.leavesPolicies}/$lpId');
+      return response.statusCode == 200 && (response.data['ok'] == true || response.data['success'] == true);
+    } catch (e) {
+      debugPrint('LeaveService.deleteLeavePolicy error: $e');
+      rethrow;
+    }
+  }
+
+  // 17. Admin - Create Leave Policy Rule (matching web PolicyRuleFormDrawer)
+  Future<bool> createLeavePolicyRule(int lpId, Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.post('${ApiConstants.leavesPolicies}/$lpId/rules', data: data);
+      return response.statusCode == 200 && (response.data['ok'] == true || response.data['success'] == true);
+    } catch (e) {
+      debugPrint('LeaveService.createLeavePolicyRule error: $e');
+      rethrow;
+    }
+  }
+
+  // 18. Admin - Update Leave Policy Rule
+  Future<bool> updateLeavePolicyRule(int lpId, int ruleId, Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.put('${ApiConstants.leavesPolicies}/$lpId/rules/$ruleId', data: data);
+      return response.statusCode == 200 && (response.data['ok'] == true || response.data['success'] == true);
+    } catch (e) {
+      debugPrint('LeaveService.updateLeavePolicyRule error: $e');
+      rethrow;
+    }
+  }
+
+  // 19. Admin - Delete Leave Policy Rule
+  Future<bool> deleteLeavePolicyRule(int lpId, int ruleId) async {
+    try {
+      final response = await _dio.delete('${ApiConstants.leavesPolicies}/$lpId/rules/$ruleId');
+      return response.statusCode == 200 && (response.data['ok'] == true || response.data['success'] == true);
+    } catch (e) {
+      debugPrint('LeaveService.deleteLeavePolicyRule error: $e');
+      rethrow;
+    }
+  }
 }
 
 // commit-marker: 2026-02-20T09:15:00+05:30

@@ -8,6 +8,12 @@ import 'package:flutter_application/features/policy_engine/core/shift_model.dart
 import 'package:flutter_application/features/policy_engine/core/shift_service.dart';
 import 'package:flutter_application/features/policy_engine/widgets/shift_detail_bottom_sheet.dart';
 import 'package:flutter_application/features/policy_engine/widgets/add_shift_dialog.dart';
+import 'package:flutter_application/shared/widgets/custom_dialog.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_application/features/employees/core/employee_model.dart' hide Shift;
+import 'package:flutter_application/features/employees/core/employee_service.dart';
+import 'package:flutter_application/shared/constants/api_constants.dart';
+import 'package:flutter_application/shared/widgets/pfp_viewer_dialog.dart';
 
 class PolicyEngineView extends StatefulWidget {
   const PolicyEngineView({super.key});
@@ -18,8 +24,12 @@ class PolicyEngineView extends StatefulWidget {
 
 class _PolicyEngineViewState extends State<PolicyEngineView> {
   late ShiftService _shiftService;
+  late EmployeeService _employeeService;
 
   List<Shift> _shifts = [];
+  Map<int, int> _shiftStaffCounts = {};
+  Map<int, List<Employee>> _shiftAssignedEmployees = {};
+  String _searchQuery = '';
   bool _isLoadingShifts = true;
 
   @override
@@ -27,8 +37,9 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
     super.initState();
     // Initialize Services
     WidgetsBinding.instance.addPostFrameCallback((_) {
-       final dio = Provider.of<AuthService>(context, listen: false).dio;
-       _shiftService = ShiftService(dio);
+       final authService = Provider.of<AuthService>(context, listen: false);
+       _shiftService = ShiftService(authService.dio);
+       _employeeService = EmployeeService(authService);
        _fetchShifts();
     });
   }
@@ -36,8 +47,56 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
   Future<void> _fetchShifts() async {
     setState(() => _isLoadingShifts = true);
     try {
-      final data = await _shiftService.getShifts();
-      if (mounted) setState(() => _shifts = data);
+      final results = await Future.wait([
+        _shiftService.getShifts(),
+        _shiftService.getShiftUsers(),
+        _employeeService.getEmployees().catchError((_) => <Employee>[]),
+      ]);
+      final shiftsData = results[0] as List<Shift>;
+      final usersData = results[1] as List<Map<String, dynamic>>;
+      final employeesData = results[2] as List<Employee>;
+
+      final counts = <int, int>{};
+      final assignedMap = <int, List<Employee>>{};
+
+      // Map employees by shiftId
+      for (final emp in employeesData) {
+        if (emp.shiftId != null) {
+          assignedMap.putIfAbsent(emp.shiftId!, () => []).add(emp);
+          counts[emp.shiftId!] = (counts[emp.shiftId!] ?? 0) + 1;
+        }
+      }
+
+      // If any user from usersData was not in employeesData, supplement it
+      for (final u in usersData) {
+        final sId = u['shift_id'] as int?;
+        final uId = u['user_id'] as int? ?? u['id'] as int?;
+        if (sId != null && uId != null) {
+          final alreadyPresent = assignedMap[sId]?.any((e) => e.userId == uId) ?? false;
+          if (!alreadyPresent) {
+            final emp = Employee(
+              userId: uId,
+              userName: u['user_name'] ?? u['name'] ?? 'Staff',
+              email: u['email'] ?? '',
+              userType: u['user_type'] ?? 'employee',
+              designation: u['desg_name'] ?? u['designation'],
+              department: u['dept_name'] ?? u['department'],
+              profileImage: u['profile_image'] ?? u['avatar_url'],
+              shiftId: sId,
+            );
+            assignedMap.putIfAbsent(sId, () => []).add(emp);
+            counts[sId] = (counts[sId] ?? 0) + 1;
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _shifts = shiftsData;
+          _shiftStaffCounts = counts;
+          _shiftAssignedEmployees = assignedMap;
+        });
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error loading shifts: $e")));
     } finally {
@@ -86,22 +145,16 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
   }
 
   Future<void> _deleteShift(Shift shift) async {
-    final confirm = await showDialog<bool>(
+    final confirm = await CustomDialog.show(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Delete Shift', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-        content: Text('Are you sure you want to delete "${shift.name}"? This action will unassign all staff currently on this shift.', style: GoogleFonts.poppins()),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: GoogleFonts.poppins(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Delete', style: GoogleFonts.poppins(color: Colors.red)),
-          ),
-        ],
-      ),
+      title: 'Delete Shift',
+      message: 'Are you sure you want to delete "${shift.name}"? This action will unassign all staff currently on this shift.',
+      positiveButtonText: 'Delete',
+      negativeButtonText: 'Cancel',
+      isDestructive: true,
+      icon: Icons.delete_outline_rounded,
+      iconColor: const Color(0xFFEF4444),
+      onPositivePressed: () {},
     );
 
     if (confirm == true) {
@@ -133,6 +186,14 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
     final isMobile = screenWidth < 600;
     final horizontalPadding = isMobile ? 10.0 : 14.0;
 
+    final filteredShifts = _shifts.where((s) {
+      if (_searchQuery.trim().isEmpty) return true;
+      final q = _searchQuery.toLowerCase();
+      return s.name.toLowerCase().contains(q) ||
+          s.startTime.toLowerCase().contains(q) ||
+          s.endTime.toLowerCase().contains(q);
+    }).toList();
+
     return LoadingScreen(
       isLoading: _isLoadingShifts,
       message: "Fetching policy rules...",
@@ -151,10 +212,57 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
           ),
           const SizedBox(height: 8),
 
+          // Search Bar
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+            child: Container(
+              height: 38,
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF30363D)
+                      : const Color(0xFFE2E8F0),
+                ),
+              ),
+              child: TextField(
+                style: GoogleFonts.poppins(fontSize: 12),
+                decoration: InputDecoration(
+                  hintText: 'Search shifts...',
+                  hintStyle: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
+                  prefixIcon: const Icon(Icons.search, size: 16, color: Colors.grey),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 15, color: Colors.grey),
+                          onPressed: () => setState(() => _searchQuery = ''),
+                        )
+                      : null,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                  border: InputBorder.none,
+                  isDense: true,
+                ),
+                onChanged: (val) => setState(() => _searchQuery = val),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+
           // Shifts Grid (occupies full width, compact multi-column)
           Expanded(
-            child: _shifts.isEmpty 
-              ? Center(child: Text("No shifts found", style: GoogleFonts.poppins(color: Colors.grey, fontSize: 12)))
+            child: filteredShifts.isEmpty 
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.work_outline, size: 36, color: Colors.grey),
+                      const SizedBox(height: 8),
+                      Text("No shifts found", style: GoogleFonts.poppins(color: Colors.grey, fontSize: 12)),
+                    ],
+                  ),
+                )
               : LayoutBuilder(
               builder: (context, constraints) {
                 final crossAxisCount = constraints.maxWidth > 950 ? 3 : (constraints.maxWidth > 580 ? 2 : 1);
@@ -173,7 +281,7 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
                     spacing: spacing,
                     runSpacing: spacing,
                     alignment: WrapAlignment.start,
-                    children: _shifts.map<Widget>((shift) {
+                    children: filteredShifts.map<Widget>((shift) {
                        return SizedBox(
                          width: itemWidth,
                          child: _buildShiftCard(
@@ -207,13 +315,37 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Active Shifts',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).textTheme.bodyLarge?.color,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          'Work Shifts',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFF334155)
+                                : const Color(0xFFE2E8F0),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${_shifts.length}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? const Color(0xFFCBD5E1)
+                                  : const Color(0xFF475569),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     ElevatedButton.icon(
                       onPressed: () => _showAddShiftDialog(),
@@ -237,7 +369,7 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Manage work timings and grace periods',
+                  'Manage work timings, grace periods and rules',
                   style: GoogleFonts.poppins(
                     fontSize: 11,
                     color: Colors.grey,
@@ -252,17 +384,41 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Active Shifts',
-                        style: GoogleFonts.poppins(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).textTheme.bodyLarge?.color,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            'Work Shifts',
+                            style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).textTheme.bodyLarge?.color,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? const Color(0xFF334155)
+                                  : const Color(0xFFE2E8F0),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '${_shifts.length}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? const Color(0xFFCBD5E1)
+                                    : const Color(0xFF475569),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Manage work timings and grace periods',
+                        'Manage work timings, grace periods and staff assignments',
                         style: GoogleFonts.poppins(
                           fontSize: 11.5,
                           color: Colors.grey,
@@ -435,6 +591,8 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
               icon: Icons.edit_calendar_outlined,
               iconColor: Colors.deepOrangeAccent,
             ),
+            const SizedBox(height: 6),
+            _buildAssignedStaffRow(context, shift),
           ],
         ),
       ),
@@ -476,6 +634,183 @@ class _PolicyEngineViewState extends State<PolicyEngineView> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAssignedStaffRow(BuildContext context, Shift shift) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final staffList = _shiftAssignedEmployees[shift.id] ?? const [];
+    final totalCount = _shiftStaffCounts[shift.id] ?? staffList.length;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.people_outline, size: 12, color: Color(0xFF10B981)),
+            const SizedBox(width: 5),
+            Text(
+              'Assigned Staff',
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF10B981),
+              ),
+            ),
+          ],
+        ),
+        if (staffList.isEmpty)
+          Text(
+            totalCount > 0 ? '$totalCount Staff' : '0 Staff',
+            style: GoogleFonts.poppins(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w500,
+              color: isDark ? Colors.white54 : Colors.grey.shade600,
+            ),
+          )
+        else
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Overlapping Avatar Stack
+              SizedBox(
+                height: 24,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (int i = 0; i < staffList.take(4).length; i++) ...[
+                      Align(
+                        widthFactor: i == 0 ? 1.0 : 0.65,
+                        child: _buildStaffAvatar(context, staffList[i], isDark),
+                      ),
+                    ],
+                    if (totalCount > 4)
+                      Align(
+                        widthFactor: 0.65,
+                        child: InkWell(
+                          onTap: () => ShiftDetailBottomSheet.show(
+                            context,
+                            shift: shift,
+                            onEdit: () => _showAddShiftDialog(existingShift: shift),
+                            onDelete: () => _deleteShift(shift),
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: const Color(0xFF6366F1),
+                              border: Border.all(
+                                color: isDark ? const Color(0xFF161B22) : Colors.white,
+                                width: 1.5,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '+${totalCount - 4}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                '($totalCount)',
+                style: GoogleFonts.poppins(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF10B981),
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _buildStaffAvatar(BuildContext context, Employee staff, bool isDark) {
+    final name = staff.userName;
+    final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
+    final hasImg = staff.profileImage != null && staff.profileImage!.trim().isNotEmpty;
+
+    return GestureDetector(
+      onTap: () {
+        PfpViewerDialog.show(
+          context,
+          imageUrl: staff.profileImage,
+          name: staff.userName,
+          subtitle: staff.designation ?? staff.department ?? 'Staff',
+          heroTag: 'shift-staff-${staff.userId}-${staff.hashCode}',
+        );
+      },
+      child: Tooltip(
+        message: staff.userName,
+        child: Container(
+          width: 22,
+          height: 22,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: isDark ? const Color(0xFF161B22) : Colors.white,
+              width: 1.5,
+            ),
+            color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+          ),
+          child: ClipOval(
+            child: hasImg
+                ? CachedNetworkImage(
+                    imageUrl: staff.profileImage!.startsWith('http')
+                        ? staff.profileImage!
+                        : (staff.profileImage!.startsWith('/')
+                            ? '${ApiConstants.baseUrl}${staff.profileImage!}'
+                            : '${ApiConstants.baseUrl}/${staff.profileImage!}'),
+                    fit: BoxFit.cover,
+                    width: 22,
+                    height: 22,
+                    placeholder: (_, _) => Center(
+                      child: Text(
+                        initial,
+                        style: GoogleFonts.poppins(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF6366F1),
+                        ),
+                      ),
+                    ),
+                    errorWidget: (_, _, _) => Center(
+                      child: Text(
+                        initial,
+                        style: GoogleFonts.poppins(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF6366F1),
+                        ),
+                      ),
+                    ),
+                  )
+                : Center(
+                    child: Text(
+                      initial,
+                      style: GoogleFonts.poppins(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white70 : const Color(0xFF4F46E5),
+                      ),
+                    ),
+                  ),
+          ),
+        ),
+      ),
     );
   }
 }

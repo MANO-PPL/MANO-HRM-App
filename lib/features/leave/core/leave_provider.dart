@@ -19,6 +19,10 @@ class LeaveProvider with ChangeNotifier {
   int _selectedMonth = DateTime.now().month - 1;
   int _selectedYear = DateTime.now().year;
 
+  // Employee leave search & status filter (matching web MyLeaveRequests)
+  String _mySearchQuery = '';
+  String _myStatusFilter = 'all'; // 'all', 'pending', 'approved', 'rejected'
+
   // Admin State
   List<LeaveRequest> _pendingRequests = [];
   bool _isLoadingPending = false;
@@ -58,12 +62,15 @@ class LeaveProvider with ChangeNotifier {
   // GETTERS
   // --------------------------------------------------------------------------
 
+  LeaveService get leaveService => _leaveService;
   List<LeaveRequest> get myLeaves => _myLeaves;
   bool get isLoadingMyLeaves => _isLoadingMyLeaves;
   String? get myLeavesError => _myLeavesError;
 
   int get selectedMonth => _selectedMonth;
   int get selectedYear => _selectedYear;
+  String get mySearchQuery => _mySearchQuery;
+  String get myStatusFilter => _myStatusFilter;
 
   List<LeaveRequest> get pendingRequests => _pendingRequests;
   bool get isLoadingPending => _isLoadingPending;
@@ -91,7 +98,7 @@ class LeaveProvider with ChangeNotifier {
   int get staffAssignmentYear => _staffAssignmentYear;
   String get staffSearchQuery => _staffSearchQuery;
 
-  // Filtered leaves for employee by selected month & year
+  // Filtered leaves for employee by selected month & year (for summary counts only)
   List<LeaveRequest> get filteredMyLeaves {
     final monthStr = (_selectedMonth + 1).toString().padLeft(2, '0');
     final prefix = '$_selectedYear-$monthStr';
@@ -101,7 +108,40 @@ class LeaveProvider with ChangeNotifier {
     }).toList();
   }
 
-  // Total approved days for current month/year filter
+  // Filtered leaves by search + status (matching web MyLeaveRequests component)
+  List<LeaveRequest> get myFilteredLeaves {
+    final query = _mySearchQuery.trim().toLowerCase();
+    final status = _myStatusFilter.toLowerCase();
+    return _myLeaves.where((leave) {
+      final matchesSearch = query.isEmpty ||
+          leave.leaveType.toLowerCase().contains(query) ||
+          leave.reason.toLowerCase().contains(query) ||
+          (leave.policyName ?? '').toLowerCase().contains(query);
+      final matchesStatus = status == 'all' || leave.status.toLowerCase() == status;
+      return matchesSearch && matchesStatus;
+    }).toList();
+  }
+
+  // Counts for all leaves by status (matching web)
+  Map<String, int> get myLeaveCounts => {
+    'all': _myLeaves.length,
+    'pending': _myLeaves.where((l) => l.status == 'pending').length,
+    'approved': _myLeaves.where((l) => l.status == 'approved').length,
+    'rejected': _myLeaves.where((l) => l.status == 'rejected').length,
+  };
+
+  // Counts for admin leaves by status (matching web ChoiceChips)
+  Map<String, int> get adminLeaveCounts {
+    final active = _adminHistory.where((l) => l.isActive && !l.isDeleted).toList();
+    return {
+      'all': active.length,
+      'pending': active.where((l) => l.status == 'pending').length,
+      'approved': active.where((l) => l.status == 'approved').length,
+      'rejected': active.where((l) => l.status == 'rejected').length,
+    };
+  }
+
+  // Total approved days for current month/year filter (for summary badge)
   int get totalApprovedDays {
     return filteredMyLeaves
         .where((l) => l.status == 'approved')
@@ -160,6 +200,20 @@ class LeaveProvider with ChangeNotifier {
       notifyListeners();
       // Refetch balances for year
       fetchMyLeaveBalancesAndPolicies(forceRefresh: true);
+    }
+  }
+
+  void setMySearchQuery(String query) {
+    if (_mySearchQuery != query) {
+      _mySearchQuery = query;
+      notifyListeners();
+    }
+  }
+
+  void setMyStatusFilter(String status) {
+    if (_myStatusFilter != status) {
+      _myStatusFilter = status;
+      notifyListeners();
     }
   }
 
@@ -513,12 +567,23 @@ class LeaveProvider with ChangeNotifier {
       final lowerStatus = formattedStatus.toLowerCase();
       final index = _adminHistory.indexWhere((r) => r.id == id);
       if (index != -1) {
+        final existingTrail = List<Map<String, dynamic>>.from(_adminHistory[index].auditTrail);
+        existingTrail.add({
+          'action': lowerStatus,
+          'by': _authService.user?.id,
+          'by_name': _authService.user?.name ?? 'Admin',
+          'at': DateTime.now().toIso8601String(),
+          'comments': comment,
+        });
+
         final updated = _adminHistory[index].copyWith(
           status: lowerStatus,
           adminComment: comment,
+          reviewerName: _authService.user?.name ?? 'Admin',
           payType: payType,
           payPercentage: payPercentage,
           reviewedAt: DateTime.now(),
+          auditTrail: existingTrail,
         );
         _adminHistory[index] = updated;
 
@@ -533,12 +598,23 @@ class LeaveProvider with ChangeNotifier {
       // Also update in myLeaves if present
       final myIndex = _myLeaves.indexWhere((r) => r.id == id);
       if (myIndex != -1) {
+        final existingTrail = List<Map<String, dynamic>>.from(_myLeaves[myIndex].auditTrail);
+        existingTrail.add({
+          'action': lowerStatus,
+          'by': _authService.user?.id,
+          'by_name': _authService.user?.name ?? 'Admin',
+          'at': DateTime.now().toIso8601String(),
+          'comments': comment,
+        });
+
         _myLeaves[myIndex] = _myLeaves[myIndex].copyWith(
           status: lowerStatus,
           adminComment: comment,
+          reviewerName: _authService.user?.name ?? 'Admin',
           payType: payType,
           payPercentage: payPercentage,
           reviewedAt: DateTime.now(),
+          auditTrail: existingTrail,
         );
       }
 
@@ -568,7 +644,10 @@ class LeaveProvider with ChangeNotifier {
   Future<void> fetchLeaves({bool forceRefresh = false}) async {
     final isAdmin = _authService.user?.isAdmin ?? false;
     if (isAdmin) {
-      await fetchAdminHistory(forceRefresh: forceRefresh);
+      await Future.wait([
+        fetchAdminHistory(forceRefresh: forceRefresh),
+        fetchMyLeaveBalancesAndPolicies(forceRefresh: forceRefresh),
+      ]);
     } else {
       await Future.wait([
         fetchMyLeaves(forceRefresh: forceRefresh),
