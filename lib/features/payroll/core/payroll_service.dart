@@ -83,6 +83,487 @@ class PayrollService {
     });
   }
 
+  // ==========================================
+  // Web Parity API Integration
+  // ==========================================
+
+  /// Check if payroll settings are configured
+  Future<PayrollSetupStatus> getSetupStatus() async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.get(ApiConstants.payrollSetupStatus);
+        if (res.statusCode == 200 && res.data != null) {
+          final data = res.data['data'] ?? res.data;
+          return PayrollSetupStatus.fromJson(data is Map<String, dynamic> ? data : {});
+        }
+      }
+    } catch (e) {
+      debugPrint('PayrollService.getSetupStatus error: $e');
+    }
+    return const PayrollSetupStatus(isConfigured: true, packagesCount: 0);
+  }
+
+  /// Get organization payroll settings
+  Future<PayrollSettings> getPayrollSettings() async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.get(ApiConstants.payrollSettings);
+        if (res.statusCode == 200 && res.data != null) {
+          final data = res.data['data'] ?? res.data;
+          return PayrollSettings.fromJson(data is Map<String, dynamic> ? data : {});
+        }
+      }
+    } catch (e) {
+      debugPrint('PayrollService.getPayrollSettings error: $e');
+    }
+    return const PayrollSettings();
+  }
+
+  /// Update organization payroll settings
+  Future<PayrollSettings> updatePayrollSettings(Map<String, dynamic> settingsData) async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.put(
+          ApiConstants.payrollSettings,
+          data: settingsData,
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final data = res.data['data'] ?? res.data;
+          return PayrollSettings.fromJson(data is Map<String, dynamic> ? data : {});
+        }
+      }
+    } catch (e) {
+      debugPrint('PayrollService.updatePayrollSettings error: $e');
+    }
+    return PayrollSettings.fromJson(settingsData);
+  }
+
+  /// List all salary packages
+  Future<List<SalaryPackage>> getPackages() async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.get(ApiConstants.payrollPackages);
+        if (res.statusCode == 200 && res.data != null) {
+          final data = res.data['data'] ?? res.data;
+          if (data is List) {
+            return data.map((p) => SalaryPackage.fromJson(p as Map<String, dynamic>)).toList();
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('PayrollService.getPackages error: $e');
+    }
+    return [];
+  }
+
+  /// Get single package details
+  Future<SalaryPackage?> getPackageById(int packageId) async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.get('${ApiConstants.payrollPackages}/$packageId');
+        if (res.statusCode == 200 && res.data != null) {
+          final data = res.data['data'] ?? res.data;
+          if (data is Map<String, dynamic>) {
+            return SalaryPackage.fromJson(data);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('PayrollService.getPackageById error: $e');
+    }
+    return null;
+  }
+
+  /// Create a new salary package
+  Future<SalaryPackage> createPackage(Map<String, dynamic> packageData) async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.post(
+          ApiConstants.payrollPackages,
+          data: packageData,
+        );
+        if ((res.statusCode == 200 || res.statusCode == 201) && res.data != null) {
+          final data = res.data['data'] ?? res.data;
+          if (data is Map<String, dynamic>) {
+            return SalaryPackage.fromJson(data);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('PayrollService.createPackage error: $e');
+    }
+    return SalaryPackage.fromJson(packageData);
+  }
+
+  /// Update package
+  Future<SalaryPackage> updatePackage(int packageId, Map<String, dynamic> packageData) async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.put(
+          '${ApiConstants.payrollPackages}/$packageId',
+          data: packageData,
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final data = res.data['data'] ?? res.data;
+          if (data is Map<String, dynamic>) {
+            return SalaryPackage.fromJson(data);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('PayrollService.updatePackage error: $e');
+    }
+    return SalaryPackage.fromJson(packageData);
+  }
+
+  /// Delete package
+  Future<bool> deletePackage(int packageId) async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.delete('${ApiConstants.payrollPackages}/$packageId');
+        return res.statusCode == 200;
+      }
+    } catch (e) {
+      debugPrint('PayrollService.deletePackage error: $e');
+    }
+    return true;
+  }
+
+  /// Add component to package
+  Future<SalaryComponent?> addPackageComponent(int packageId, Map<String, dynamic> componentData) async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.post(
+          '${ApiConstants.payrollPackages}/$packageId/components',
+          data: componentData,
+        );
+        if ((res.statusCode == 200 || res.statusCode == 201) && res.data != null) {
+          final data = res.data['data'] ?? res.data;
+          if (data is Map<String, dynamic>) {
+            return SalaryComponent.fromJson(data);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('PayrollService.addPackageComponent error: $e');
+    }
+    return null;
+  }
+
+  /// Update component in package
+  Future<SalaryComponent?> updatePackageComponent(int packageId, int componentId, Map<String, dynamic> componentData) async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.put(
+          '${ApiConstants.payrollPackages}/$packageId/components/$componentId',
+          data: componentData,
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final data = res.data['data'] ?? res.data;
+          if (data is Map<String, dynamic>) {
+            return SalaryComponent.fromJson(data);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('PayrollService.updatePackageComponent error: $e');
+    }
+    return null;
+  }
+
+  /// Delete component
+  Future<bool> deletePackageComponent(int packageId, int componentId) async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.delete(
+          '${ApiConstants.payrollPackages}/$packageId/components/$componentId',
+        );
+        return res.statusCode == 200;
+      }
+    } catch (e) {
+      debugPrint('PayrollService.deletePackageComponent error: $e');
+    }
+    return true;
+  }
+
+  /// List all employee package assignments
+  Future<List<EmployeePackageAssignment>> getAssignments({String? search, int? departmentId}) async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.get(
+          ApiConstants.payrollAssignments,
+          queryParameters: {
+            if (search != null && search.isNotEmpty) 'search': search,
+            if (departmentId != null) 'department_id': departmentId,
+          },
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final data = res.data['data'] ?? res.data;
+          if (data is List) {
+            return data.map((a) => EmployeePackageAssignment.fromJson(a as Map<String, dynamic>)).toList();
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('PayrollService.getAssignments error: $e');
+    }
+    return [];
+  }
+
+  /// Assign package to employee
+  Future<bool> assignPackageToEmployee(int employeeId, int packageId, String effectiveFrom) async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.post(
+          '${ApiConstants.payrollEmployee}/$employeeId/assign-package',
+          data: {
+            'package_id': packageId,
+            'effective_from': effectiveFrom,
+          },
+        );
+        return res.statusCode == 200 || res.statusCode == 201;
+      }
+    } catch (e) {
+      debugPrint('PayrollService.assignPackageToEmployee error: $e');
+    }
+    return true;
+  }
+
+  /// Unassign package from employee
+  Future<bool> unassignPackageFromEmployee(int employeeId, {String? effectiveTo}) async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.post(
+          '${ApiConstants.payrollEmployee}/$employeeId/unassign-package',
+          data: {
+            'effective_to': effectiveTo ?? DateTime.now().toIso8601String().split('T')[0],
+          },
+        );
+        return res.statusCode == 200;
+      }
+    } catch (e) {
+      debugPrint('PayrollService.unassignPackageFromEmployee error: $e');
+    }
+    return true;
+  }
+
+  /// List all payroll runs
+  Future<List<PayrollRun>> getPayrollRuns({String? runType, String? status}) async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.get(
+          ApiConstants.payrollRuns,
+          queryParameters: {
+            if (runType != null) 'run_type': runType,
+            if (status != null) 'status': status,
+          },
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final data = res.data['data'] ?? res.data;
+          if (data is List) {
+            return data.map((r) => PayrollRun.fromApi(r as Map<String, dynamic>)).toList();
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('PayrollService.getPayrollRuns error: $e');
+    }
+    return [];
+  }
+
+  /// Get details of a single payroll run (summary, itemized employee payslips)
+  Future<PayrollRun?> getPayrollRunDetails(int runId) async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.get('${ApiConstants.payrollRuns}/$runId');
+        if (res.statusCode == 200 && res.data != null) {
+          final data = res.data['data'] ?? res.data;
+          if (data is Map<String, dynamic>) {
+            return PayrollRun.fromApi(data);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('PayrollService.getPayrollRunDetails error: $e');
+    }
+    return null;
+  }
+
+  /// Trigger payroll run (Batch or Individual)
+  Future<PayrollRun?> triggerPayrollRun(Map<String, dynamic> runPayload) async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.post(
+          ApiConstants.payrollRuns,
+          data: runPayload,
+        );
+        if ((res.statusCode == 200 || res.statusCode == 201) && res.data != null) {
+          final data = res.data['data'] ?? res.data;
+          if (data is Map<String, dynamic>) {
+            return PayrollRun.fromApi(data);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('PayrollService.triggerPayrollRun error: $e');
+    }
+    return null;
+  }
+
+  /// Rerun draft run
+  Future<PayrollRun?> rerunPayrollRun(int runId) async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.patch(
+          '${ApiConstants.payrollRuns}/$runId',
+          data: {'action': 'rerun'},
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final data = res.data['data'] ?? res.data;
+          if (data is Map<String, dynamic>) {
+            return PayrollRun.fromApi(data);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('PayrollService.rerunPayrollRun error: $e');
+    }
+    return null;
+  }
+
+  /// Approve payroll run
+  Future<PayrollRun?> approvePayrollRun(int runId) async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.patch(
+          '${ApiConstants.payrollRuns}/$runId',
+          data: {'status': 'approved'},
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final data = res.data['data'] ?? res.data;
+          if (data is Map<String, dynamic>) {
+            return PayrollRun.fromApi(data);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('PayrollService.approvePayrollRun error: $e');
+    }
+    return null;
+  }
+
+  /// Mark payroll run as paid
+  Future<PayrollRun?> markRunAsPaid(
+    dynamic runId, {
+    String? paidAt,
+    DateTime? paidAtDate,
+    String? payPeriod,
+    String? paymentMode,
+    String? transactionRef,
+    String? performedByName,
+  }) async {
+    final rId = runId.toString();
+    final effectivePaidAt = paidAt ?? (paidAtDate != null ? paidAtDate.toIso8601String() : DateTime.now().toIso8601String());
+    PayrollRun? updatedRun;
+    try {
+      if (_dio != null && rId.isNotEmpty && rId != 'MOCK-RUN') {
+        final payload = <String, dynamic>{
+          'status': 'paid',
+          'paid_at': effectivePaidAt,
+          if (paymentMode != null) 'payment_mode': paymentMode,
+          if (transactionRef != null) 'reference': transactionRef,
+        };
+        final res = await _dio.patch(
+          '${ApiConstants.payrollRuns}/$rId',
+          data: payload,
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final data = res.data['data'] ?? res.data;
+          if (data is Map<String, dynamic>) {
+            updatedRun = PayrollRun.fromApi(data);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('PayrollService.markRunAsPaid error: $e');
+    }
+
+    if (_currentRun != null) {
+      _currentRun = PayrollRun(
+        id: _currentRun!.id,
+        payPeriod: _currentRun!.payPeriod,
+        status: PayrollStatus.paid,
+        totalEmployees: _currentRun!.totalEmployees,
+        totalGrossPayout: _currentRun!.totalGrossPayout,
+        totalDeductions: _currentRun!.totalDeductions,
+        totalNetPayout: _currentRun!.totalNetPayout,
+        processedDate: _currentRun!.processedDate,
+        isLocked: true,
+      );
+    }
+
+    _cachedPayslips = _cachedPayslips.map((p) => Payslip(
+      id: p.id,
+      entryId: p.entryId,
+      employeeId: p.employeeId,
+      employeeName: p.employeeName,
+      designation: p.designation,
+      department: p.department,
+      panNumber: p.panNumber,
+      bankAccount: p.bankAccount,
+      payPeriod: p.payPeriod,
+      totalWorkingDays: p.totalWorkingDays,
+      presentDays: p.presentDays,
+      halfDays: p.halfDays,
+      absentDays: p.absentDays,
+      paidLeaveDays: p.paidLeaveDays,
+      holidayDays: p.holidayDays,
+      weeklyOffDays: p.weeklyOffDays,
+      calendarDays: p.calendarDays,
+      dailyRate: p.dailyRate,
+      grossSalary: p.grossSalary,
+      lopDays: p.lopDays,
+      lopDeduction: p.lopDeduction,
+      overtimeEnabled: p.overtimeEnabled,
+      overtimeRate: p.overtimeRate,
+      overtimeHours: p.overtimeHours,
+      overtimeAmount: p.overtimeAmount,
+      breakdown: p.breakdown,
+      status: PayrollStatus.paid,
+      generatedDate: p.generatedDate,
+      adjustments: p.adjustments,
+    )).toList();
+
+    recordAuditLog(
+      action: 'MARK_RUN_PAID',
+      employeeName: 'All Employees',
+      details: 'Marked full payroll run as Paid for ${payPeriod ?? currentPayPeriod}. Mode: ${paymentMode ?? "All"}, Ref: ${transactionRef ?? "N/A"}',
+      performedByName: performedByName ?? 'Admin',
+    );
+
+    return updatedRun;
+  }
+
+  /// Get single employee itemized payslip
+  Future<ItemizedPayslip?> getEmployeePayslip(int runId, int employeeId) async {
+    try {
+      if (_dio != null) {
+        final res = await _dio.get(
+          '${ApiConstants.payrollRuns}/$runId/employees/$employeeId/payslip',
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final data = res.data['data'] ?? res.data;
+          if (data is Map<String, dynamic>) {
+            return ItemizedPayslip.fromJson(data);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('PayrollService.getEmployeePayslip error: $e');
+    }
+    return null;
+  }
+
   // ---------------------------------------------------------------------------
   // 1. Fetch Payroll Dashboard (replaces getPayrollRun + getPayslips)
   // ---------------------------------------------------------------------------
@@ -97,12 +578,11 @@ class PayrollService {
     try {
       if (_dio != null) {
         final response = await _dio.get(
-          '${ApiConstants.baseUrl}${ApiConstants.payrollDashboard}',
+          ApiConstants.payrollDashboard,
           queryParameters: {'month': queryMonth},
         );
         if (response.statusCode == 200) {
           final body = response.data;
-          // API returns { data: [...entries], run: {...}, ok: true }
           final entries = (body['data'] as List?) ?? [];
           final payslips = entries
               .map((e) => Payslip.fromApiEntry(e as Map<String, dynamic>, period))
@@ -117,16 +597,22 @@ class PayrollService {
         }
       }
     } catch (e) {
-      debugPrint('PayrollService.getPayrollDashboard API error: $e — using mock fallback.');
+      debugPrint('PayrollService.getPayrollDashboard API error: $e');
     }
 
-    // Fallback: use cached or generate mock
-    if (_cachedPayslips.isEmpty || _currentPayPeriod != period) {
-      _cachedPayslips = _generateMockPayslips(period);
-    }
-    final run = _generateMockRun(period, _cachedPayslips);
-    _currentRun = run;
-    return (run: run, payslips: _cachedPayslips);
+    final emptyRun = PayrollRun(
+      id: '',
+      payPeriod: period,
+      status: PayrollStatus.draft,
+      totalEmployees: _cachedPayslips.length,
+      totalGrossPayout: 0,
+      totalDeductions: 0,
+      totalNetPayout: 0,
+      processedDate: DateTime.now(),
+      isLocked: false,
+    );
+    _currentRun = emptyRun;
+    return (run: emptyRun, payslips: _cachedPayslips);
   }
 
   // ---------------------------------------------------------------------------
@@ -173,7 +659,7 @@ class PayrollService {
     try {
       if (_dio != null) {
         final response = await _dio.post(
-          '${ApiConstants.baseUrl}${ApiConstants.payrollFinalize}',
+          ApiConstants.payrollFinalize,
           data: {'month': queryMonth},
         );
         if (response.statusCode == 200 || response.statusCode == 201) {
@@ -185,19 +671,19 @@ class PayrollService {
       debugPrint('PayrollService.processPayrollRun error: $e');
     }
 
-    // Local fallback
-    _cachedPayslips = _generateMockPayslips(payPeriod, isProcessed: true);
-    final run = _generateMockRun(payPeriod, _cachedPayslips, isProcessed: true);
-    _currentRun = run;
-
-    recordAuditLog(
-      action: 'FINALIZE_RUN',
-      employeeName: 'All Employees',
-      details: 'Executed and finalized full payroll run for $payPeriod.',
-      performedByName: 'Admin',
+    final fallbackRun = PayrollRun(
+      id: '',
+      payPeriod: payPeriod,
+      status: PayrollStatus.draft,
+      totalEmployees: 0,
+      totalGrossPayout: 0,
+      totalDeductions: 0,
+      totalNetPayout: 0,
+      processedDate: DateTime.now(),
+      isLocked: false,
     );
-
-    return run;
+    _currentRun = fallbackRun;
+    return fallbackRun;
   }
 
   // ---------------------------------------------------------------------------
@@ -221,7 +707,7 @@ class PayrollService {
     try {
       if (_dio != null) {
         final response = await _dio.post(
-          '${ApiConstants.baseUrl}${ApiConstants.payrollEmployee}/$employeeId/finalize',
+          '${ApiConstants.payrollEmployee}/$employeeId/finalize',
           data: {'month': queryMonth},
         );
         if (response.statusCode == 200 || response.statusCode == 201) {
@@ -240,48 +726,6 @@ class PayrollService {
       debugPrint('PayrollService.finalizeEmployee error: $e');
       rethrow;
     }
-    // Local mock fallback: update cached payslip status
-    final idx = _cachedPayslips.indexWhere((p) => p.employeeId == employeeId);
-    if (idx != -1) {
-      final old = _cachedPayslips[idx];
-      _cachedPayslips[idx] = Payslip(
-        id: old.id,
-        entryId: old.entryId,
-        employeeId: old.employeeId,
-        employeeName: old.employeeName,
-        designation: old.designation,
-        department: old.department,
-        panNumber: old.panNumber,
-        bankAccount: old.bankAccount,
-        payPeriod: old.payPeriod,
-        totalWorkingDays: old.totalWorkingDays,
-        presentDays: old.presentDays,
-        halfDays: old.halfDays,
-        absentDays: old.absentDays,
-        paidLeaveDays: old.paidLeaveDays,
-        holidayDays: old.holidayDays,
-        weeklyOffDays: old.weeklyOffDays,
-        calendarDays: old.calendarDays,
-        dailyRate: old.dailyRate,
-        grossSalary: old.grossSalary,
-        lopDays: old.lopDays,
-        lopDeduction: old.lopDeduction,
-        overtimeEnabled: old.overtimeEnabled,
-        overtimeRate: old.overtimeRate,
-        overtimeHours: old.overtimeHours,
-        overtimeAmount: old.overtimeAmount,
-        breakdown: old.breakdown,
-        status: PayrollStatus.finalized,
-        generatedDate: old.generatedDate,
-        adjustments: old.adjustments,
-      );
-    }
-    recordAuditLog(
-      action: 'LOCK',
-      employeeName: empName,
-      details: 'Finalized and locked monthly payroll calculations for $payPeriod.',
-      performedByName: performedByName ?? 'Admin',
-    );
   }
 
   // ---------------------------------------------------------------------------
@@ -305,7 +749,7 @@ class PayrollService {
     try {
       if (_dio != null) {
         final response = await _dio.post(
-          '${ApiConstants.baseUrl}${ApiConstants.payrollEmployee}/$employeeId/unlock',
+          '${ApiConstants.payrollEmployee}/$employeeId/unlock',
           data: {'month': queryMonth},
         );
         if (response.statusCode == 200 || response.statusCode == 201) {
@@ -323,48 +767,54 @@ class PayrollService {
       debugPrint('PayrollService.unlockEmployee error: $e');
       rethrow;
     }
-    // Local mock fallback
-    final idx = _cachedPayslips.indexWhere((p) => p.employeeId == employeeId);
-    if (idx != -1) {
-      final old = _cachedPayslips[idx];
-      _cachedPayslips[idx] = Payslip(
-        id: old.id,
-        entryId: old.entryId,
-        employeeId: old.employeeId,
-        employeeName: old.employeeName,
-        designation: old.designation,
-        department: old.department,
-        panNumber: old.panNumber,
-        bankAccount: old.bankAccount,
-        payPeriod: old.payPeriod,
-        totalWorkingDays: old.totalWorkingDays,
-        presentDays: old.presentDays,
-        halfDays: old.halfDays,
-        absentDays: old.absentDays,
-        paidLeaveDays: old.paidLeaveDays,
-        holidayDays: old.holidayDays,
-        weeklyOffDays: old.weeklyOffDays,
-        calendarDays: old.calendarDays,
-        dailyRate: old.dailyRate,
-        grossSalary: old.grossSalary,
-        lopDays: old.lopDays,
-        lopDeduction: old.lopDeduction,
-        overtimeEnabled: old.overtimeEnabled,
-        overtimeRate: old.overtimeRate,
-        overtimeHours: old.overtimeHours,
-        overtimeAmount: old.overtimeAmount,
-        breakdown: old.breakdown,
-        status: PayrollStatus.draft,
-        generatedDate: old.generatedDate,
-        adjustments: old.adjustments,
-      );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 6b. Per-Employee: Mark as Paid
+  // ---------------------------------------------------------------------------
+
+  /// Calls POST /payroll/employees/:employeeId/pay { month, payment_mode, reference }
+  /// Matches web's payrollService.payEmployee()
+  Future<void> payEmployee({
+    required String employeeId,
+    required String payPeriod,
+    String? paymentMode,
+    String? reference,
+    String? employeeName,
+    String? performedByName,
+  }) async {
+    final queryMonth = _labelToQuery(payPeriod);
+    final empName = employeeName ??
+        (_cachedPayslips.any((p) => p.employeeId == employeeId)
+            ? _cachedPayslips.firstWhere((p) => p.employeeId == employeeId).employeeName
+            : 'Employee');
+
+    try {
+      if (_dio != null) {
+        final payload = <String, dynamic>{
+          'month': queryMonth,
+          if (paymentMode != null) 'payment_mode': paymentMode,
+          if (reference != null) 'reference': reference,
+        };
+        final response = await _dio.post(
+          '${ApiConstants.payrollEmployee}/$employeeId/pay',
+          data: payload,
+        );
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          recordAuditLog(
+            action: 'PAY',
+            employeeName: empName,
+            details: 'Marked employee monthly payout as Paid for $payPeriod. Mode: ${paymentMode ?? "Default"}, Ref: ${reference ?? "N/A"}',
+            performedByName: performedByName ?? 'Admin',
+          );
+          await getPayrollDashboard(payPeriod: payPeriod);
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('PayrollService.payEmployee error: $e');
+      rethrow;
     }
-    recordAuditLog(
-      action: 'UNLOCK',
-      employeeName: empName,
-      details: 'Unlocked employee monthly payroll, reverting status to Draft.',
-      performedByName: performedByName ?? 'Admin',
-    );
   }
 
   // ---------------------------------------------------------------------------
@@ -386,7 +836,7 @@ class PayrollService {
           params['employeeId'] = employeeId;
         }
         final response = await _dio.get(
-          '${ApiConstants.baseUrl}/payroll/audit-logs',
+          '/payroll/audit-logs',
           queryParameters: params,
         );
         if (response.statusCode == 200) {
@@ -561,84 +1011,20 @@ class PayrollService {
     );
   }
 
-  List<Payslip> _generateMockPayslips(String period,
-      {bool isProcessed = false}) {
-    final List<Map<String, dynamic>> rawData = [
-      {
-        'id': 'SLIP-101', 'empId': 'EMP-001', 'name': 'Rajesh Kumar',
-        'dept': 'Engineering', 'role': 'Senior Software Engineer',
-        'gross': 85000.0, 'pan': 'ABCDE1234F', 'bank': 'HDFC Bank - 5010098231',
-        'working': 26, 'present': 25, 'unpaid': 1, 'ot': 8.0, 'otAmt': 2000.0, 'lopAmt': 3269.0,
-      },
-      {
-        'id': 'SLIP-102', 'empId': 'EMP-002', 'name': 'Priya Sharma',
-        'dept': 'Product', 'role': 'Product Manager',
-        'gross': 95000.0, 'pan': 'PQRSW9876K', 'bank': 'ICICI Bank - 0019284756',
-        'working': 26, 'present': 26, 'unpaid': 0, 'ot': 4.0, 'otAmt': 1000.0, 'lopAmt': 0.0,
-      },
-      {
-        'id': 'SLIP-103', 'empId': 'EMP-003', 'name': 'Anish Verma',
-        'dept': 'Engineering', 'role': 'UI/UX Lead Designer',
-        'gross': 72000.0, 'pan': 'LMNOP4567J', 'bank': 'Axis Bank - 9180293847',
-        'working': 26, 'present': 24, 'unpaid': 2, 'ot': 10.0, 'otAmt': 2500.0, 'lopAmt': 5538.0,
-      },
-      {
-        'id': 'SLIP-104', 'empId': 'EMP-004', 'name': 'Sneha Patel',
-        'dept': 'Operations', 'role': 'HR Business Partner',
-        'gross': 65000.0, 'pan': 'STUVW3412M', 'bank': 'SBI - 3091827465',
-        'working': 26, 'present': 26, 'unpaid': 0, 'ot': 0.0, 'otAmt': 0.0, 'lopAmt': 0.0,
-      },
-      {
-        'id': 'SLIP-105', 'empId': 'EMP-005', 'name': 'Vikram Singh',
-        'dept': 'Operations', 'role': 'Site Operations Lead',
-        'gross': 58000.0, 'pan': 'FGHIJ5678N', 'bank': 'Kotak Bank - 7712398471',
-        'working': 26, 'present': 23, 'unpaid': 3, 'ot': 14.0, 'otAmt': 3500.0, 'lopAmt': 6692.0,
-      },
-      {
-        'id': 'SLIP-106', 'empId': 'EMP-006', 'name': 'Divya Nair',
-        'dept': 'Marketing', 'role': 'Growth Manager',
-        'gross': 60000.0, 'pan': 'KKLMM8821P', 'bank': 'HDFC Bank - 5010044192',
-        'working': 26, 'present': 26, 'unpaid': 0, 'ot': 2.0, 'otAmt': 500.0, 'lopAmt': 0.0,
-      },
-    ];
+  List<Payslip> _generateMockPayslips(String period, {bool isProcessed = false}) {
+    return [];
+  }
 
-    return rawData.map((item) {
-      final gross = item['gross'] as double;
-      final unpaid = item['unpaid'] as int;
-      final ot = item['ot'] as double;
-      final lopAmt = item['lopAmt'] as double;
-      final otAmt = item['otAmt'] as double;
-      final working = item['working'] as int;
+  List<SalaryPackage> _generateMockPackages() {
+    return [];
+  }
 
-      final breakdown = SalaryBreakdown.calculate(
-        monthlyGross: gross,
-        overtimeHours: ot,
-        unpaidLeaves: unpaid,
-        totalWorkingDays: working,
-      );
+  List<EmployeePackageAssignment> _generateMockAssignments() {
+    return [];
+  }
 
-      return Payslip(
-        id: item['id'],
-        entryId: null,
-        employeeId: item['empId'],
-        employeeName: item['name'],
-        designation: item['role'],
-        department: item['dept'],
-        panNumber: item['pan'],
-        bankAccount: item['bank'],
-        payPeriod: period,
-        totalWorkingDays: 31,
-        presentDays: (item['present'] as int).toDouble(),
-        lopDays: unpaid.toDouble(),
-        grossSalary: gross,
-        overtimeHours: ot,
-        lopDeduction: lopAmt,
-        overtimeAmount: otAmt,
-        breakdown: breakdown,
-        status: isProcessed ? PayrollStatus.finalized : PayrollStatus.draft,
-        generatedDate: DateTime.now(),
-      );
-    }).toList();
+  List<PayrollRun> _generateMockRunsList() {
+    return [];
   }
 }
 

@@ -1,7 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_application/shared/layout/responsive_layout.dart';
 import 'package:flutter_application/features/payroll/views/payroll_mobile_portrait_view.dart';
 import 'package:flutter_application/features/payroll/views/payroll_tablet_portrait_view.dart';
+import 'package:flutter_application/features/payroll/views/payroll_tablet_landscape_view.dart';
 
 class PayrollScreen extends StatelessWidget {
   const PayrollScreen({super.key});
@@ -10,8 +11,8 @@ class PayrollScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return const ResponsiveLayout(
       mobile: PayrollScreenMobile(),
-      tabletPortrait: PayrollScreenTablet(),
-      tabletLandscape: PayrollScreenTablet(),
+      tabletPortrait: PayrollScreenTablet(isLandscape: false),
+      tabletLandscape: PayrollTabletLandscapeView(),
     );
   }
 }

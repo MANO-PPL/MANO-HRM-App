@@ -339,6 +339,7 @@ class Payslip {
 
   String get formattedNetPay =>
       NumberFormat.currency(symbol: '₹', decimalDigits: 2).format(netPay);
+  String get formattedNetSalary => formattedNetPay;
   String get formattedGross =>
       NumberFormat.currency(symbol: '₹', decimalDigits: 2).format(grossSalary);
   String get formattedDeductions =>
@@ -512,28 +513,515 @@ class Payslip {
   }
 }
 
+// ==========================================
+// 1. Settings & Setup Models
+// ==========================================
+
+class PayrollSettings {
+  final String currency;
+  final String payrollFrequency;
+  final String roundingMethod;
+  final int roundingPrecision;
+  final String lopCalculationMethod;
+  final int lopFixedDaysValue;
+  final double lopFactorPresent;
+  final double lopFactorHalfDay;
+  final double lopFactorAbsent;
+
+  const PayrollSettings({
+    this.currency = 'INR',
+    this.payrollFrequency = 'monthly',
+    this.roundingMethod = 'nearest',
+    this.roundingPrecision = 0,
+    this.lopCalculationMethod = 'Calendar Days',
+    this.lopFixedDaysValue = 30,
+    this.lopFactorPresent = 1.0,
+    this.lopFactorHalfDay = 0.5,
+    this.lopFactorAbsent = 0.0,
+  });
+
+  factory PayrollSettings.fromJson(Map<String, dynamic> json) {
+    return PayrollSettings(
+      currency: json['currency']?.toString() ?? 'INR',
+      payrollFrequency: json['payrollFrequency']?.toString() ?? json['payroll_frequency']?.toString() ?? 'monthly',
+      roundingMethod: json['roundingMethod']?.toString() ?? json['rounding_method']?.toString() ?? 'nearest',
+      roundingPrecision: _toInt(json['roundingPrecision'] ?? json['rounding_precision'], 0),
+      lopCalculationMethod: json['lopCalculationMethod']?.toString() ?? json['lop_calculation_method']?.toString() ?? 'Calendar Days',
+      lopFixedDaysValue: _toInt(json['lopFixedDaysValue'] ?? json['lop_fixed_days_value'], 30),
+      lopFactorPresent: _toDouble(json['lopFactorPresent'] ?? json['lop_factor_present'] ?? 1.0),
+      lopFactorHalfDay: _toDouble(json['lopFactorHalfDay'] ?? json['lop_factor_half_day'] ?? 0.5),
+      lopFactorAbsent: _toDouble(json['lopFactorAbsent'] ?? json['lop_factor_absent'] ?? 0.0),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'currency': currency,
+    'payrollFrequency': payrollFrequency,
+    'roundingMethod': roundingMethod,
+    'roundingPrecision': roundingPrecision,
+    'lopCalculationMethod': lopCalculationMethod,
+    'lopFixedDaysValue': lopFixedDaysValue,
+    'lopFactorPresent': lopFactorPresent,
+    'lopFactorHalfDay': lopFactorHalfDay,
+    'lopFactorAbsent': lopFactorAbsent,
+  };
+}
+
+class PayrollSetupStatus {
+  final bool isConfigured;
+  final int packagesCount;
+  final PayrollSettings? settings;
+
+  const PayrollSetupStatus({
+    required this.isConfigured,
+    required this.packagesCount,
+    this.settings,
+  });
+
+  factory PayrollSetupStatus.fromJson(Map<String, dynamic> json) {
+    final isConf = json['is_configured'] == true ||
+        json['is_settings_configured'] == true ||
+        (json['settings'] != null && json['settings']['is_configured'] == true);
+    final count = _toInt(json['packages_count']);
+    final sJson = json['settings'] is Map<String, dynamic> ? json['settings'] as Map<String, dynamic> : null;
+    return PayrollSetupStatus(
+      isConfigured: isConf,
+      packagesCount: count,
+      settings: sJson != null ? PayrollSettings.fromJson(sJson) : null,
+    );
+  }
+}
+
+// ==========================================
+// 2. Salary Package & Component Models
+// ==========================================
+
+class SalaryComponent {
+  final int? id;
+  final int? packageId;
+  final String name;
+  final String category; // 'earning', 'deduction', 'employer_contribution', 'benefit'
+  final String calcType; // 'fixed', 'percent_of_gross', 'percent_of_component'
+  final double value;
+  final String? baseComponentName;
+  final int sortOrder;
+
+  const SalaryComponent({
+    this.id,
+    this.packageId,
+    required this.name,
+    this.category = 'earning',
+    this.calcType = 'fixed',
+    required this.value,
+    this.baseComponentName,
+    this.sortOrder = 0,
+  });
+
+  bool get isEarning => category.toLowerCase() == 'earning';
+  bool get isDeduction => category.toLowerCase() == 'deduction';
+  bool get isEmployerContribution =>
+      category.toLowerCase() == 'employer_contribution' ||
+      category.toLowerCase() == 'employer_cost' ||
+      category.toLowerCase() == 'employer';
+  bool get isBenefit => category.toLowerCase() == 'benefit' || category.toLowerCase() == 'benefits';
+
+  String get categoryLabel {
+    if (isEarning) return 'Earning (+)';
+    if (isDeduction) return 'Deduction (-)';
+    if (isEmployerContribution) return 'Employer Cost (CTC)';
+    if (isBenefit) return 'Benefit (Perk)';
+    return category;
+  }
+
+  factory SalaryComponent.fromJson(Map<String, dynamic> json) {
+    return SalaryComponent(
+      id: json['id'] != null ? _toInt(json['id']) : null,
+      packageId: json['package_id'] != null ? _toInt(json['package_id']) : null,
+      name: json['name']?.toString() ?? '',
+      category: json['category']?.toString() ?? 'earning',
+      calcType: json['calc_type']?.toString() ?? 'fixed',
+      value: _toDouble(json['value']),
+      baseComponentName: json['base_component_name']?.toString(),
+      sortOrder: _toInt(json['sort_order'], 0),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    if (id != null) 'id': id,
+    if (packageId != null) 'package_id': packageId,
+    'name': name,
+    'category': category,
+    'calc_type': calcType,
+    'value': value,
+    if (baseComponentName != null) 'base_component_name': baseComponentName,
+    'sort_order': sortOrder,
+  };
+}
+
+class SalaryPackage {
+  final String id;
+  final String name;
+  final String? description;
+  final String employeeId;
+  final String employeeName;
+  final double annualCtc;
+  final double monthlyGross;
+  final bool isPfApplicable;
+  final bool isEsiApplicable;
+  final bool overtimeEnabled;
+  final double overtimeRate;
+  final bool lopEnabled;
+  final String lopBasis;
+  final String lopDayBasis;
+  final double halfDayMultiplier;
+  final List<SalaryComponent> components;
+  final String? effectiveFrom;
+
+  SalaryPackage({
+    required this.id,
+    String? name,
+    this.description,
+    this.employeeId = '',
+    this.employeeName = '',
+    double? annualCtc,
+    double? monthlyGross,
+    this.isPfApplicable = true,
+    bool? isEsiApplicable,
+    this.overtimeEnabled = true,
+    this.overtimeRate = 150.0,
+    this.lopEnabled = true,
+    this.lopBasis = 'gross',
+    this.lopDayBasis = 'calendar_days',
+    this.halfDayMultiplier = 0.5,
+    this.components = const [],
+    this.effectiveFrom,
+  })  : name = name ?? (employeeName.isNotEmpty ? '$employeeName Package' : 'Standard Package'),
+        monthlyGross = monthlyGross ?? ((annualCtc != null && annualCtc > 0) ? annualCtc / 12 : 0.0),
+        annualCtc = annualCtc ?? ((monthlyGross != null && monthlyGross > 0) ? monthlyGross * 12 : 0.0),
+        isEsiApplicable = isEsiApplicable ?? ((monthlyGross ?? 0.0) <= 21000);
+
+  String get formattedCtc =>
+      NumberFormat.currency(symbol: '₹ ', decimalDigits: 0).format(annualCtc);
+  String get formattedMonthlyGross =>
+      NumberFormat.currency(symbol: '₹ ', decimalDigits: 0).format(monthlyGross);
+
+  int get earningsCount => components.where((c) => c.isEarning).length;
+  int get deductionsCount => components.where((c) => c.isDeduction).length;
+  int get employerContributionsCount => components.where((c) => c.isEmployerContribution).length;
+  int get benefitsCount => components.where((c) => c.isBenefit).length;
+
+  factory SalaryPackage.fromJson(Map<String, dynamic> json) {
+    final pkgId = (json['id'] ?? json['package_group_id'] ?? json['package_id'] ?? '').toString();
+    final pName = json['name']?.toString() ?? json['package_name']?.toString() ?? 'Unnamed Package';
+    final desc = json['description']?.toString();
+    final activeRate = json['active_rate'] as Map<String, dynamic>?;
+    final rules = json['packages_rules'] as Map<String, dynamic>?;
+    final lopRules = rules != null ? (rules['lop'] as Map<String, dynamic>?) : null;
+    final otRules = rules != null ? (rules['ot'] as Map<String, dynamic>?) : null;
+
+    final gross = _toDouble(activeRate != null ? activeRate['gross_salary'] : (json['gross_salary'] ?? json['monthly_gross']));
+    final ot = otRules != null
+        ? (otRules['enabled'] == 1 || otRules['enabled'] == true)
+        : (activeRate != null
+            ? (activeRate['overtime_enabled'] == 1 || activeRate['overtime_enabled'] == true)
+            : (json['overtime_enabled'] == 1 || json['overtime_enabled'] == true));
+    final otRate = _toDouble(
+      otRules != null
+          ? otRules['hourly_rate']
+          : (activeRate != null ? activeRate['overtime_rate'] : json['overtime_rate']),
+    );
+    final rawComps = json['components'] as List? ?? [];
+    final comps = rawComps.map((c) => SalaryComponent.fromJson(c as Map<String, dynamic>)).toList();
+    final effFrom = activeRate != null ? activeRate['effective_from']?.toString() : json['created_at']?.toString();
+
+    final lopEn = lopRules != null
+        ? (lopRules['enabled'] != false)
+        : (json['lop_enabled'] != false);
+    final lopB = lopRules != null
+        ? (lopRules['basis']?.toString() ?? 'gross')
+        : (json['lop_basis']?.toString() ?? 'gross');
+    final lopDay = lopRules != null
+        ? (lopRules['day_divisor']?.toString() ?? lopRules['day_basis']?.toString() ?? 'calendar_days')
+        : (json['lop_day_basis']?.toString() ?? 'calendar_days');
+
+    final halfDay = _toDouble(
+      lopRules != null
+          ? (lopRules['factor_half_day'] ?? lopRules['half_day_multiplier'])
+          : (activeRate != null
+              ? (activeRate['half_day_multiplier'] ?? activeRate['lop_factor_half_day'] ?? activeRate['halfDayMultiplier'] ?? activeRate['lopFactorHalfDay'])
+              : (json['half_day_multiplier'] ?? json['lop_factor_half_day'] ?? json['halfDayMultiplier'] ?? json['lopFactorHalfDay'])),
+    );
+
+    return SalaryPackage(
+      id: pkgId,
+      name: pName,
+      description: desc,
+      monthlyGross: gross,
+      annualCtc: gross * 12,
+      overtimeEnabled: ot,
+      overtimeRate: otRate > 0 ? otRate : 150.0,
+      lopEnabled: lopEn,
+      lopBasis: lopB,
+      lopDayBasis: lopDay,
+      halfDayMultiplier: halfDay > 0 ? halfDay : 0.5,
+      components: comps,
+      effectiveFrom: effFrom,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'description': description,
+    'grossSalary': monthlyGross,
+    'overtimeEnabled': overtimeEnabled,
+    'overtimeRate': overtimeRate,
+    'lopEnabled': lopEnabled,
+    'lopBasis': lopBasis,
+    'lopDayBasis': lopDayBasis,
+    'halfDayMultiplier': halfDayMultiplier,
+    'half_day_multiplier': halfDayMultiplier,
+    'lopFactorHalfDay': halfDayMultiplier,
+    'lop_factor_half_day': halfDayMultiplier,
+    'packages_rules': {
+      'lop': {
+        'enabled': lopEnabled,
+        'basis': lopBasis,
+        'day_divisor': lopDayBasis,
+        'day_basis': lopDayBasis,
+        'factor_present': 1.0,
+        'factor_half_day': halfDayMultiplier,
+        'factor_absent': 0.0,
+      },
+      'ot': {
+        'enabled': overtimeEnabled,
+        'rate_basis': 'hourly',
+        'hourly_rate': overtimeRate,
+        'multiplier': 1.5,
+      },
+    },
+    'effectiveFrom': effectiveFrom,
+    'components': components.map((c) => c.toJson()).toList(),
+  };
+}
+
+// ==========================================
+// 3. Employee Package Assignment Models
+// ==========================================
+
+class EmployeePackageAssignment {
+  final int employeeId;
+  final String name;
+  final String code;
+  final String department;
+  final String designation;
+  final int? packageId;
+  final String? packageName;
+  final double grossSalary;
+  final String? effectiveFrom;
+  final String? effectiveTo;
+  final String status; // 'assigned' | 'unassigned'
+
+  const EmployeePackageAssignment({
+    required this.employeeId,
+    required this.name,
+    this.code = '',
+    this.department = 'General',
+    this.designation = 'Staff',
+    this.packageId,
+    this.packageName,
+    this.grossSalary = 0.0,
+    this.effectiveFrom,
+    this.effectiveTo,
+    this.status = 'unassigned',
+  });
+
+  bool get isAssigned => packageId != null && packageId! > 0;
+
+  factory EmployeePackageAssignment.fromJson(Map<String, dynamic> json) {
+    final empId = _toInt(json['employee_id'] ?? json['user_id'] ?? json['id']);
+    final pkgId = json['package_id'] != null
+        ? _toInt(json['package_id'])
+        : (json['package_group_id'] != null ? _toInt(json['package_group_id']) : null);
+    final gross = _toDouble(json['gross_salary'] ??
+        json['monthly_gross'] ??
+        (json['active_rate'] != null ? json['active_rate']['gross_salary'] : 0.0));
+    return EmployeePackageAssignment(
+      employeeId: empId,
+      name: json['name']?.toString() ?? json['user_name']?.toString() ?? 'Staff Member',
+      code: json['code']?.toString() ?? json['user_code']?.toString() ?? json['employee_code']?.toString() ?? '',
+      department: json['department']?.toString() ?? json['dept_name']?.toString() ?? 'General',
+      designation: json['designation']?.toString() ?? json['desg_name']?.toString() ?? 'Staff',
+      packageId: pkgId,
+      packageName: json['package_name']?.toString() ?? json['name']?.toString(),
+      grossSalary: gross,
+      effectiveFrom: json['effective_from']?.toString(),
+      effectiveTo: json['effective_to']?.toString(),
+      status: (pkgId != null && pkgId > 0) ? 'assigned' : 'unassigned',
+    );
+  }
+}
+
+// ==========================================
+// 4. Payroll Run & Breakdown Models
+// ==========================================
+
+class PayrollRunSummary {
+  final int employeeCount;
+  final double totalGross;
+  final double totalDeductions;
+  final double totalNet;
+
+  const PayrollRunSummary({
+    this.employeeCount = 0,
+    this.totalGross = 0.0,
+    this.totalDeductions = 0.0,
+    this.totalNet = 0.0,
+  });
+
+  factory PayrollRunSummary.fromJson(Map<String, dynamic> json) {
+    return PayrollRunSummary(
+      employeeCount: _toInt(json['employee_count'] ?? json['count']),
+      totalGross: _toDouble(json['total_gross'] ?? json['gross']),
+      totalDeductions: _toDouble(json['total_deductions'] ?? json['deductions']),
+      totalNet: _toDouble(json['total_net'] ?? json['net']),
+    );
+  }
+}
+
+class PayrollLineItem {
+  final String name;
+  final String transactionType; // 'earning', 'deduction', 'employer_contribution', 'adjustment'
+  final double amount;
+  final String? description;
+  final int? salaryPackageComponentId;
+
+  const PayrollLineItem({
+    required this.name,
+    required this.transactionType,
+    required this.amount,
+    this.description,
+    this.salaryPackageComponentId,
+  });
+
+  bool get isDeduction => transactionType.toLowerCase() == 'deduction' || amount < 0;
+  bool get isEarning => transactionType.toLowerCase() == 'earning' || transactionType.toLowerCase() == 'addition';
+
+  factory PayrollLineItem.fromJson(Map<String, dynamic> json) {
+    return PayrollLineItem(
+      name: json['name']?.toString() ?? 'Adjustment',
+      transactionType: json['transaction_type']?.toString() ?? 'earning',
+      amount: _toDouble(json['amount']),
+      description: json['description']?.toString(),
+      salaryPackageComponentId: json['salary_package_component_id'] != null ? _toInt(json['salary_package_component_id']) : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'transaction_type': transactionType,
+    'amount': amount,
+    'description': description,
+    'salary_package_component_id': salaryPackageComponentId,
+  };
+}
+
+class PayrollRunEmployee {
+  final int employeeId;
+  final String employeeName;
+  final String employeeCode;
+  final String department;
+  final String designation;
+  final double grossPay;
+  final double totalDeductions;
+  final double netPay;
+  final List<PayrollLineItem> lines;
+
+  const PayrollRunEmployee({
+    required this.employeeId,
+    required this.employeeName,
+    this.employeeCode = '',
+    this.department = 'General',
+    this.designation = 'Staff',
+    this.grossPay = 0.0,
+    this.totalDeductions = 0.0,
+    this.netPay = 0.0,
+    this.lines = const [],
+  });
+
+  PayrollLineItem? get lopLine {
+    for (final l in lines) {
+      final n = l.name.toLowerCase();
+      if (n.contains('loss of pay') || n.contains('lop')) return l;
+    }
+    return null;
+  }
+
+  PayrollLineItem? get otLine {
+    for (final l in lines) {
+      if (l.name.toLowerCase().contains('overtime')) return l;
+    }
+    return null;
+  }
+
+  factory PayrollRunEmployee.fromJson(Map<String, dynamic> json) {
+    final rawLines = json['lines'] as List? ?? [];
+    final linesList = rawLines.map((l) => PayrollLineItem.fromJson(l as Map<String, dynamic>)).toList();
+    return PayrollRunEmployee(
+      employeeId: _toInt(json['employee_id'] ?? json['user_id'] ?? json['id']),
+      employeeName: json['employee_name']?.toString() ?? json['user_name']?.toString() ?? json['name']?.toString() ?? 'Staff',
+      employeeCode: json['employee_code']?.toString() ?? json['user_code']?.toString() ?? json['code']?.toString() ?? '',
+      department: json['department']?.toString() ?? json['dept_name']?.toString() ?? 'General',
+      designation: json['designation']?.toString() ?? json['desg_name']?.toString() ?? 'Staff',
+      grossPay: _toDouble(json['gross_pay'] ?? json['gross_salary']),
+      totalDeductions: _toDouble(json['total_deductions'] ?? json['deductions']),
+      netPay: _toDouble(json['net_pay'] ?? json['net_salary']),
+      lines: linesList,
+    );
+  }
+}
+
 class PayrollRun {
   final String id;
-  final String payPeriod; // "August 2026"
+  final String? batchName;
+  final String runType; // 'batch' | 'individual'
+  final String payPeriod; // "August 2026" or "2026-08-01 to 2026-08-31"
+  final String? periodStart;
+  final String? periodEnd;
   final PayrollStatus status;
   final int totalEmployees;
   final double totalGrossPayout;
   final double totalDeductions;
   final double totalNetPayout;
   final DateTime processedDate;
+  final String? paidAt;
   final bool isLocked;
+  final PayrollRunSummary summary;
+  final List<PayrollRunEmployee> employees;
 
   PayrollRun({
     required this.id,
+    this.batchName,
+    this.runType = 'batch',
     required this.payPeriod,
+    this.periodStart,
+    this.periodEnd,
     required this.status,
     required this.totalEmployees,
     required this.totalGrossPayout,
     required this.totalDeductions,
     required this.totalNetPayout,
     required this.processedDate,
+    this.paidAt,
     this.isLocked = false,
-  });
+    PayrollRunSummary? summary,
+    this.employees = const [],
+  }) : summary = summary ??
+            PayrollRunSummary(
+              employeeCount: totalEmployees,
+              totalGross: totalGrossPayout,
+              totalDeductions: totalDeductions,
+              totalNet: totalNetPayout,
+            );
 
   String get formattedTotalNet =>
       NumberFormat.currency(symbol: '₹ ', decimalDigits: 0).format(totalNetPayout);
@@ -541,30 +1029,163 @@ class PayrollRun {
       NumberFormat.currency(symbol: '₹ ', decimalDigits: 0).format(totalGrossPayout);
   String get formattedTotalDeductions =>
       NumberFormat.currency(symbol: '₹ ', decimalDigits: 0).format(totalDeductions);
+
+  factory PayrollRun.fromApi(Map<String, dynamic> json) {
+    final idVal = json['id']?.toString() ?? '';
+    final bName = json['batch_name']?.toString();
+    final rType = json['run_type']?.toString() ?? 'batch';
+    final pStart = json['period_start']?.toString() ?? '';
+    final pEnd = json['period_end']?.toString() ?? '';
+    final statusStr = json['status']?.toString().toLowerCase() ?? 'draft';
+    final paidAtStr = json['paid_at']?.toString();
+
+    PayrollStatus s = PayrollStatus.draft;
+    if (statusStr == 'paid') {
+      s = PayrollStatus.paid;
+    } else if (statusStr == 'approved') {
+      s = PayrollStatus.approved;
+    } else if (statusStr == 'finalized') {
+      s = PayrollStatus.finalized;
+    } else if (statusStr == 'processing') {
+      s = PayrollStatus.processing;
+    }
+
+    final summaryRaw = json['summary'] as Map<String, dynamic>?;
+    final sumObj = summaryRaw != null ? PayrollRunSummary.fromJson(summaryRaw) : null;
+
+    final rawEmps = json['employees'] as List? ?? [];
+    final empList = rawEmps.map((e) => PayrollRunEmployee.fromJson(e as Map<String, dynamic>)).toList();
+
+    final count = sumObj?.employeeCount ?? (empList.isNotEmpty ? empList.length : _toInt(json['total_employees']));
+    final gross = sumObj?.totalGross ?? _toDouble(json['total_gross']);
+    final ded = sumObj?.totalDeductions ?? _toDouble(json['total_deductions']);
+    final net = sumObj?.totalNet ?? _toDouble(json['total_net']);
+
+    return PayrollRun(
+      id: idVal,
+      batchName: bName,
+      runType: rType,
+      payPeriod: bName ?? (pStart.isNotEmpty && pEnd.isNotEmpty ? '$pStart to $pEnd' : 'Run #$idVal'),
+      periodStart: pStart,
+      periodEnd: pEnd,
+      status: s,
+      totalEmployees: count,
+      totalGrossPayout: gross,
+      totalDeductions: ded,
+      totalNetPayout: net,
+      processedDate: json['created_at'] != null ? (DateTime.tryParse(json['created_at']) ?? DateTime.now()) : DateTime.now(),
+      paidAt: paidAtStr,
+      isLocked: s == PayrollStatus.approved || s == PayrollStatus.paid || s == PayrollStatus.finalized,
+      summary: sumObj,
+      employees: empList,
+    );
+  }
 }
 
-class SalaryPackage {
-  final String id;
-  final String employeeId;
+// ==========================================
+// 5. Itemized Payslip Model (Web Parity)
+// ==========================================
+
+class ItemizedPayslip {
+  final int runId;
+  final String? runType;
+  final String? periodStart;
+  final String? periodEnd;
+  final String? status;
+  final String? paidAt;
   final String employeeName;
-  final double annualCtc;
-  final double monthlyGross;
-  final bool isPfApplicable;
-  final bool isEsiApplicable;
+  final String employeeCode;
+  final String department;
+  final String designation;
+  final String workLocation;
+  final String orgName;
+  final int employeeId;
+  final double presentDays;
+  final double absentDays;
+  final double halfDays;
+  final double holidays;
+  final double weeklyOff;
+  final int calendarDays;
+  final List<PayrollLineItem> earnings;
+  final List<PayrollLineItem> deductions;
+  final List<PayrollLineItem> employerContributions;
+  final double grossPay;
+  final double totalDeductions;
+  final double netPay;
 
-  SalaryPackage({
-    required this.id,
-    required this.employeeId,
+  const ItemizedPayslip({
+    required this.runId,
+    this.runType,
+    this.periodStart,
+    this.periodEnd,
+    this.status,
+    this.paidAt,
     required this.employeeName,
-    required this.annualCtc,
-  })  : monthlyGross = annualCtc / 12,
-        isPfApplicable = true,
-        isEsiApplicable = (annualCtc / 12) <= 21000;
+    this.employeeCode = '',
+    this.department = 'General',
+    this.designation = 'Staff',
+    this.workLocation = '',
+    this.orgName = 'MANO TECHNOLOGIES',
+    required this.employeeId,
+    this.presentDays = 0,
+    this.absentDays = 0,
+    this.halfDays = 0,
+    this.holidays = 0,
+    this.weeklyOff = 0,
+    this.calendarDays = 30,
+    this.earnings = const [],
+    this.deductions = const [],
+    this.employerContributions = const [],
+    this.grossPay = 0,
+    this.totalDeductions = 0,
+    this.netPay = 0,
+  });
 
-  String get formattedCtc =>
-      NumberFormat.currency(symbol: '₹ ', decimalDigits: 0).format(annualCtc);
-  String get formattedMonthlyGross =>
-      NumberFormat.currency(symbol: '₹ ', decimalDigits: 0).format(monthlyGross);
+  factory ItemizedPayslip.fromJson(Map<String, dynamic> json) {
+    final empJson = json['employee'] as Map<String, dynamic>? ?? {};
+    final attJson = json['attendance'] as Map<String, dynamic>? ?? {};
+    final summaryJson = json['summary'] as Map<String, dynamic>? ?? {};
+
+    final rawLines = json['lines'] as List? ?? [];
+    final allLines = rawLines.map((l) => PayrollLineItem.fromJson(l as Map<String, dynamic>)).toList();
+
+    final earnings = (json['earnings'] as List?)?.map((e) => PayrollLineItem.fromJson(e as Map<String, dynamic>)).toList() ??
+        allLines.where((l) => l.transactionType.toLowerCase() == 'earning').toList();
+
+    final deductions = (json['deductions'] as List?)?.map((d) => PayrollLineItem.fromJson(d as Map<String, dynamic>)).toList() ??
+        allLines.where((l) => l.transactionType.toLowerCase() == 'deduction').toList();
+
+    final employerContributions = (json['employer_contributions'] as List?)?.map((c) => PayrollLineItem.fromJson(c as Map<String, dynamic>)).toList() ??
+        allLines.where((l) => l.transactionType.toLowerCase() == 'employer_contribution' || l.transactionType.toLowerCase() == 'benefit').toList();
+
+    return ItemizedPayslip(
+      runId: _toInt(json['run_id']),
+      runType: json['run_type']?.toString(),
+      periodStart: json['period_start']?.toString(),
+      periodEnd: json['period_end']?.toString(),
+      status: json['status']?.toString(),
+      paidAt: json['paid_at']?.toString(),
+      employeeName: empJson['user_name']?.toString() ?? empJson['employee_name']?.toString() ?? empJson['name']?.toString() ?? 'Staff Member',
+      employeeCode: empJson['user_code']?.toString() ?? empJson['employee_code']?.toString() ?? empJson['code']?.toString() ?? '',
+      department: empJson['dept_name']?.toString() ?? empJson['department']?.toString() ?? 'General',
+      designation: empJson['desg_name']?.toString() ?? empJson['designation']?.toString() ?? 'Staff',
+      workLocation: empJson['work_location']?.toString() ?? '',
+      orgName: empJson['org_name']?.toString() ?? 'MANO TECHNOLOGIES',
+      employeeId: _toInt(empJson['user_id'] ?? empJson['employee_id'] ?? json['employee_id']),
+      presentDays: _toDouble(attJson['present_days'] ?? attJson['present']),
+      absentDays: _toDouble(attJson['absent_days'] ?? attJson['absent'] ?? attJson['lop_days']),
+      halfDays: _toDouble(attJson['half_days'] ?? attJson['half_day']),
+      holidays: _toDouble(attJson['holiday_days'] ?? attJson['holidays']),
+      weeklyOff: _toDouble(attJson['weekly_off_days'] ?? attJson['weekly_off']),
+      calendarDays: _toInt(attJson['calendar_days'] ?? attJson['total_working_days'], 30),
+      earnings: earnings,
+      deductions: deductions,
+      employerContributions: employerContributions,
+      grossPay: _toDouble(summaryJson['gross_pay'] ?? json['gross_pay']),
+      totalDeductions: _toDouble(summaryJson['total_deductions'] ?? json['total_deductions']),
+      netPay: _toDouble(summaryJson['net_pay'] ?? json['net_pay']),
+    );
+  }
 }
 
 /// Helper utility to convert a number to Indian currency words

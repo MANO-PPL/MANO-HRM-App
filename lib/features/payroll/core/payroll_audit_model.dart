@@ -34,7 +34,7 @@ class PayrollAuditLog {
 
   /// Human-readable timestamp: "11 Aug 2026, 12:30 PM"
   String get formattedTime {
-    return DateFormat('d MMM yyyy, hh:mm a').format(createdAt.toLocal());
+    return DateFormat('d MMMM yyyy, hh:mm a').format(createdAt.toLocal());
   }
 }
 

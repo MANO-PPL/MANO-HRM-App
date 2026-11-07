@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
@@ -343,6 +343,372 @@ class PayslipPdfService {
 
     debugPrint("Payslip PDF saved to: ${file.path}");
     return file.path;
+  }
+
+  /// Generates a single-page PDF Payslip document matching Attendance-Web PayslipModal.jsx exactly.
+  static Future<String> generateAndSaveItemizedPayslipPdf(ItemizedPayslip payslip, {String? payPeriod}) async {
+    final pdf = pw.Document();
+
+    final borderGrey = PdfColor.fromHex('#334155');
+    final textDark = PdfColor.fromHex('#0F172A');
+    final secondaryText = PdfColor.fromHex('#475569');
+    final bgLightSlate = PdfColor.fromHex('#F1F5F9');
+    final bgSlate50 = PdfColor.fromHex('#F8FAFC');
+    final blueHighlightBg = PdfColor.fromHex('#DBEAFE');
+    final redDeduction = PdfColor.fromHex('#DC2626');
+
+    final period = payPeriod ?? (payslip.periodStart != null ? payslip.periodStart! : 'Payroll Period');
+    final companyName = payslip.orgName.isNotEmpty ? payslip.orgName : 'MANO TECHNOLOGIES';
+    final payableDays = (payslip.calendarDays - payslip.absentDays).clamp(0, payslip.calendarDays).toInt();
+
+    // Prepare paired earnings and deductions
+    final earnings = payslip.earnings;
+    final deductions = payslip.deductions;
+    final maxRows = earnings.length > deductions.length ? earnings.length : deductions.length;
+    final rowCount = maxRows > 0 ? maxRows : 1;
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        build: (pw.Context context) {
+          return pw.Container(
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: borderGrey, width: 1),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                // 1. Header Section
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border(bottom: pw.BorderSide(color: borderGrey, width: 1)),
+                  ),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text(
+                        companyName.toUpperCase(),
+                        style: pw.TextStyle(
+                          fontSize: 13,
+                          fontWeight: pw.FontWeight.bold,
+                          color: textDark,
+                        ),
+                      ),
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.end,
+                        children: [
+                          pw.Text(
+                            "MANO",
+                            style: pw.TextStyle(
+                              fontSize: 12,
+                              fontWeight: pw.FontWeight.bold,
+                              color: textDark,
+                            ),
+                          ),
+                          pw.Text(
+                            "WORKFORCE PLATFORM",
+                            style: pw.TextStyle(
+                              fontSize: 6.5,
+                              fontWeight: pw.FontWeight.bold,
+                              color: secondaryText,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(vertical: 4),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border(bottom: pw.BorderSide(color: borderGrey, width: 1)),
+                  ),
+                  alignment: pw.Alignment.center,
+                  child: pw.Text(
+                    "Payslip for the month of $period",
+                    style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: textDark),
+                  ),
+                ),
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: pw.BoxDecoration(
+                    color: bgLightSlate,
+                    border: pw.Border(bottom: pw.BorderSide(color: borderGrey, width: 1)),
+                  ),
+                  child: pw.Text(
+                    "EMPLOYEE PAY SUMMARY",
+                    style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: textDark),
+                  ),
+                ),
+
+                // 2. Employee Information Grid Table
+                pw.Table(
+                  border: pw.TableBorder(
+                    bottom: pw.BorderSide(color: borderGrey, width: 1),
+                    horizontalInside: pw.BorderSide(color: borderGrey, width: 1),
+                    verticalInside: pw.BorderSide(color: borderGrey, width: 1),
+                  ),
+                  columnWidths: const {
+                    0: pw.FlexColumnWidth(1.9),
+                    1: pw.FlexColumnWidth(3.1),
+                    2: pw.FlexColumnWidth(1.9),
+                    3: pw.FlexColumnWidth(3.1),
+                  },
+                  children: [
+                    pw.TableRow(
+                      children: [
+                        _buildPdfCell("Employee Name", isHeader: true, bg: bgSlate50),
+                        _buildPdfCell(payslip.employeeName, isBold: true),
+                        _buildPdfCell("Department", isHeader: true, bg: bgSlate50),
+                        _buildPdfCell(payslip.department),
+                      ],
+                    ),
+                    pw.TableRow(
+                      children: [
+                        _buildPdfCell("Employee ID", isHeader: true, bg: bgSlate50),
+                        _buildPdfCell(payslip.employeeCode.isNotEmpty ? payslip.employeeCode : "EMP-${payslip.employeeId}", isBold: true),
+                        _buildPdfCell("Days Worked", isHeader: true, bg: bgSlate50),
+                        _buildPdfCell("$payableDays", isBold: true),
+                      ],
+                    ),
+                    pw.TableRow(
+                      children: [
+                        _buildPdfCell("Designation", isHeader: true, bg: bgSlate50),
+                        _buildPdfCell(payslip.designation),
+                        _buildPdfCell("Pay Date", isHeader: true, bg: bgSlate50),
+                        _buildPdfCell(payslip.paidAt ?? period),
+                      ],
+                    ),
+                  ],
+                ),
+
+                // 3. Main Payroll Calculation Table (35% / 15% / 35% / 15%)
+                pw.Table(
+                  border: pw.TableBorder(
+                    bottom: pw.BorderSide(color: borderGrey, width: 1),
+                    horizontalInside: pw.BorderSide(color: borderGrey, width: 1),
+                    verticalInside: pw.BorderSide(color: borderGrey, width: 1),
+                  ),
+                  columnWidths: const {
+                    0: pw.FlexColumnWidth(3.5),
+                    1: pw.FlexColumnWidth(1.5),
+                    2: pw.FlexColumnWidth(3.5),
+                    3: pw.FlexColumnWidth(1.5),
+                  },
+                  children: [
+                    // Header
+                    pw.TableRow(
+                      decoration: pw.BoxDecoration(color: bgLightSlate),
+                      children: [
+                        _buildPdfCell("EARNINGS", isHeader: true, isBold: true),
+                        _buildPdfCell("AMOUNT", isHeader: true, isBold: true, alignRight: true),
+                        _buildPdfCell("PARTICULARS", isHeader: true, isBold: true),
+                        _buildPdfCell("DEDUCTIONS", isHeader: true, isBold: true, alignRight: true),
+                      ],
+                    ),
+                    // Rows
+                    ...List.generate(rowCount, (idx) {
+                      final earn = idx < earnings.length ? earnings[idx] : null;
+                      final ded = idx < deductions.length ? deductions[idx] : null;
+                      return pw.TableRow(
+                        children: [
+                          _buildPdfCell(earn?.name ?? " "),
+                          _buildPdfCell(earn != null ? _fmtCurrency(earn.amount) : " ", isBold: true, alignRight: true),
+                          _buildPdfCell(ded?.name ?? " "),
+                          _buildPdfCell(ded != null ? _fmtCurrency(ded.amount) : " ", isBold: true, alignRight: true, textColor: redDeduction),
+                        ],
+                      );
+                    }),
+                    // Subtotal
+                    pw.TableRow(
+                      decoration: pw.BoxDecoration(color: bgSlate50),
+                      children: [
+                        _buildPdfCell("Gross Earnings", isBold: true),
+                        _buildPdfCell(_fmtCurrency(payslip.grossPay), isBold: true, alignRight: true),
+                        _buildPdfCell("Total Deductions", isBold: true),
+                        _buildPdfCell(_fmtCurrency(payslip.totalDeductions), isBold: true, alignRight: true, textColor: redDeduction),
+                      ],
+                    ),
+                  ],
+                ),
+
+                // 4. NetPay Calculation Summary Table (85% / 15%)
+                pw.Table(
+                  border: pw.TableBorder(
+                    bottom: pw.BorderSide(color: borderGrey, width: 1),
+                    horizontalInside: pw.BorderSide(color: borderGrey, width: 1),
+                    verticalInside: pw.BorderSide(color: borderGrey, width: 1),
+                  ),
+                  columnWidths: const {
+                    0: pw.FlexColumnWidth(8.5),
+                    1: pw.FlexColumnWidth(1.5),
+                  },
+                  children: [
+                    pw.TableRow(
+                      decoration: pw.BoxDecoration(color: bgLightSlate),
+                      children: [
+                        _buildPdfCell("NETPAY CALCULATION SUMMARY", isHeader: true, isBold: true),
+                        _buildPdfCell("AMOUNT", isHeader: true, isBold: true, alignRight: true),
+                      ],
+                    ),
+                    pw.TableRow(
+                      children: [
+                        _buildPdfCell("Gross Earnings"),
+                        _buildPdfCell(_fmtCurrency(payslip.grossPay), isBold: true, alignRight: true),
+                      ],
+                    ),
+                    pw.TableRow(
+                      children: [
+                        _buildPdfCell("Total Deductions"),
+                        _buildPdfCell("- ${_fmtCurrency(payslip.totalDeductions)}", isBold: true, alignRight: true, textColor: redDeduction),
+                      ],
+                    ),
+                    pw.TableRow(
+                      decoration: pw.BoxDecoration(color: blueHighlightBg),
+                      children: [
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                          child: pw.Text(
+                            "TOTAL NET PAYABLE",
+                            textAlign: pw.TextAlign.right,
+                            style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: textDark),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                          child: pw.Text(
+                            _fmtCurrency(payslip.netPay),
+                            textAlign: pw.TextAlign.right,
+                            style: pw.TextStyle(fontSize: 10.5, fontWeight: pw.FontWeight.bold, color: textDark),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+
+                // 5. Words & Formula Section
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(8),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border(bottom: pw.BorderSide(color: borderGrey, width: 1)),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                    children: [
+                      pw.Text(
+                        "Total Net Payable: ${_fmtCurrency(payslip.netPay)} (${numberToWords(payslip.netPay)})",
+                        style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: textDark),
+                        textAlign: pw.TextAlign.center,
+                      ),
+                      pw.SizedBox(height: 2),
+                      pw.Text(
+                        "Total Net Payable = Gross Earnings - Total Deductions + Total Adjustments",
+                        style: pw.TextStyle(fontSize: 7.5, color: secondaryText),
+                        textAlign: pw.TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 6. Signatures Block
+                pw.Container(
+                  height: 55,
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                  alignment: pw.Alignment.bottomCenter,
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Column(
+                        mainAxisSize: pw.MainAxisSize.min,
+                        children: [
+                          pw.Container(
+                            width: 140,
+                            decoration: pw.BoxDecoration(
+                              border: pw.Border(top: pw.BorderSide(color: borderGrey, width: 1)),
+                            ),
+                            padding: const pw.EdgeInsets.only(top: 3),
+                            child: pw.Text(
+                              "Employee Signature",
+                              textAlign: pw.TextAlign.center,
+                              style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: textDark),
+                            ),
+                          ),
+                        ],
+                      ),
+                      pw.Column(
+                        mainAxisSize: pw.MainAxisSize.min,
+                        children: [
+                          pw.Container(
+                            width: 140,
+                            decoration: pw.BoxDecoration(
+                              border: pw.Border(top: pw.BorderSide(color: borderGrey, width: 1)),
+                            ),
+                            padding: const pw.EdgeInsets.only(top: 3),
+                            child: pw.Text(
+                              "Authorized Signatory",
+                              textAlign: pw.TextAlign.center,
+                              style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: textDark),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 7. Disclaimer Footer
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border(top: pw.BorderSide(color: borderGrey, width: 1)),
+                  ),
+                  alignment: pw.Alignment.center,
+                  child: pw.Text(
+                    "This is a system-generated payslip generated via MANO Attendance Platform. L.O.P. Days: ${payslip.absentDays.toInt()}",
+                    style: pw.TextStyle(fontSize: 7.5, color: secondaryText),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    final dir = await getApplicationDocumentsDirectory();
+    final fileName = "Payslip_${payslip.employeeId}_${period.replaceAll(' ', '_')}.pdf";
+    final file = File("${dir.path}/$fileName");
+    await file.writeAsBytes(await pdf.save());
+
+    debugPrint("Itemized Payslip PDF saved to: ${file.path}");
+    return file.path;
+  }
+
+  static pw.Widget _buildPdfCell(
+    String text, {
+    bool isHeader = false,
+    bool isBold = false,
+    bool alignRight = false,
+    PdfColor? bg,
+    PdfColor? textColor,
+  }) {
+    return pw.Container(
+      color: bg,
+      padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      child: pw.Text(
+        text,
+        textAlign: alignRight ? pw.TextAlign.right : pw.TextAlign.left,
+        style: pw.TextStyle(
+          fontSize: isHeader ? 7.5 : 8,
+          fontWeight: (isBold || isHeader) ? pw.FontWeight.bold : pw.FontWeight.normal,
+          color: textColor ?? (isHeader ? PdfColor.fromHex('#475569') : PdfColor.fromHex('#0F172A')),
+        ),
+      ),
+    );
   }
 
   /// Opens the generated PDF using open_filex
