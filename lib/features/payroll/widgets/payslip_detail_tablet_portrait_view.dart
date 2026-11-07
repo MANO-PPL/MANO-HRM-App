@@ -179,6 +179,179 @@ class _PayslipDetailScreenTabletState extends State<PayslipDetailScreenTablet> {
     }
   }
 
+  Future<void> _handleMarkPaid(bool isAdmin) async {
+    if (!isAdmin || _isLocking) return;
+    String selectedMode = 'Bank Transfer';
+    final refController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: isDark ? const Color(0xFF161B22) : Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.credit_card_rounded, color: Color(0xFF10B981), size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Mark as Paid?',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : const Color(0xFF1E293B),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Record salary disbursement of ${_currentPayslip.formattedNetSalary} for ${_currentPayslip.employeeName} (${_currentPayslip.payPeriod}).',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: isDark ? Colors.grey[300] : Colors.grey[700],
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Payment Mode',
+                    style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedMode,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'Bank Transfer', child: Text('Bank Transfer (NEFT/RTGS)', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(value: 'UPI', child: Text('UPI', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(value: 'Cash', child: Text('Cash', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(value: 'Cheque', child: Text('Cheque', style: TextStyle(fontSize: 12))),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setDialogState(() => selectedMode = val);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Transaction Ref / Cheque No.',
+                    style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: refController,
+                    style: const TextStyle(fontSize: 12),
+                    decoration: InputDecoration(
+                      hintText: 'e.g. UTR / IMPS ref...',
+                      hintStyle: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text('Cancel', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[500])),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: Text('Confirm Payment', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isLocking = true);
+    try {
+      await _payrollService.payEmployee(
+        employeeId: _currentPayslip.employeeId,
+        payPeriod: _currentPayslip.payPeriod,
+        employeeName: _currentPayslip.employeeName,
+        paymentMode: selectedMode,
+        reference: refController.text.trim().isNotEmpty ? refController.text.trim() : null,
+      );
+      setState(() {
+        _currentPayslip = Payslip(
+          id: _currentPayslip.id,
+          entryId: _currentPayslip.entryId,
+          employeeId: _currentPayslip.employeeId,
+          employeeName: _currentPayslip.employeeName,
+          designation: _currentPayslip.designation,
+          department: _currentPayslip.department,
+          panNumber: _currentPayslip.panNumber,
+          bankAccount: _currentPayslip.bankAccount,
+          payPeriod: _currentPayslip.payPeriod,
+          totalWorkingDays: _currentPayslip.totalWorkingDays,
+          presentDays: _currentPayslip.presentDays,
+          halfDays: _currentPayslip.halfDays,
+          absentDays: _currentPayslip.absentDays,
+          paidLeaveDays: _currentPayslip.paidLeaveDays,
+          holidayDays: _currentPayslip.holidayDays,
+          weeklyOffDays: _currentPayslip.weeklyOffDays,
+          calendarDays: _currentPayslip.calendarDays,
+          dailyRate: _currentPayslip.dailyRate,
+          grossSalary: _currentPayslip.grossSalary,
+          lopDays: _currentPayslip.lopDays,
+          lopDeduction: _currentPayslip.lopDeduction,
+          overtimeEnabled: _currentPayslip.overtimeEnabled,
+          overtimeRate: _currentPayslip.overtimeRate,
+          overtimeHours: _currentPayslip.overtimeHours,
+          overtimeAmount: _currentPayslip.overtimeAmount,
+          breakdown: _currentPayslip.breakdown,
+          status: PayrollStatus.paid,
+          generatedDate: _currentPayslip.generatedDate,
+          adjustments: _currentPayslip.adjustments,
+        );
+      });
+      if (mounted) {
+        context.showToast(
+          "${_currentPayslip.employeeName}'s payroll marked as Paid.",
+          isSuccess: true,
+        );
+      }
+      widget.onStatusChanged?.call();
+    } catch (e) {
+      if (mounted) {
+        context.showExceptionToast(e, fallback: 'Payment update failed.');
+      }
+    } finally {
+      if (mounted) setState(() => _isLocking = false);
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -305,6 +478,18 @@ class _PayslipDetailScreenTabletState extends State<PayslipDetailScreenTablet> {
                       side: BorderSide(color: isLocked ? const Color(0xFFF59E0B) : const Color(0xFF4338CA)),
                     ),
                   ),
+                  if (isLocked && _currentPayslip.status != PayrollStatus.paid) ...[
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: _isLocking ? null : () => _handleMarkPaid(isAdmin),
+                      icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
+                      label: Text("Mark as Paid", style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
                 ],
                 const Spacer(),
                 OutlinedButton.icon(

@@ -20,13 +20,18 @@ class ReportService {
   ReportService(this._dio);
 
   // 1. Fetch Real Employees from Database
-  Future<List<Map<String, dynamic>>> fetchRealEmployees() async {
+  Future<List<Map<String, dynamic>>> fetchRealEmployees({bool activeOnly = true}) async {
     try {
-      final res = await _dio.get(ApiConstants.users);
+      final res = await _dio.get(
+        ApiConstants.users,
+        queryParameters: activeOnly ? {'active_only': 'true'} : null,
+      );
       if (res.statusCode == 200 && res.data != null) {
         final raw = res.data is Map ? (res.data['data'] ?? res.data['users'] ?? []) : res.data;
         if (raw is List) {
-          return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          final list = raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          list.sort((a, b) => (a['user_name'] ?? a['name'] ?? '').toString().compareTo((b['user_name'] ?? b['name'] ?? '').toString()));
+          return list;
         }
       }
     } catch (e) {
@@ -51,6 +56,64 @@ class ReportService {
     return [];
   }
 
+  // 2b. Fetch Real Designations from Database
+  Future<List<Map<String, dynamic>>> fetchRealDesignations() async {
+    try {
+      final res = await _dio.get(ApiConstants.designations);
+      if (res.statusCode == 200 && res.data != null) {
+        final raw = res.data is Map ? (res.data['data'] ?? res.data['designations'] ?? []) : res.data;
+        if (raw is List) {
+          return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        }
+      }
+    } catch (e) {
+      debugPrint("fetchRealDesignations notice: $e");
+    }
+    return [];
+  }
+
+  // 2c. Fetch Real Shifts from Database
+  Future<List<Map<String, dynamic>>> fetchRealShifts() async {
+    try {
+      var res = await _dio.get(ApiConstants.adminShifts);
+      if (res.statusCode == 200 && res.data != null) {
+        final raw = res.data is Map ? (res.data['data'] ?? res.data['shifts'] ?? []) : res.data;
+        if (raw is List) {
+          return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        }
+      }
+    } catch (_) {
+      try {
+        final res = await _dio.get(ApiConstants.policyShifts);
+        if (res.statusCode == 200 && res.data != null) {
+          final raw = res.data is Map ? (res.data['data'] ?? res.data['shifts'] ?? []) : res.data;
+          if (raw is List) {
+            return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          }
+        }
+      } catch (e) {
+        debugPrint("fetchRealShifts notice: $e");
+      }
+    }
+    return [];
+  }
+
+  // 2d. Fetch Holidays from Backend
+  Future<List<Map<String, dynamic>>> fetchHolidays() async {
+    try {
+      final res = await _dio.get(ApiConstants.holidays);
+      if (res.statusCode == 200 && res.data != null) {
+        final raw = res.data is Map ? (res.data['data'] ?? res.data['holidays'] ?? []) : res.data;
+        if (raw is List) {
+          return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        }
+      }
+    } catch (e) {
+      debugPrint("fetchHolidays notice: $e");
+    }
+    return [];
+  }
+
   // 3. Fetch Real Report Preview from Backend Database
   Future<ReportPreviewResult> getPreview({
     required String type,
@@ -62,8 +125,13 @@ class ReportService {
     String? deptId,
     String? desgId,
     String? shiftId,
+    dynamic columns, // Map<String, bool> or JSON string
     Map<String, dynamic>? currentUserInfo,
   }) async {
+    final colStr = columns != null
+        ? (columns is String ? (columns.isNotEmpty ? columns : null) : jsonEncode(columns))
+        : null;
+
     final query = {
       'type': type,
       if (month != null && month.isNotEmpty) 'month': month,
@@ -71,9 +139,10 @@ class ReportService {
       if (startDate != null && startDate.isNotEmpty) 'startDate': startDate,
       if (endDate != null && endDate.isNotEmpty) 'endDate': endDate,
       if (userId != null && userId.isNotEmpty) 'user_id': userId,
-      if (deptId != null && deptId.isNotEmpty) 'dept_id': deptId,
-      if (desgId != null && desgId.isNotEmpty) 'desg_id': desgId,
-      if (shiftId != null && shiftId.isNotEmpty) 'shift_id': shiftId,
+      if (deptId != null && deptId.isNotEmpty && deptId != 'All' && deptId != 'All Departments') 'dept_id': deptId,
+      if (desgId != null && desgId.isNotEmpty && desgId != 'All' && desgId != 'All Designations') 'desg_id': desgId,
+      if (shiftId != null && shiftId.isNotEmpty && shiftId != 'All' && shiftId != 'All Shifts') 'shift_id': shiftId,
+      if (colStr != null) 'columns': colStr,
       '_t': DateTime.now().millisecondsSinceEpoch,
     };
 
@@ -132,6 +201,41 @@ class ReportService {
         .map((r) => (r as List).map((cell) => cell).toList())
         .toList();
 
+    // Ensure dates are clearly displayed in all types of reports
+    if (type == 'matrix_daily') {
+      final dateVal = date ?? startDate ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
+      if (columns.isNotEmpty && !columns.any((c) => c.toLowerCase().contains('date'))) {
+        columns.insert(0, 'Date');
+        for (final row in rows) {
+          row.insert(0, dateVal);
+        }
+      }
+    } else if (type == 'attendance_summary') {
+      final periodVal = month != null && month.isNotEmpty
+          ? month
+          : DateFormat('yyyy-MM').format(DateTime.now());
+      if (columns.isNotEmpty && !columns.any((c) => c.toLowerCase().contains('period') || c.toLowerCase().contains('month'))) {
+        final insertIdx = columns.length >= 3 ? 3 : columns.length;
+        columns.insert(insertIdx, 'Period');
+        for (final row in rows) {
+          if (row.length >= insertIdx) {
+            row.insert(insertIdx, periodVal);
+          } else {
+            row.add(periodVal);
+          }
+        }
+      }
+    }
+
+    MusterRollData? musterRoll;
+    if (data['musterRoll'] is Map) {
+      try {
+        musterRoll = MusterRollData.fromJson(Map<String, dynamic>.from(data['musterRoll']));
+      } catch (e) {
+        debugPrint("Error parsing musterRoll from backend: $e");
+      }
+    }
+
     // If backend preview already has full matrix
     if (data['matrix'] is List && (data['matrix'] as List).isNotEmpty) {
       final List<AttendanceMatrixEmployee> matrix = [];
@@ -149,6 +253,7 @@ class ReportService {
         summary: summary,
         matrix: matrix,
         matrixDates: matrixDates,
+        musterRoll: musterRoll,
       );
     }
 
@@ -228,6 +333,7 @@ class ReportService {
         summary: summary,
         matrix: matrix,
         matrixDates: matrixDates,
+        musterRoll: musterRoll,
       );
     }
 
@@ -249,6 +355,7 @@ class ReportService {
       summary: live.summary,
       matrix: live.matrix,
       matrixDates: live.matrixDates,
+      musterRoll: musterRoll,
     );
   }
 
@@ -502,21 +609,195 @@ class ReportService {
       lateCount: totalLate,
     );
 
-    // Build tabular spreadsheet columns & rows from live database
-    final List<String> columns = ['EMP ID', 'EMPLOYEE NAME', 'DEPARTMENT', 'PRESENT', 'ABSENT', 'LEAVES', 'HALF DAY', 'LATE', 'TOTAL HOURS'];
+    // Build tabular spreadsheet columns & rows from live database tailored to report type
+    final List<String> columns = [];
     final List<List<dynamic>> rows = [];
 
-    for (final emp in matrix) {
-      int p = 0, a = 0, l = 0, hd = 0, lt = 0;
-      emp.dailyRecords.forEach((_, r) {
-        if (r.status == 'P') p++;
-        if (r.status == 'A') a++;
-        if (r.status == 'L') l++;
-        if (r.status == 'HD') hd++;
-        if (r.isLate) lt++;
-      });
-      final totalHrs = (p * 8.5) + (hd * 4.5);
-      rows.add([emp.employeeId, emp.name, emp.department, '$p', '$a', '$l', '$hd', '$lt', '${totalHrs.toStringAsFixed(1)} hrs']);
+    if (type == 'matrix_daily') {
+      final targetDate = date ?? (startDate ?? (matrixDates.isNotEmpty ? matrixDates.first : DateFormat('yyyy-MM-dd').format(DateTime.now())));
+      columns.addAll(['Date', 'Employee ID', 'Employee Name', 'Department', 'Shift', 'Time In', 'Time Out', 'Work Hours', 'Status', 'Late (mins)']);
+      for (final emp in matrix) {
+        final rec = emp.dailyRecords[targetDate];
+        rows.add([
+          targetDate,
+          emp.employeeId,
+          emp.name,
+          emp.department,
+          'General Shift',
+          rec?.clockIn ?? '--:--',
+          rec?.clockOut ?? '--:--',
+          rec?.workDuration ?? '--',
+          rec?.status ?? '-',
+          '${rec?.lateMinutes ?? 0}',
+        ]);
+      }
+    } else if (type == 'matrix_weekly' || type == 'attendance_matrix_weekly') {
+      // Determine 7 days for the weekly report
+      List<String> weekDates = [];
+      if (startDate != null && endDate != null) {
+        DateTime s = DateTime.tryParse(startDate) ?? DateTime.now();
+        final e = DateTime.tryParse(endDate) ?? s.add(const Duration(days: 6));
+        while (!s.isAfter(e)) {
+          weekDates.add(DateFormat('yyyy-MM-dd').format(s));
+          s = s.add(const Duration(days: 1));
+        }
+      } else if (date != null) {
+        DateTime s = DateTime.tryParse(date) ?? DateTime.now();
+        for (int i = 0; i < 7; i++) {
+          weekDates.add(DateFormat('yyyy-MM-dd').format(s.add(Duration(days: i))));
+        }
+      } else {
+        weekDates = matrixDates.take(7).toList();
+      }
+
+      final dateHeaders = weekDates.map((d) {
+        final dt = DateTime.tryParse(d);
+        if (dt != null) {
+          return "${DateFormat('E').format(dt)}\n${DateFormat('dd MMM').format(dt)}";
+        }
+        return d;
+      }).toList();
+
+      columns.addAll(['Employee ID', 'Employee Name', 'Department', ...dateHeaders, 'Present', 'Absent', 'Half Day', 'Leave', 'Total Hours']);
+
+      for (final emp in matrix) {
+        int p = 0, a = 0, l = 0, hd = 0;
+        final List<dynamic> weekCells = [];
+        for (final d in weekDates) {
+          final rec = emp.dailyRecords[d];
+          final st = rec?.status ?? '-';
+          if (st == 'P') p++;
+          if (st == 'A') a++;
+          if (st == 'L') l++;
+          if (st == 'HD') hd++;
+          weekCells.add(st);
+        }
+        final totalHrs = (p * 8.5) + (hd * 4.5);
+        rows.add([
+          emp.employeeId,
+          emp.name,
+          emp.department,
+          ...weekCells,
+          '$p',
+          '$a',
+          '$hd',
+          '$l',
+          '${totalHrs.toStringAsFixed(1)} hrs',
+        ]);
+      }
+    } else if (type == 'matrix_monthly' || type == 'attendance_matrix_monthly') {
+      final dateHeaders = matrixDates.map((d) {
+        final dt = DateTime.tryParse(d);
+        if (dt != null) {
+          return "${DateFormat('E').format(dt)}\n${DateFormat('dd MMM').format(dt)}";
+        }
+        return d;
+      }).toList();
+
+      columns.addAll(['Employee ID', 'Employee Name', 'Department', ...dateHeaders, 'Present', 'Absent', 'Leave', 'Total Hours']);
+
+      for (final emp in matrix) {
+        int p = 0, a = 0, l = 0, hd = 0;
+        final List<dynamic> monthCells = [];
+        for (final d in matrixDates) {
+          final rec = emp.dailyRecords[d];
+          final st = rec?.status ?? '-';
+          if (st == 'P') p++;
+          if (st == 'A') a++;
+          if (st == 'L') l++;
+          if (st == 'HD') hd++;
+          monthCells.add(st);
+        }
+        final totalHrs = (p * 8.5) + (hd * 4.5);
+        rows.add([
+          emp.employeeId,
+          emp.name,
+          emp.department,
+          ...monthCells,
+          '$p',
+          '$a',
+          '$l',
+          '${totalHrs.toStringAsFixed(1)} hrs',
+        ]);
+      }
+    } else if (type == 'attendance_summary') {
+      final periodStr = month != null && month.isNotEmpty
+          ? DateFormat('MMMM yyyy').format(DateTime.tryParse('$month-01') ?? DateTime.now())
+          : (matrixDates.isNotEmpty ? DateFormat('MMMM yyyy').format(DateTime.parse(matrixDates.first)) : 'Current Month');
+
+      columns.addAll(['Employee ID', 'Employee Name', 'Department', 'Period', 'Days in Month', 'Present', 'Absent', 'Leaves', 'Half Day', 'Late', 'Total Hours']);
+
+      for (final emp in matrix) {
+        int p = 0, a = 0, l = 0, hd = 0, lt = 0;
+        emp.dailyRecords.forEach((_, r) {
+          if (r.status == 'P') p++;
+          if (r.status == 'A') a++;
+          if (r.status == 'L') l++;
+          if (r.status == 'HD') hd++;
+          if (r.isLate) lt++;
+        });
+        final totalHrs = (p * 8.5) + (hd * 4.5);
+        rows.add([
+          emp.employeeId,
+          emp.name,
+          emp.department,
+          periodStr,
+          '${matrixDates.length}',
+          '$p',
+          '$a',
+          '$l',
+          '$hd',
+          '$lt',
+          '${totalHrs.toStringAsFixed(1)} hrs',
+        ]);
+      }
+    } else if (type == 'employee_master') {
+      columns.addAll(['Code', 'Name', 'Department', 'Designation', 'Shift', 'Phone', 'Email', 'Joining Date', 'Role', 'Status']);
+      for (final u in filteredUsers) {
+        final uId = u['user_id']?.toString() ?? u['id']?.toString() ?? '';
+        final uCode = (u['user_code'] ?? u['employee_id'] ?? u['emp_id'] ?? (uId.isNotEmpty ? "EMP-$uId" : "EMP")).toString();
+        final uName = (u['user_name'] ?? u['name'] ?? 'Staff Member').toString();
+        final uDept = (u['dept_name'] ?? u['department'] ?? '-').toString();
+        final uDesg = (u['desg_name'] ?? u['designation'] ?? '-').toString();
+        final uShift = (u['shift_name'] ?? u['shift'] ?? 'Open Shift').toString();
+        final uPhone = (u['phone_no'] ?? u['phone'] ?? '-').toString();
+        final uEmail = (u['email'] ?? '-').toString();
+        final uJoin = (u['joining_date'] ?? u['created_at'] ?? '-').toString();
+        final joinFormatted = uJoin.length >= 10 ? uJoin.substring(0, 10) : uJoin;
+        final uRole = (u['user_type'] ?? u['role'] ?? 'employee').toString();
+        final isAct = u['is_active'] != false && u['status'] != 'inactive';
+        final isDel = u['is_deleted'] == true || u['status'] == 'deleted';
+        final uStatus = isDel ? 'Deleted' : (isAct ? 'Active' : 'Inactive');
+
+        rows.add([
+          uCode,
+          uName,
+          uDept,
+          uDesg,
+          uShift,
+          uPhone,
+          uEmail,
+          joinFormatted,
+          uRole,
+          uStatus,
+        ]);
+      }
+    } else {
+      // Default fallback
+      columns.addAll(['Employee ID', 'Employee Name', 'Department', 'Date', 'Present', 'Absent', 'Leaves', 'Half Day', 'Late', 'Total Hours']);
+      final periodStr = month ?? (matrixDates.isNotEmpty ? matrixDates.first : '');
+      for (final emp in matrix) {
+        int p = 0, a = 0, l = 0, hd = 0, lt = 0;
+        emp.dailyRecords.forEach((_, r) {
+          if (r.status == 'P') p++;
+          if (r.status == 'A') a++;
+          if (r.status == 'L') l++;
+          if (r.status == 'HD') hd++;
+          if (r.isLate) lt++;
+        });
+        final totalHrs = (p * 8.5) + (hd * 4.5);
+        rows.add([emp.employeeId, emp.name, emp.department, periodStr, '$p', '$a', '$l', '$hd', '$lt', '${totalHrs.toStringAsFixed(1)} hrs']);
+      }
     }
 
     return ReportPreviewResult(
@@ -576,10 +857,17 @@ class ReportService {
     String? endDate,
     String? userId,
     String? deptId,
+    String? desgId,
+    String? shiftId,
+    dynamic columns,
   }) async {
     try {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileName = "Report_${type}_$timestamp.$format";
+
+      final colStr = columns != null
+          ? (columns is String ? (columns.isNotEmpty ? columns : null) : jsonEncode(columns))
+          : null;
 
       // Attempt 1: Fetch server-generated report from backend (supports xlsx, csv)
       if (format == 'xlsx' || format == 'csv') {
@@ -593,6 +881,9 @@ class ReportService {
             if (endDate != null && endDate.isNotEmpty) 'endDate': endDate,
             if (userId != null && userId.isNotEmpty) 'user_id': userId,
             if (deptId != null && deptId.isNotEmpty && deptId != 'All' && deptId != 'All Departments') 'dept_id': deptId,
+            if (desgId != null && desgId.isNotEmpty && desgId != 'All' && desgId != 'All Designations') 'desg_id': desgId,
+            if (shiftId != null && shiftId.isNotEmpty && shiftId != 'All' && shiftId != 'All Shifts') 'shift_id': shiftId,
+            if (colStr != null) 'columns': colStr,
           };
           final response = await _dio.get(
             ApiConstants.reportsDownload,
@@ -619,22 +910,25 @@ class ReportService {
         endDate: endDate,
         userId: userId,
         deptId: deptId,
+        desgId: desgId,
+        shiftId: shiftId,
+        columns: columns,
       );
 
       if (result.columns.isEmpty) {
         throw Exception("No data available to export.");
       }
 
-      final columns = result.columns;
+      final exportCols = result.columns;
       final rows = result.rows;
 
       String? savePath;
       if (format == 'xlsx') {
-        savePath = await _generateExcel(fileName, columns, rows);
+        savePath = await _generateExcel(fileName, exportCols, rows);
       } else if (format == 'pdf') {
-        savePath = await _generatePdf(fileName, type, columns, rows);
+        savePath = await _generatePdf(fileName, type, exportCols, rows);
       } else if (format == 'csv') {
-        savePath = await _generateCsv(fileName, columns, rows);
+        savePath = await _generateCsv(fileName, exportCols, rows);
       } else {
         throw Exception("Unsupported format: $format");
       }
@@ -735,7 +1029,7 @@ class ReportService {
     final newRecord = ReportHistory(
       fileName: fileName,
       path: path,
-      timestamp: DateFormat('MMM dd, hh:mm a').format(DateTime.now()),
+      timestamp: DateFormat('d MMMM yyyy, hh:mm a').format(DateTime.now()),
       type: type,
     );
 

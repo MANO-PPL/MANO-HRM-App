@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
 import 'package:flutter_application/features/payroll/core/payroll_model.dart';
@@ -22,13 +22,13 @@ class _PayslipPreviewDialogState extends State<PayslipPreviewDialog> {
     try {
       final path = await PayslipPdfService.generateAndSavePayslipPdf(widget.payslip);
       if (mounted) {
+        final fileName = path.split(RegExp(r'[/\\]')).last;
         context.showToast(
-          "PDF Payslip downloaded: ${path.split('/').last}",
+          "PDF Payslip downloaded: $fileName",
           isSuccess: true,
           actionLabel: "OPEN",
           onActionPressed: () => PayslipPdfService.openPayslipPdf(path),
         );
-        await PayslipPdfService.openPayslipPdf(path);
       }
     } catch (e) {
       if (mounted) {
