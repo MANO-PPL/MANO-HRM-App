@@ -28,8 +28,8 @@ class _EmployeeReportsTabletLandscapeViewState
     extends State<EmployeeReportsTabletLandscapeView> {
   late ReportService _reportService;
 
-  // View Navigation: 0 = Attendance Matrix, 1 = Excel & PDF Reports
-  int _activeTab = 1; // Default to Excel Preview in Landscape!
+  // View Navigation: 0 = Attendance Matrix, 1 = Excel Reports
+  int _activeTab = 0; // Default to Attendance Matrix matching web & mobile
 
   // Sub-view inside Tab 0: 0 = Daily Log Cards, 1 = Matrix Grid
   int _matrixSubView = 0;
@@ -38,23 +38,30 @@ class _EmployeeReportsTabletLandscapeViewState
 
   // Date and Filter State
   DateTime _selectedDate = DateTime.now();
+  ReportWeekOption? _selectedWeek;
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 7));
   DateTime _endDate = DateTime.now();
   bool _useDateRange = false;
 
   // Report Generator Configuration
-  String _selectedReportType = 'attendance_detailed';
+  String _selectedReportType = 'matrix_monthly';
   String _selectedFormat = 'xlsx';
   String _searchQuery = '';
 
   // Export Columns Selection
-  final Map<String, bool> _exportColumns = {
-    'clock_in_out': true,
+  Map<String, bool> _exportColumns = {
+    'shift': true,
+    'timeIn': true,
+    'timeOut': true,
     'status': true,
-    'work_duration': true,
-    'required_hours': true,
-    'late_minutes': true,
+    'workedHours': true,
+    'requiredHours': true,
+    'late': true,
     'location': true,
+    'attendanceDays': true,
+    'clock_in_out': true,
+    'work_duration': true,
+    'late_minutes': true,
   };
 
   // State Management
@@ -68,6 +75,11 @@ class _EmployeeReportsTabletLandscapeViewState
     super.initState();
     final auth = Provider.of<AuthService>(context, listen: false);
     _reportService = ReportService(auth.dio);
+
+    final weeks = ReportWeekOption.getWeeksOfMonth(_selectedDate);
+    if (weeks.isNotEmpty) {
+      _selectedWeek = weeks.first;
+    }
 
     _loadData();
     _loadHistory();
@@ -84,17 +96,26 @@ class _EmployeeReportsTabletLandscapeViewState
       final user = Provider.of<AuthService>(context, listen: false).user;
       final userId = user?.id;
 
+      final weeks = ReportWeekOption.getWeeksOfMonth(_selectedDate);
+      if (_selectedWeek == null || !weeks.any((w) => w.value == _selectedWeek!.value)) {
+        _selectedWeek = weeks.isNotEmpty ? weeks.first : null;
+      }
+
       final monthStr =
           "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}";
       final dateStr =
           "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
 
+      final isWeekly = _selectedReportType == 'matrix_weekly';
+      final String dateToUse = (isWeekly && !_useDateRange && _selectedWeek != null)
+          ? _selectedWeek!.value
+          : dateStr;
       final String? qStart = _useDateRange
           ? "${_startDate.year}-${_startDate.month.toString().padLeft(2, '0')}-${_startDate.day.toString().padLeft(2, '0')}"
-          : null;
+          : (isWeekly && _selectedWeek != null ? DateFormat('yyyy-MM-dd').format(_selectedWeek!.start) : null);
       final String? qEnd = _useDateRange
           ? "${_endDate.year}-${_endDate.month.toString().padLeft(2, '0')}-${_endDate.day.toString().padLeft(2, '0')}"
-          : null;
+          : (isWeekly && _selectedWeek != null ? DateFormat('yyyy-MM-dd').format(_selectedWeek!.end) : null);
 
       final typeToFetch =
           (_activeTab == 0) ? 'attendance_matrix_monthly' : _selectedReportType;
@@ -102,10 +123,11 @@ class _EmployeeReportsTabletLandscapeViewState
       final result = await _reportService.getPreview(
         type: typeToFetch,
         month: monthStr,
-        date: dateStr,
+        date: dateToUse,
         startDate: qStart,
         endDate: qEnd,
         userId: userId,
+        columns: _exportColumns,
         currentUserInfo: user != null
             ? {
                 'user_id': user.id,
@@ -276,7 +298,9 @@ class _EmployeeReportsTabletLandscapeViewState
       );
 
       if (mounted) {
-        setState(() => _isExporting = false);
+        setState(() {
+          _isExporting = false;
+        });
         _loadHistory();
         if (path != null) {
           final fileName = path.split(RegExp(r'[\\/]')).last;
@@ -284,20 +308,8 @@ class _EmployeeReportsTabletLandscapeViewState
             "Report exported: $fileName",
             isSuccess: true,
             actionLabel: "OPEN",
-            duration: const Duration(seconds: 7),
-            onActionPressed: () async {
-              try {
-                final result = await OpenFilex.open(path);
-                if (result.type != ResultType.done && mounted) {
-                  context.showToast("Could not open file: ${result.message}",
-                      isError: true);
-                }
-              } catch (e) {
-                if (mounted) {
-                  context.showToast("Error opening file: $e", isError: true);
-                }
-              }
-            },
+            duration: const Duration(seconds: 8),
+            onActionPressed: () => _openDownloadedFile(path),
           );
         }
       }
@@ -305,6 +317,19 @@ class _EmployeeReportsTabletLandscapeViewState
       if (mounted) {
         setState(() => _isExporting = false);
         context.showToast("Failed to export report: $e", isError: true);
+      }
+    }
+  }
+
+  Future<void> _openDownloadedFile(String path) async {
+    try {
+      final result = await OpenFilex.open(path);
+      if (result.type != ResultType.done && mounted) {
+        context.showToast("Could not open file: ${result.message}", isError: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        context.showToast("Error opening file: $e", isError: true);
       }
     }
   }
@@ -342,122 +367,167 @@ class _EmployeeReportsTabletLandscapeViewState
           isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
       body: Column(
         children: [
-          // ── Top Period & Action Toolbar (Centered Month Filter across entire page) ─
+          // ── Top Period & Action Toolbar ──────────────────────────────
           Padding(
             padding: const EdgeInsets.only(left: 18, right: 18, top: 14, bottom: 6),
-            child: _buildTopPeriodToolbar(isDark),
+            child: _buildTopPeriodToolbar(user, isDark),
           ),
 
-          // ── Main Content Area: Split View (Sidebar + Workspace) ───────────
+          // ── Main Content Area ────────────────────────────────────────
           Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── LEFT SIDEBAR: FILTERS PANEL ──────────────────────
-                SizedBox(
-                  width: 380,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(
-                        left: 18, top: 8, bottom: 16, right: 10),
-                    child: FullReportFiltersPanel(
-                      isEmployee: true,
-                      selectedReportType: _selectedReportType,
-                      onReportTypeChanged: (val) {
-                        setState(() => _selectedReportType = val);
-                        _loadData();
-                      },
-                      selectedDate: _selectedDate,
-                      onDateChanged: (d) {
-                        setState(() => _selectedDate = d);
-                        _loadData();
-                      },
-                      useCustomDateRange: _useDateRange,
-                      onUseCustomRangeChanged: (val) {
-                        setState(() => _useDateRange = val);
-                        _loadData();
-                      },
-                      startDate: _startDate,
-                      endDate: _endDate,
-                      onDateRangeChanged: (s, e) {
-                        setState(() {
-                          _startDate = s;
-                          _endDate = e;
-                        });
-                        _loadData();
-                      },
-                      selectedFormat: _selectedFormat,
-                      onFormatChanged: (f) => setState(() => _selectedFormat = f),
-                      exportColumns: _exportColumns,
-                      onColumnToggled: (key, val) =>
-                          setState(() => _exportColumns[key] = val),
-                      isGenerating: _isLoading,
-                      isExporting: _isExporting,
-                      onGeneratePreview: _loadData,
-                      onExportReport: () => _exportWithFormat(_selectedFormat),
-                      onOpenHistory: () =>
-                          ReportHistorySheet.show(context, _downloadHistory),
-                    ),
-                  ),
-                ),
-
-                // ── VERTICAL DIVIDER ──────────────────────────────────────────
-                Container(
-                  width: 1,
-                  color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
-                ),
-
-                // ── RIGHT MAIN WORKSPACE: EXCEL PREVIEW & MATRIX ───────────────
-                Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: _loadData,
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.only(
-                          left: 14, right: 18, top: 8, bottom: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Top Bar: Tab Switcher & Search Bar
-                          _buildRightTopBar(isDark),
-                          const SizedBox(height: 14),
-
-                          // KPI Stats Strip
-                          _buildSummaryStatsGrid(
-                            _previewResult?.summary ?? const ReportSummaryStats(),
-                            isDark,
-                          ),
-                          const SizedBox(height: 14),
-
-                          // Content Area
-                          if (_isLoading)
-                            const Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(56),
-                                child: CircularProgressIndicator(
-                                    color: Color(0xFF6366F1)),
-                              ),
-                            )
-                          else if (_activeTab == 0)
-                            _buildAttendanceMatrixTab(user, isDark)
-                          else
-                            _buildExcelPreviewWorkspace(isDark),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            child: _activeTab == 0
+                ? _buildAttendanceMatrixWorkspace(user, isDark)
+                : _buildExcelReportWorkspace(user, isDark),
           ),
         ],
       ),
     );
   }
 
+  Widget _buildAttendanceMatrixWorkspace(User? user, bool isDark) {
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(left: 18, right: 18, top: 8, bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // KPI Stats Strip
+            _buildSummaryStatsGrid(
+              _previewResult?.summary ?? const ReportSummaryStats(),
+              isDark,
+            ),
+            const SizedBox(height: 14),
+
+            if (_isLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(56),
+                  child: CircularProgressIndicator(color: Color(0xFF6366F1)),
+                ),
+              )
+            else
+              _buildAttendanceMatrixTab(user, isDark),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExcelReportWorkspace(User? user, bool isDark) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── LEFT SIDEBAR: FILTERS PANEL ──────────────────────────────
+        SizedBox(
+          width: 380,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(
+                left: 18, top: 8, bottom: 16, right: 10),
+            child: FullReportFiltersPanel(
+              isEmployee: true,
+              employeeName: user?.name,
+              selectedReportType: _selectedReportType,
+              onReportTypeChanged: (val) {
+                setState(() => _selectedReportType = val);
+                _loadData();
+              },
+              selectedDate: _selectedDate,
+              onDateChanged: (d) {
+                setState(() {
+                  _selectedDate = d;
+                  final weeks = ReportWeekOption.getWeeksOfMonth(d);
+                  if (weeks.isNotEmpty) {
+                    _selectedWeek = weeks.first;
+                  }
+                });
+                _loadData();
+              },
+              selectedWeek: _selectedWeek,
+              onWeekChanged: (w) {
+                setState(() => _selectedWeek = w);
+                _loadData();
+              },
+              useCustomDateRange: _useDateRange,
+              onUseCustomRangeChanged: (val) {
+                setState(() => _useDateRange = val);
+                _loadData();
+              },
+              startDate: _startDate,
+              endDate: _endDate,
+              onDateRangeChanged: (s, e) {
+                setState(() {
+                  _startDate = s;
+                  _endDate = e;
+                });
+                _loadData();
+              },
+              selectedFormat: _selectedFormat,
+              onFormatChanged: (f) {
+                setState(() => _selectedFormat = f);
+              },
+              exportColumns: _exportColumns,
+              onColumnToggled: (key, val) => setState(() {
+                _exportColumns = Map<String, bool>.from(_exportColumns)..[key] = val;
+              }),
+              isGenerating: _isLoading,
+              isExporting: _isExporting,
+              onGeneratePreview: _loadData,
+              onExportReport: () => _exportWithFormat(_selectedFormat),
+              onOpenHistory: () =>
+                  ReportHistorySheet.show(context, _downloadHistory),
+            ),
+          ),
+        ),
+
+        // ── VERTICAL DIVIDER ──────────────────────────────────────────
+        Container(
+          width: 1,
+          color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+        ),
+
+        // ── RIGHT MAIN WORKSPACE: EXCEL PREVIEW ───────────────────────
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _loadData,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(
+                  left: 14, right: 18, top: 8, bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // KPI Stats Strip
+                  _buildSummaryStatsGrid(
+                    _previewResult?.summary ?? const ReportSummaryStats(),
+                    isDark,
+                  ),
+                  const SizedBox(height: 14),
+
+                  if (_isLoading)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(56),
+                        child: CircularProgressIndicator(
+                            color: Color(0xFF6366F1)),
+                      ),
+                    )
+                  else
+                    _buildExcelPreviewWorkspace(isDark),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   // ══════════════════════════════════════════════════════════════════════════
-  // TOP PERIOD TOOLBAR (Centered Month Filter)
+  // TOP PERIOD TOOLBAR (Unified Tab Switcher, Month Filter & Employee Badge)
   // ══════════════════════════════════════════════════════════════════════════
-  Widget _buildTopPeriodToolbar(bool isDark) {
+  Widget _buildTopPeriodToolbar(User? user, bool isDark) {
     final monthLabel = DateFormat('MMMM yyyy').format(_selectedDate);
 
     final monthFilterWidget = Row(
@@ -592,6 +662,66 @@ class _EmployeeReportsTabletLandscapeViewState
       ),
     );
 
+    final employeeBadge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFF6366F1).withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.person_outline_rounded,
+              size: 15, color: Color(0xFF6366F1)),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 160),
+            child: Text(
+              user?.name ?? 'My Attendance',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF6366F1),
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final tabSwitcher = Container(
+      padding: const EdgeInsets.all(3.5),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF21262D) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildWorkspaceTab(
+            index: 0,
+            label: "Attendance Matrix",
+            icon: Icons.calendar_view_month_rounded,
+            isDark: isDark,
+          ),
+          const SizedBox(width: 4),
+          _buildWorkspaceTab(
+            index: 1,
+            label: "Excel Report",
+            icon: Icons.table_chart_outlined,
+            isDark: isDark,
+          ),
+        ],
+      ),
+    );
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
@@ -608,94 +738,28 @@ class _EmployeeReportsTabletLandscapeViewState
           ),
         ],
       ),
-      child: Stack(
-        alignment: Alignment.center,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Centered Month Filter across the entire landscape page
-          Center(child: monthFilterWidget),
-
-          // Right-aligned Actions
-          Align(
-            alignment: Alignment.centerRight,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                refreshButton,
-                const SizedBox(width: 8),
-                historyButton,
-              ],
-            ),
+          tabSwitcher,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              monthFilterWidget,
+              const SizedBox(width: 10),
+              employeeBadge,
+            ],
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              refreshButton,
+              const SizedBox(width: 8),
+              historyButton,
+            ],
           ),
         ],
       ),
-    );
-  }
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // RIGHT WORKSPACE TOP BAR
-  // ══════════════════════════════════════════════════════════════════════════
-  Widget _buildRightTopBar(bool isDark) {
-    return Row(
-      children: [
-        // Tab Switcher (Excel Preview vs Attendance Matrix)
-        Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildWorkspaceTab(
-                index: 1,
-                label: "Excel Spreadsheet Preview",
-                icon: Icons.table_chart_outlined,
-                isDark: isDark,
-              ),
-              const SizedBox(width: 4),
-              _buildWorkspaceTab(
-                index: 0,
-                label: "Attendance Matrix",
-                icon: Icons.calendar_view_month_rounded,
-                isDark: isDark,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 14),
-
-        // Live Cross-cell Search Bar
-        Expanded(
-          child: Container(
-            height: 38,
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF161B22) : Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color:
-                    isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1),
-              ),
-            ),
-            child: TextField(
-              onChanged: (v) => setState(() => _searchQuery = v),
-              style: GoogleFonts.poppins(fontSize: 12),
-              decoration: InputDecoration(
-                hintText: "Search cell values, dates, statuses...",
-                hintStyle: GoogleFonts.poppins(
-                    fontSize: 12, color: Colors.grey[400]),
-                prefixIcon: const Icon(Icons.search, size: 18),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 9),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -709,8 +773,10 @@ class _EmployeeReportsTabletLandscapeViewState
 
     return InkWell(
       onTap: () {
-        setState(() => _activeTab = index);
-        if (_previewResult == null) _loadData();
+        if (_activeTab != index) {
+          setState(() => _activeTab = index);
+          _loadData();
+        }
       },
       borderRadius: BorderRadius.circular(8),
       child: AnimatedContainer(
@@ -913,17 +979,74 @@ class _EmployeeReportsTabletLandscapeViewState
   // TAB 1: EXCEL WORKSPACE (AUTHENTIC EXCEL SPREADSHEET PREVIEW TABLE)
   // ══════════════════════════════════════════════════════════════════════════
   Widget _buildExcelPreviewWorkspace(bool isDark) {
-    return ReportPreviewTable(
-      key: ValueKey(
-          'preview_${_selectedReportType}_${_selectedDate.millisecondsSinceEpoch}'),
-      columns: _previewResult?.columns ?? const [],
-      rows: _previewResult?.rows ?? const [],
-      searchQuery: _searchQuery,
-      reportTitle: _selectedReportType,
-      onExportExcel: () => _exportWithFormat('xlsx'),
-      onExportCsv: () => _exportWithFormat('csv'),
-      onExportPdf: () => _exportWithFormat('pdf'),
-      isExporting: _isExporting,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 38,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF161B22) : Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1),
+            ),
+          ),
+          child: TextField(
+            onChanged: (v) => setState(() => _searchQuery = v),
+            style: GoogleFonts.poppins(fontSize: 12),
+            decoration: InputDecoration(
+              hintText: "Search report cells, dates, statuses...",
+              hintStyle: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[400]),
+              prefixIcon: const Icon(Icons.search, size: 18),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.close, size: 16),
+                      onPressed: () => setState(() => _searchQuery = ''),
+                      padding: EdgeInsets.zero,
+                    )
+                  : null,
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 9),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        () {
+          String dateSubtitle;
+          if (_useDateRange) {
+            dateSubtitle = "${DateFormat('dd MMM').format(_startDate)} - ${DateFormat('dd MMM yyyy').format(_endDate)}";
+          } else if (_selectedReportType == 'matrix_daily') {
+            dateSubtitle = DateFormat('dd MMMM yyyy').format(_selectedDate);
+          } else if (_selectedReportType == 'matrix_weekly') {
+            dateSubtitle = _selectedWeek?.label ?? DateFormat('MMMM yyyy').format(_selectedDate);
+          } else {
+            dateSubtitle = DateFormat('MMMM yyyy').format(_selectedDate);
+          }
+
+          return ReportPreviewTable(
+            key: ValueKey(
+                'preview_${_selectedReportType}_${_selectedDate.millisecondsSinceEpoch}_${_selectedWeek?.value}'),
+            columns: _previewResult?.columns ?? const [],
+            rows: _previewResult?.rows ?? const [],
+            columnsConfig: _exportColumns,
+            searchQuery: _searchQuery,
+            reportTitle: _selectedReportType,
+            dateSubtitle: dateSubtitle,
+            selectedReportType: _selectedReportType,
+            selectedWeek: _selectedWeek,
+            availableWeeks: ReportWeekOption.getWeeksOfMonth(_selectedDate),
+            onWeekChanged: (w) {
+              setState(() => _selectedWeek = w);
+              _loadData();
+            },
+            onExportExcel: () => _exportWithFormat('xlsx'),
+            onExportCsv: () => _exportWithFormat('csv'),
+            onExportPdf: () => _exportWithFormat('pdf'),
+            isExporting: _isExporting,
+          );
+        }(),
+      ],
     );
   }
 
@@ -952,50 +1075,86 @@ class _EmployeeReportsTabletLandscapeViewState
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color:
-                    isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isDark
-                      ? const Color(0xFF30363D)
-                      : const Color(0xFFE2E8F0),
-                ),
-              ),
-              child: Row(
-                children: [
-                  _buildSubViewButton(
-                      0, "Daily Log Cards", Icons.view_agenda_outlined, isDark),
-                  _buildSubViewButton(
-                      1, "Matrix Grid", Icons.grid_on_rounded, isDark),
-                ],
-              ),
-            ),
-            if (_matrixSubView == 1)
-              Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? const Color(0xFF161B22)
-                      : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isDark
-                        ? const Color(0xFF30363D)
-                        : const Color(0xFFE2E8F0),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color:
+                        isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isDark
+                          ? const Color(0xFF30363D)
+                          : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      _buildSubViewButton(
+                          0, "Daily Log Cards", Icons.view_agenda_outlined, isDark),
+                      _buildSubViewButton(
+                          1, "Matrix Grid", Icons.grid_on_rounded, isDark),
+                    ],
                   ),
                 ),
-                child: Row(
-                  children: [
-                    _buildMatrixModeButton(
-                        0, "Calendar View", Icons.calendar_month, isDark),
-                    _buildMatrixModeButton(
-                        1, "Table View", Icons.table_chart, isDark),
-                  ],
+                if (_matrixSubView == 1) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF161B22)
+                          : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isDark
+                            ? const Color(0xFF30363D)
+                            : const Color(0xFFE2E8F0),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        _buildMatrixModeButton(
+                            0, "Calendar View", Icons.calendar_month, isDark),
+                        _buildMatrixModeButton(
+                            1, "Table View", Icons.table_chart, isDark),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            Container(
+              width: 280,
+              height: 38,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF161B22) : Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1),
                 ),
               ),
+              child: TextField(
+                onChanged: (v) => setState(() => _searchQuery = v),
+                style: GoogleFonts.poppins(fontSize: 12),
+                decoration: InputDecoration(
+                  hintText: "Search logs, dates, status...",
+                  hintStyle: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[400]),
+                  prefixIcon: const Icon(Icons.search, size: 17),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.close, size: 15),
+                          onPressed: () => setState(() => _searchQuery = ''),
+                          padding: EdgeInsets.zero,
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 14),
@@ -1141,7 +1300,7 @@ class _EmployeeReportsTabletLandscapeViewState
     bool isDark,
   ) {
     final dt = DateTime.tryParse(dateStr) ?? DateTime.now();
-    final dayLabel = DateFormat('EEE, MMM dd, yyyy').format(dt);
+    final dayLabel = DateFormat('d MMMM yyyy').format(dt);
     final isSunday = dt.weekday == DateTime.sunday;
     final isToday = DateUtils.isSameDay(dt, DateTime.now());
 
@@ -1173,14 +1332,27 @@ class _EmployeeReportsTabletLandscapeViewState
         statusBadge = rec.status;
     }
 
+    final isNonClickable = const [
+      'Sun',
+      'Sat',
+      'WEEK_OFF',
+      'Week Off',
+      'Holiday',
+      'HOLIDAY',
+      'Not Recorded',
+      '-'
+    ].contains(rec.status) || rec.status.toUpperCase() == 'WO' || rec.status.toUpperCase() == 'H';
+
     return InkWell(
-      onTap: () {
-        AttendanceDetailSheet.show(
-          context,
-          employee: emp,
-          record: rec,
-        );
-      },
+      onTap: isNonClickable
+          ? null
+          : () {
+              AttendanceDetailSheet.show(
+                context,
+                employee: emp,
+                record: rec,
+              );
+            },
       borderRadius: BorderRadius.circular(14),
       child: Container(
         padding: const EdgeInsets.all(12),
@@ -1514,10 +1686,21 @@ class _EmployeeReportsTabletLandscapeViewState
       border = const Color(0xFF6366F1);
     }
 
+    final isNonClickable = const [
+      'Sun',
+      'Sat',
+      'WEEK_OFF',
+      'Week Off',
+      'Holiday',
+      'HOLIDAY',
+      'Not Recorded',
+      '-'
+    ].contains(record.status) || record.status.toUpperCase() == 'WO' || record.status.toUpperCase() == 'H';
+
     return Opacity(
       opacity: isDimmed ? 0.3 : 1.0,
       child: InkWell(
-        onTap: isFuture
+        onTap: (isFuture || isNonClickable)
             ? null
             : () {
                 AttendanceDetailSheet.show(

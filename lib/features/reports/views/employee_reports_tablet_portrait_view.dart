@@ -28,7 +28,7 @@ class _EmployeeReportsTabletPortraitViewState
     extends State<EmployeeReportsTabletPortraitView> {
   late ReportService _reportService;
 
-  // View Navigation: 0 = Attendance Matrix, 1 = Excel & PDF Reports
+  // View Navigation: 0 = Attendance Matrix, 1 = Excel Reports
   int _activeTab = 0;
 
   // Sub-view inside Tab 0: 0 = Daily Log Cards, 1 = Matrix Grid
@@ -38,23 +38,30 @@ class _EmployeeReportsTabletPortraitViewState
 
   // Date and Filter State
   DateTime _selectedDate = DateTime.now();
+  ReportWeekOption? _selectedWeek;
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 7));
   DateTime _endDate = DateTime.now();
   bool _useDateRange = false;
 
   // Report Generator Configuration
-  String _selectedReportType = 'attendance_detailed';
+  String _selectedReportType = 'matrix_monthly';
   String _selectedFormat = 'xlsx';
   String _searchQuery = '';
 
   // Export Columns Selection
-  final Map<String, bool> _exportColumns = {
-    'clock_in_out': true,
+  Map<String, bool> _exportColumns = {
+    'shift': true,
+    'timeIn': true,
+    'timeOut': true,
     'status': true,
-    'work_duration': true,
-    'required_hours': true,
-    'late_minutes': true,
+    'workedHours': true,
+    'requiredHours': true,
+    'late': true,
     'location': true,
+    'attendanceDays': true,
+    'clock_in_out': true,
+    'work_duration': true,
+    'late_minutes': true,
   };
 
   // State Management
@@ -68,6 +75,11 @@ class _EmployeeReportsTabletPortraitViewState
     super.initState();
     final auth = Provider.of<AuthService>(context, listen: false);
     _reportService = ReportService(auth.dio);
+
+    final weeks = ReportWeekOption.getWeeksOfMonth(_selectedDate);
+    if (weeks.isNotEmpty) {
+      _selectedWeek = weeks.first;
+    }
 
     _loadData();
     _loadHistory();
@@ -84,17 +96,26 @@ class _EmployeeReportsTabletPortraitViewState
       final user = Provider.of<AuthService>(context, listen: false).user;
       final userId = user?.id;
 
+      final weeks = ReportWeekOption.getWeeksOfMonth(_selectedDate);
+      if (_selectedWeek == null || !weeks.any((w) => w.value == _selectedWeek!.value)) {
+        _selectedWeek = weeks.isNotEmpty ? weeks.first : null;
+      }
+
       final monthStr =
           "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}";
       final dateStr =
           "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
 
+      final isWeekly = _selectedReportType == 'matrix_weekly';
+      final String dateToUse = (isWeekly && !_useDateRange && _selectedWeek != null)
+          ? _selectedWeek!.value
+          : dateStr;
       final String? qStart = _useDateRange
           ? "${_startDate.year}-${_startDate.month.toString().padLeft(2, '0')}-${_startDate.day.toString().padLeft(2, '0')}"
-          : null;
+          : (isWeekly && _selectedWeek != null ? DateFormat('yyyy-MM-dd').format(_selectedWeek!.start) : null);
       final String? qEnd = _useDateRange
           ? "${_endDate.year}-${_endDate.month.toString().padLeft(2, '0')}-${_endDate.day.toString().padLeft(2, '0')}"
-          : null;
+          : (isWeekly && _selectedWeek != null ? DateFormat('yyyy-MM-dd').format(_selectedWeek!.end) : null);
 
       final typeToFetch =
           (_activeTab == 0) ? 'attendance_matrix_monthly' : _selectedReportType;
@@ -102,10 +123,11 @@ class _EmployeeReportsTabletPortraitViewState
       final result = await _reportService.getPreview(
         type: typeToFetch,
         month: monthStr,
-        date: dateStr,
+        date: dateToUse,
         startDate: qStart,
         endDate: qEnd,
         userId: userId,
+        columns: _exportColumns,
         currentUserInfo: user != null
             ? {
                 'user_id': user.id,
@@ -276,7 +298,9 @@ class _EmployeeReportsTabletPortraitViewState
       );
 
       if (mounted) {
-        setState(() => _isExporting = false);
+        setState(() {
+          _isExporting = false;
+        });
         _loadHistory();
         if (path != null) {
           final fileName = path.split(RegExp(r'[\\/]')).last;
@@ -284,20 +308,8 @@ class _EmployeeReportsTabletPortraitViewState
             "Report exported: $fileName",
             isSuccess: true,
             actionLabel: "OPEN",
-            duration: const Duration(seconds: 7),
-            onActionPressed: () async {
-              try {
-                final result = await OpenFilex.open(path);
-                if (result.type != ResultType.done && mounted) {
-                  context.showToast("Could not open file: ${result.message}",
-                      isError: true);
-                }
-              } catch (e) {
-                if (mounted) {
-                  context.showToast("Error opening file: $e", isError: true);
-                }
-              }
-            },
+            duration: const Duration(seconds: 8),
+            onActionPressed: () => _openDownloadedFile(path),
           );
         }
       }
@@ -305,6 +317,19 @@ class _EmployeeReportsTabletPortraitViewState
       if (mounted) {
         setState(() => _isExporting = false);
         context.showToast("Failed to export report: $e", isError: true);
+      }
+    }
+  }
+
+  Future<void> _openDownloadedFile(String path) async {
+    try {
+      final result = await OpenFilex.open(path);
+      if (result.type != ResultType.done && mounted) {
+        context.showToast("Could not open file: ${result.message}", isError: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        context.showToast("Error opening file: $e", isError: true);
       }
     }
   }
@@ -348,8 +373,8 @@ class _EmployeeReportsTabletPortraitViewState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── 1. Top Period & Action Toolbar (No Name / Designation) ─
-              _buildTopPeriodToolbar(isDark),
+              // ── 1. Top Period & Action Toolbar ────────────────────────
+              _buildTopPeriodToolbar(user, isDark),
               const SizedBox(height: 16),
 
               // ── 2. Segmented Navigation Tabs ───────────────────────────
@@ -371,7 +396,7 @@ class _EmployeeReportsTabletPortraitViewState
   // ══════════════════════════════════════════════════════════════════════════
   // TOP PERIOD TOOLBAR
   // ══════════════════════════════════════════════════════════════════════════
-  Widget _buildTopPeriodToolbar(bool isDark) {
+  Widget _buildTopPeriodToolbar(User? user, bool isDark) {
     final monthLabel = DateFormat('MMMM yyyy').format(_selectedDate);
 
     final monthFilterWidget = Row(
@@ -503,6 +528,37 @@ class _EmployeeReportsTabletPortraitViewState
       ),
     );
 
+    final employeeBadge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFF6366F1).withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.person_outline_rounded,
+              size: 15, color: Color(0xFF6366F1)),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 180),
+            child: Text(
+              user?.name ?? 'My Attendance',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF6366F1),
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
       decoration: BoxDecoration(
@@ -519,37 +575,20 @@ class _EmployeeReportsTabletPortraitViewState
           ),
         ],
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth < 520) {
-            return Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                refreshButton,
-                Flexible(child: Center(child: monthFilterWidget)),
-                historyButton,
-              ],
-            );
-          }
-
-          return Stack(
-            alignment: Alignment.center,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          employeeBadge,
+          monthFilterWidget,
+          Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Center(child: monthFilterWidget),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    refreshButton,
-                    const SizedBox(width: 8),
-                    historyButton,
-                  ],
-                ),
-              ),
+              refreshButton,
+              const SizedBox(width: 8),
+              historyButton,
             ],
-          );
-        },
+          ),
+        ],
       ),
     );
   }
@@ -577,7 +616,7 @@ class _EmployeeReportsTabletPortraitViewState
           ),
           _buildSegmentTab(
             index: 1,
-            label: "Excel & PDF Reports",
+            label: "Excel Report",
             icon: Icons.table_chart_outlined,
             isDark: isDark,
           ),
@@ -597,8 +636,10 @@ class _EmployeeReportsTabletPortraitViewState
     return Expanded(
       child: GestureDetector(
         onTap: () {
-          setState(() => _activeTab = index);
-          if (_previewResult == null) _loadData();
+          if (_activeTab != index) {
+            setState(() => _activeTab = index);
+            _loadData();
+          }
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
@@ -984,7 +1025,7 @@ class _EmployeeReportsTabletPortraitViewState
     bool isDark,
   ) {
     final dt = DateTime.tryParse(dateStr) ?? DateTime.now();
-    final dayLabel = DateFormat('EEE, MMM dd, yyyy').format(dt);
+    final dayLabel = DateFormat('d MMMM yyyy').format(dt);
     final isSunday = dt.weekday == DateTime.sunday;
     final isToday = DateUtils.isSameDay(dt, DateTime.now());
 
@@ -1016,14 +1057,27 @@ class _EmployeeReportsTabletPortraitViewState
         statusBadge = rec.status;
     }
 
+    final isNonClickable = const [
+      'Sun',
+      'Sat',
+      'WEEK_OFF',
+      'Week Off',
+      'Holiday',
+      'HOLIDAY',
+      'Not Recorded',
+      '-'
+    ].contains(rec.status) || rec.status.toUpperCase() == 'WO' || rec.status.toUpperCase() == 'H';
+
     return InkWell(
-      onTap: () {
-        AttendanceDetailSheet.show(
-          context,
-          employee: emp,
-          record: rec,
-        );
-      },
+      onTap: isNonClickable
+          ? null
+          : () {
+              AttendanceDetailSheet.show(
+                context,
+                employee: emp,
+                record: rec,
+              );
+            },
       borderRadius: BorderRadius.circular(14),
       child: Container(
         padding: const EdgeInsets.all(14),
@@ -1480,10 +1534,21 @@ class _EmployeeReportsTabletPortraitViewState
       border = const Color(0xFF6366F1);
     }
 
+    final isNonClickable = const [
+      'Sun',
+      'Sat',
+      'WEEK_OFF',
+      'Week Off',
+      'Holiday',
+      'HOLIDAY',
+      'Not Recorded',
+      '-'
+    ].contains(record.status) || record.status.toUpperCase() == 'WO' || record.status.toUpperCase() == 'H';
+
     return Opacity(
       opacity: isDimmed ? 0.3 : 1.0,
       child: InkWell(
-        onTap: isFuture
+        onTap: (isFuture || isNonClickable)
             ? null
             : () {
                 AttendanceDetailSheet.show(
@@ -1584,11 +1649,13 @@ class _EmployeeReportsTabletPortraitViewState
   Widget _buildStatusLegendBar(bool isDark) {
     final items = const [
       {'label': 'P Present', 'color': Color(0xFF10B981)},
+      {'label': 'MP Missed Punch', 'color': Color(0xFFF59E0B)},
       {'label': 'A Absent', 'color': Color(0xFFEF4444)},
+      {'label': 'OT Overtime', 'color': Color(0xFF8B5CF6)},
       {'label': 'L Leave', 'color': Color(0xFF0284C7)},
       {'label': 'HD Half Day', 'color': Color(0xFF6366F1)},
       {'label': 'WO Week Off', 'color': Color(0xFF64748B)},
-      {'label': 'H Holiday', 'color': Color(0xFFF59E0B)},
+      {'label': 'H Holiday', 'color': Color(0xFF0284C7)},
     ];
 
     return Wrap(
@@ -1635,6 +1702,7 @@ class _EmployeeReportsTabletPortraitViewState
         // Full Filters Panel matching Attendance-Web
         FullReportFiltersPanel(
           isEmployee: true,
+          employeeName: user?.name,
           selectedReportType: _selectedReportType,
           onReportTypeChanged: (val) {
             setState(() => _selectedReportType = val);
@@ -1642,7 +1710,18 @@ class _EmployeeReportsTabletPortraitViewState
           },
           selectedDate: _selectedDate,
           onDateChanged: (d) {
-            setState(() => _selectedDate = d);
+            setState(() {
+              _selectedDate = d;
+              final weeks = ReportWeekOption.getWeeksOfMonth(d);
+              if (weeks.isNotEmpty) {
+                _selectedWeek = weeks.first;
+              }
+            });
+            _loadData();
+          },
+          selectedWeek: _selectedWeek,
+          onWeekChanged: (w) {
+            setState(() => _selectedWeek = w);
             _loadData();
           },
           useCustomDateRange: _useDateRange,
@@ -1660,10 +1739,13 @@ class _EmployeeReportsTabletPortraitViewState
             _loadData();
           },
           selectedFormat: _selectedFormat,
-          onFormatChanged: (f) => setState(() => _selectedFormat = f),
+          onFormatChanged: (f) {
+            setState(() => _selectedFormat = f);
+          },
           exportColumns: _exportColumns,
-          onColumnToggled: (key, val) =>
-              setState(() => _exportColumns[key] = val),
+          onColumnToggled: (key, val) => setState(() {
+            _exportColumns = Map<String, bool>.from(_exportColumns)..[key] = val;
+          }),
           isGenerating: _isLoading,
           isExporting: _isExporting,
           onGeneratePreview: _loadData,
@@ -1681,19 +1763,40 @@ class _EmployeeReportsTabletPortraitViewState
               child: CircularProgressIndicator(color: Color(0xFF6366F1)),
             ),
           )
-        else
-          ReportPreviewTable(
+        else () {
+          String dateSubtitle;
+          if (_useDateRange) {
+            dateSubtitle = "${DateFormat('dd MMM').format(_startDate)} - ${DateFormat('dd MMM yyyy').format(_endDate)}";
+          } else if (_selectedReportType == 'matrix_daily') {
+            dateSubtitle = DateFormat('dd MMMM yyyy').format(_selectedDate);
+          } else if (_selectedReportType == 'matrix_weekly') {
+            dateSubtitle = _selectedWeek?.label ?? DateFormat('MMMM yyyy').format(_selectedDate);
+          } else {
+            dateSubtitle = DateFormat('MMMM yyyy').format(_selectedDate);
+          }
+
+          return ReportPreviewTable(
             key: ValueKey(
-                'preview_${_selectedReportType}_${_selectedDate.millisecondsSinceEpoch}'),
+                'preview_${_selectedReportType}_${_selectedDate.millisecondsSinceEpoch}_${_selectedWeek?.value}'),
             columns: _previewResult?.columns ?? const [],
             rows: _previewResult?.rows ?? const [],
+            columnsConfig: _exportColumns,
             searchQuery: _searchQuery,
             reportTitle: _selectedReportType,
+            dateSubtitle: dateSubtitle,
+            selectedReportType: _selectedReportType,
+            selectedWeek: _selectedWeek,
+            availableWeeks: ReportWeekOption.getWeeksOfMonth(_selectedDate),
+            onWeekChanged: (w) {
+              setState(() => _selectedWeek = w);
+              _loadData();
+            },
             onExportExcel: () => _exportWithFormat('xlsx'),
             onExportCsv: () => _exportWithFormat('csv'),
             onExportPdf: () => _exportWithFormat('pdf'),
             isExporting: _isExporting,
-          ),
+          );
+        }(),
       ],
     );
   }

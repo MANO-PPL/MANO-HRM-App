@@ -36,23 +36,30 @@ class _EmployeeReportsMobilePortraitViewState extends State<EmployeeReportsMobil
 
   // Date and Filter State
   DateTime _selectedDate = DateTime.now();
+  ReportWeekOption? _selectedWeek;
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 7));
   DateTime _endDate = DateTime.now();
   bool _useDateRange = false;
 
   // Report Generator Configuration
-  String _selectedReportType = 'attendance_detailed';
+  String _selectedReportType = 'matrix_monthly';
   String _selectedFormat = 'xlsx';
   String _searchQuery = '';
 
   // Export Columns Selection
-  final Map<String, bool> _exportColumns = {
-    'clock_in_out': true,
+  Map<String, bool> _exportColumns = {
+    'shift': true,
+    'timeIn': true,
+    'timeOut': true,
     'status': true,
-    'work_duration': true,
-    'required_hours': true,
-    'late_minutes': true,
+    'workedHours': true,
+    'requiredHours': true,
+    'late': true,
     'location': true,
+    'attendanceDays': true,
+    'clock_in_out': true,
+    'work_duration': true,
+    'late_minutes': true,
   };
 
   // State Management
@@ -66,6 +73,11 @@ class _EmployeeReportsMobilePortraitViewState extends State<EmployeeReportsMobil
     super.initState();
     final auth = Provider.of<AuthService>(context, listen: false);
     _reportService = ReportService(auth.dio);
+
+    final weeks = ReportWeekOption.getWeeksOfMonth(_selectedDate);
+    if (weeks.isNotEmpty) {
+      _selectedWeek = weeks.first;
+    }
 
     _loadData();
     _loadHistory();
@@ -82,25 +94,35 @@ class _EmployeeReportsMobilePortraitViewState extends State<EmployeeReportsMobil
       final user = Provider.of<AuthService>(context, listen: false).user;
       final userId = user?.id;
 
+      final weeks = ReportWeekOption.getWeeksOfMonth(_selectedDate);
+      if (_selectedWeek == null || !weeks.any((w) => w.value == _selectedWeek!.value)) {
+        _selectedWeek = weeks.isNotEmpty ? weeks.first : null;
+      }
+
       final monthStr = "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}";
       final dateStr = "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
 
+      final isWeekly = _selectedReportType == 'matrix_weekly';
+      final String dateToUse = (isWeekly && !_useDateRange && _selectedWeek != null)
+          ? _selectedWeek!.value
+          : dateStr;
       final String? qStart = _useDateRange
           ? "${_startDate.year}-${_startDate.month.toString().padLeft(2, '0')}-${_startDate.day.toString().padLeft(2, '0')}"
-          : null;
+          : (isWeekly && _selectedWeek != null ? DateFormat('yyyy-MM-dd').format(_selectedWeek!.start) : null);
       final String? qEnd = _useDateRange
           ? "${_endDate.year}-${_endDate.month.toString().padLeft(2, '0')}-${_endDate.day.toString().padLeft(2, '0')}"
-          : null;
+          : (isWeekly && _selectedWeek != null ? DateFormat('yyyy-MM-dd').format(_selectedWeek!.end) : null);
 
       final typeToFetch = (_activeTab == 0) ? 'attendance_matrix_monthly' : _selectedReportType;
 
       final result = await _reportService.getPreview(
         type: typeToFetch,
         month: monthStr,
-        date: dateStr,
+        date: dateToUse,
         startDate: qStart,
         endDate: qEnd,
         userId: userId,
+        columns: _exportColumns,
         currentUserInfo: user != null
             ? {
                 'user_id': user.id,
@@ -279,8 +301,8 @@ class _EmployeeReportsMobilePortraitViewState extends State<EmployeeReportsMobil
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── 1. Top Period & Action Toolbar (No Name / Designation) ─
-              _buildTopPeriodToolbar(isDark),
+              // ── 1. Top Period & Action Toolbar ────────────────────────
+              _buildTopPeriodToolbar(user, isDark),
               const SizedBox(height: 8),
 
               // ── 2. Segmented Navigation Tabs ───────────────────────────
@@ -302,7 +324,7 @@ class _EmployeeReportsMobilePortraitViewState extends State<EmployeeReportsMobil
   // ══════════════════════════════════════════════════════════════════════════
   // TOP PERIOD TOOLBAR
   // ══════════════════════════════════════════════════════════════════════════
-  Widget _buildTopPeriodToolbar(bool isDark) {
+  Widget _buildTopPeriodToolbar(User? user, bool isDark) {
     final monthLabel = DateFormat('MMMM yyyy').format(_selectedDate);
 
     final monthFilterWidget = Row(
@@ -424,6 +446,37 @@ class _EmployeeReportsMobilePortraitViewState extends State<EmployeeReportsMobil
       ),
     );
 
+    final employeeBadge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFF6366F1).withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.person_outline_rounded,
+              size: 13, color: Color(0xFF6366F1)),
+          const SizedBox(width: 5),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 130),
+            child: Text(
+              user?.name ?? 'My Attendance',
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF6366F1),
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
@@ -440,36 +493,25 @@ class _EmployeeReportsMobilePortraitViewState extends State<EmployeeReportsMobil
           ),
         ],
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth < 420) {
-            return Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                refreshButton,
-                Flexible(child: Center(child: monthFilterWidget)),
-                historyButton,
-              ],
-            );
-          }
-          return Stack(
-            alignment: Alignment.center,
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Center(child: monthFilterWidget),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    refreshButton,
-                    const SizedBox(width: 6),
-                    historyButton,
-                  ],
-                ),
+              employeeBadge,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  refreshButton,
+                  const SizedBox(width: 6),
+                  historyButton,
+                ],
               ),
             ],
-          );
-        },
+          ),
+          const SizedBox(height: 8),
+          Center(child: monthFilterWidget),
+        ],
       ),
     );
   }
@@ -497,7 +539,7 @@ class _EmployeeReportsMobilePortraitViewState extends State<EmployeeReportsMobil
           ),
           _buildSegmentTab(
             index: 1,
-            label: "Excel & PDF Reports",
+            label: "Excel Report",
             icon: Icons.table_chart_outlined,
             isDark: isDark,
           ),
@@ -517,8 +559,10 @@ class _EmployeeReportsMobilePortraitViewState extends State<EmployeeReportsMobil
     return Expanded(
       child: GestureDetector(
         onTap: () {
-          setState(() => _activeTab = index);
-          if (_previewResult == null) _loadData();
+          if (_activeTab != index) {
+            setState(() => _activeTab = index);
+            _loadData();
+          }
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
@@ -1154,9 +1198,16 @@ class _EmployeeReportsMobilePortraitViewState extends State<EmployeeReportsMobil
       case 'P':
       case 'PRESENT':
         return 'PRESENT';
+      case 'MP':
+      case 'MISSED':
+      case 'MISSED_PUNCH':
+        return 'MISSED PUNCH';
       case 'A':
       case 'ABSENT':
         return 'ABSENT';
+      case 'OT':
+      case 'OVERTIME':
+        return 'OVERTIME';
       case 'L':
       case 'LEAVE':
         return 'ON LEAVE';
@@ -1388,14 +1439,27 @@ class _EmployeeReportsMobilePortraitViewState extends State<EmployeeReportsMobil
         record.clockIn!.isNotEmpty &&
         record.clockIn != '-';
 
+    final isNonClickable = const [
+      'Sun',
+      'Sat',
+      'WEEK_OFF',
+      'Week Off',
+      'Holiday',
+      'HOLIDAY',
+      'Not Recorded',
+      '-'
+    ].contains(record.status) || record.status.toUpperCase() == 'WO' || record.status.toUpperCase() == 'H';
+
     return Opacity(
       opacity: isDimmed ? 0.3 : 1.0,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            AttendanceDetailSheet.show(context, employee: employee, record: record);
-          },
+          onTap: isNonClickable
+              ? null
+              : () {
+                  AttendanceDetailSheet.show(context, employee: employee, record: record);
+                },
           borderRadius: BorderRadius.circular(8),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
@@ -1546,11 +1610,13 @@ class _EmployeeReportsMobilePortraitViewState extends State<EmployeeReportsMobil
   Widget _buildStatusLegendBar(bool isDark) {
     final items = const [
       {'label': 'P Present', 'color': Color(0xFF10B981)},
+      {'label': 'MP Missed Punch', 'color': Color(0xFFF59E0B)},
       {'label': 'A Absent', 'color': Color(0xFFEF4444)},
+      {'label': 'OT Overtime', 'color': Color(0xFF8B5CF6)},
       {'label': 'L Leave', 'color': Color(0xFF0284C7)},
       {'label': 'HD Half Day', 'color': Color(0xFF6366F1)},
       {'label': 'WO Week Off', 'color': Color(0xFF64748B)},
-      {'label': 'H Holiday', 'color': Color(0xFFF59E0B)},
+      {'label': 'H Holiday', 'color': Color(0xFF0284C7)},
     ];
 
     return Wrap(
@@ -1642,6 +1708,7 @@ class _EmployeeReportsMobilePortraitViewState extends State<EmployeeReportsMobil
         // Full Filters Panel matching Attendance-Web
         FullReportFiltersPanel(
           isEmployee: true,
+          employeeName: user?.name,
           selectedReportType: _selectedReportType,
           onReportTypeChanged: (val) {
             setState(() => _selectedReportType = val);
@@ -1649,7 +1716,18 @@ class _EmployeeReportsMobilePortraitViewState extends State<EmployeeReportsMobil
           },
           selectedDate: _selectedDate,
           onDateChanged: (d) {
-            setState(() => _selectedDate = d);
+            setState(() {
+              _selectedDate = d;
+              final weeks = ReportWeekOption.getWeeksOfMonth(d);
+              if (weeks.isNotEmpty) {
+                _selectedWeek = weeks.first;
+              }
+            });
+            _loadData();
+          },
+          selectedWeek: _selectedWeek,
+          onWeekChanged: (w) {
+            setState(() => _selectedWeek = w);
             _loadData();
           },
           useCustomDateRange: _useDateRange,
@@ -1669,7 +1747,9 @@ class _EmployeeReportsMobilePortraitViewState extends State<EmployeeReportsMobil
           selectedFormat: _selectedFormat,
           onFormatChanged: (f) => setState(() => _selectedFormat = f),
           exportColumns: _exportColumns,
-          onColumnToggled: (key, val) => setState(() => _exportColumns[key] = val),
+          onColumnToggled: (key, val) => setState(() {
+            _exportColumns = Map<String, bool>.from(_exportColumns)..[key] = val;
+          }),
           isGenerating: _isLoading,
           isExporting: _isExporting,
           onGeneratePreview: _loadData,
@@ -1686,18 +1766,39 @@ class _EmployeeReportsMobilePortraitViewState extends State<EmployeeReportsMobil
               child: CircularProgressIndicator(color: Color(0xFF6366F1)),
             ),
           )
-        else
-          ReportPreviewTable(
-            key: ValueKey('preview_${_selectedReportType}_${_selectedDate.millisecondsSinceEpoch}'),
+        else () {
+          String dateSubtitle;
+          if (_useDateRange) {
+            dateSubtitle = "${DateFormat('dd MMM').format(_startDate)} - ${DateFormat('dd MMM yyyy').format(_endDate)}";
+          } else if (_selectedReportType == 'matrix_daily') {
+            dateSubtitle = DateFormat('dd MMMM yyyy').format(_selectedDate);
+          } else if (_selectedReportType == 'matrix_weekly') {
+            dateSubtitle = _selectedWeek?.label ?? DateFormat('MMMM yyyy').format(_selectedDate);
+          } else {
+            dateSubtitle = DateFormat('MMMM yyyy').format(_selectedDate);
+          }
+
+          return ReportPreviewTable(
+            key: ValueKey('preview_${_selectedReportType}_${_selectedDate.millisecondsSinceEpoch}_${_selectedWeek?.value}'),
             columns: _previewResult?.columns ?? const [],
             rows: _previewResult?.rows ?? const [],
+            columnsConfig: _exportColumns,
             searchQuery: _searchQuery,
             reportTitle: _selectedReportType,
+            dateSubtitle: dateSubtitle,
+            selectedReportType: _selectedReportType,
+            selectedWeek: _selectedWeek,
+            availableWeeks: ReportWeekOption.getWeeksOfMonth(_selectedDate),
+            onWeekChanged: (w) {
+              setState(() => _selectedWeek = w);
+              _loadData();
+            },
             onExportExcel: () => _exportWithFormat('xlsx'),
             onExportCsv: () => _exportWithFormat('csv'),
             onExportPdf: () => _exportWithFormat('pdf'),
             isExporting: _isExporting,
-          ),
+          );
+        }(),
       ],
     );
   }
