@@ -1,18 +1,28 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_application/shared/services/auth_service.dart';
-import 'package:flutter_application/shared/widgets/toast_helper.dart';
 import 'package:flutter_application/features/payroll/core/payroll_model.dart';
-import 'package:flutter_application/features/payroll/core/payroll_audit_model.dart';
 import 'package:flutter_application/features/payroll/core/payroll_service.dart';
-import 'package:flutter_application/features/payroll/core/payslip_pdf_service.dart';
-import 'package:flutter_application/features/payroll/widgets/pay_period_selector.dart';
-import 'package:flutter_application/features/payroll/widgets/payroll_metric_badge.dart';
-import 'package:flutter_application/features/payroll/widgets/salary_breakdown_card.dart';
+import 'package:flutter_application/features/payroll/widgets/payroll_summary_cards.dart';
+import 'package:flutter_application/features/payroll/widgets/payroll_setup_banner.dart';
+import 'package:flutter_application/features/payroll/widgets/run_payroll_drawer.dart';
+import 'package:flutter_application/features/payroll/widgets/mark_paid_dialog.dart';
+import 'package:flutter_application/features/payroll/widgets/payroll_settings_dialog.dart';
+import 'package:flutter_application/features/payroll/widgets/create_package_dialog.dart';
+import 'package:flutter_application/features/payroll/widgets/assign_package_dialog.dart';
+import 'package:flutter_application/features/payroll/widgets/itemized_payslip_sheet.dart';
+import 'package:flutter_application/shared/widgets/app_custom_dropdown.dart';
+import 'package:flutter_application/shared/widgets/custom_dialog.dart';
+import 'package:flutter_application/shared/widgets/toast_helper.dart';
 
+/// PayrollScreenTablet - Tablet View
+/// Replicates Attendance-Web Payroll.jsx on wide tablet screens with dual-pane layout option,
+/// full run lifecycle management, package directory, and staff assignment.
 class PayrollScreenTablet extends StatefulWidget {
-  const PayrollScreenTablet({super.key});
+  final bool? isLandscape;
+  const PayrollScreenTablet({super.key, this.isLandscape});
 
   @override
   State<PayrollScreenTablet> createState() => _PayrollScreenTabletState();
@@ -23,1083 +33,2026 @@ class _PayrollScreenTabletState extends State<PayrollScreenTablet>
   late PayrollService _payrollService;
   late TabController _tabController;
 
-  // --- Payroll Run State ---
   bool _isLoading = true;
-  PayrollRun? _payrollRun;
-  List<Payslip> _payslips = [];
-  Payslip? _selectedPayslip;
-  String _selectedPeriod = '';
-  String _selectedDept = 'All';
-  String _searchQuery = '';
+  PayrollSetupStatus _setupStatus = const PayrollSetupStatus(isConfigured: true, packagesCount: 1);
 
-  // Dynamic departments (from data, not hardcoded)
-  List<String> _departments = ['All'];
-  final TextEditingController _searchController = TextEditingController();
+  // Tab 0: Runs Data
+  List<PayrollRun> _runs = [];
+  PayrollRun? _selectedRun;
+  bool _runDetailsLoading = false;
+  String _employeeSearch = '';
+  bool _isRerunning = false;
+  bool _isApproving = false;
 
-  // --- Lock state ---
-  String? _lockingId;
+  // Tab 1: Packages Data
+  List<SalaryPackage> _packages = [];
+  SalaryPackage? _selectedPackage;
+  String _packageSearch = '';
 
-  // --- Audit Trail State ---
-  bool _isLoadingAudit = false;
-  List<PayrollAuditLog> _auditLogs = [];
-
-  List<Payslip> get _filteredPayslips {
-    return _payslips.where((p) {
-      final matchesSearch = _searchQuery.isEmpty ||
-          p.employeeName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          p.employeeId.toLowerCase().contains(_searchQuery.toLowerCase());
-      final matchesDept = _selectedDept == 'All' || p.department == _selectedDept;
-      return matchesSearch && matchesDept;
-    }).toList();
-  }
+  // Tab 2: Assignments Data
+  List<EmployeePackageAssignment> _assignments = [];
+  String _assignmentSearch = '';
+  String _assignmentDept = 'All';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(_onTabChanged);
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
 
     final authService = Provider.of<AuthService>(context, listen: false);
     _payrollService = PayrollService(authService.dio);
-    _selectedPeriod = _payrollService.currentPayPeriod;
-    _loadData();
+    _loadAllPayrollData();
   }
 
   @override
   void dispose() {
-    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
-    _searchController.dispose();
     super.dispose();
   }
 
-  void _onTabChanged() {
-    if (mounted) setState(() {});
-    if (_tabController.index == 1 && _auditLogs.isEmpty && !_isLoadingAudit) {
-      _loadAuditLogs();
-    }
+  String _formatINR(double val) {
+    return NumberFormat('#,##,##0.00', 'en_IN').format(val);
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Data Loading
-  // ─────────────────────────────────────────────────────────────────────────
-
-  Future<void> _loadData() async {
+  Future<void> _loadAllPayrollData() async {
     setState(() => _isLoading = true);
     try {
-      final result = await _payrollService.getPayrollDashboard(payPeriod: _selectedPeriod);
+      final setupFuture = _payrollService.getSetupStatus();
+      final runsFuture = _payrollService.getPayrollRuns();
+      final packagesFuture = _payrollService.getPackages();
+      final assignmentsFuture = _payrollService.getAssignments();
+
+      final results = await Future.wait([
+        setupFuture,
+        runsFuture,
+        packagesFuture,
+        assignmentsFuture,
+      ]);
+
       if (mounted) {
-        final depts = <String>{'All'};
-        for (final s in result.payslips) {
-          if (s.department.isNotEmpty) depts.add(s.department);
+        final setup = results[0] as PayrollSetupStatus;
+        final runsList = results[1] as List<PayrollRun>;
+        final pkgsList = results[2] as List<SalaryPackage>;
+        final assignsList = results[3] as List<EmployeePackageAssignment>;
+
+        PayrollRun? activeRun;
+        if (runsList.isNotEmpty) {
+          activeRun = runsList.firstWhere(
+            (r) => r.employees.isNotEmpty,
+            orElse: () => runsList.first,
+          );
         }
+
         setState(() {
-          _payrollRun = result.run;
-          _payslips = result.payslips;
-          _departments = depts.toList();
-          if (result.payslips.isNotEmpty &&
-              (_selectedPayslip == null ||
-                  !result.payslips.any((p) => p.id == _selectedPayslip!.id))) {
-            _selectedPayslip = result.payslips.first;
-          }
+          _setupStatus = setup;
+          _runs = runsList;
+          _selectedRun = activeRun;
+          _packages = pkgsList;
+          _selectedPackage = pkgsList.isNotEmpty ? pkgsList.first : null;
+          _assignments = assignsList;
           _isLoading = false;
         });
+
+        if (activeRun != null) {
+          _loadRunDetails(int.tryParse(activeRun.id) ?? 1);
+        }
       }
     } catch (e) {
-      debugPrint('Error loading payroll tablet data: $e');
+      debugPrint('Error loading tablet payroll data: $e');
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _loadAuditLogs() async {
-    setState(() => _isLoadingAudit = true);
+  Future<void> _loadRunDetails(int runId) async {
+    setState(() => _runDetailsLoading = true);
     try {
-      final logs = await _payrollService.getAuditLogs(payPeriod: _selectedPeriod);
-      if (mounted) setState(() => _auditLogs = logs);
-    } catch (e) {
-      debugPrint('Error loading audit logs: $e');
-    } finally {
-      if (mounted) setState(() => _isLoadingAudit = false);
-    }
-  }
-
-  void _onPeriodChanged(String period) {
-    setState(() {
-      _selectedPeriod = period;
-      _auditLogs = [];
-    });
-    _loadData();
-    if (_tabController.index == 1) _loadAuditLogs();
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // PDF Download (extracted to avoid BuildContext async gap lint)
-  // ─────────────────────────────────────────────────────────────────────────
-
-  Future<void> _downloadSelectedPdf() async {
-    final slip = _selectedPayslip;
-    if (slip == null) return;
-    try {
-      final path = await PayslipPdfService.generateAndSavePayslipPdf(slip);
-      if (!mounted) return;
-      context.showToast(
-        "PDF saved: ${path.split('/').last}",
-        isSuccess: true,
-        actionLabel: "OPEN",
-        onActionPressed: () => PayslipPdfService.openPayslipPdf(path),
-      );
-      await PayslipPdfService.openPayslipPdf(path);
-    } catch (e) {
-      if (!mounted) return;
-      context.showExceptionToast(e, fallback: 'Failed to generate PDF');
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Lock / Unlock
-  // ─────────────────────────────────────────────────────────────────────────
-
-  Future<void> _toggleLock(Payslip slip, bool isAdmin) async {
-    if (!isAdmin) return;
-    final isLocked = slip.status.isLocked;
-    final isPaid = slip.status == PayrollStatus.paid;
-    if (isPaid) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        return AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF161B22) : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: Row(
-            children: [
-              Icon(
-                isLocked ? Icons.lock_open_outlined : Icons.lock_outlined,
-                color: isLocked ? const Color(0xFFF59E0B) : const Color(0xFF4338CA),
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                isLocked ? 'Unlock Payroll?' : 'Lock & Finalize?',
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? Colors.white : const Color(0xFF1E293B),
-                ),
-              ),
-            ],
-          ),
-          content: Text(
-            isLocked
-                ? 'This will revert ${slip.employeeName}\'s payroll to Draft status.'
-                : 'This will lock and finalize ${slip.employeeName}\'s payroll for ${slip.payPeriod}.',
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              color: isDark ? Colors.grey[300] : Colors.grey[700],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text('Cancel', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isLocked ? const Color(0xFFF59E0B) : const Color(0xFF4338CA),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: Text(
-                isLocked ? 'Unlock' : 'Lock',
-                style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true || !mounted) return;
-    setState(() => _lockingId = slip.employeeId);
-    try {
-      if (isLocked) {
-        await _payrollService.unlockEmployee(
-          employeeId: slip.employeeId,
-          payPeriod: _selectedPeriod,
-        );
-        if (mounted) {
-          context.showToast(
-            "${slip.employeeName}'s payroll unlocked.",
-            isWarning: true,
-          );
-        }
-      } else {
-        await _payrollService.finalizeEmployee(
-          employeeId: slip.employeeId,
-          payPeriod: _selectedPeriod,
-        );
-        if (mounted) {
-          context.showToast(
-            "${slip.employeeName}'s payroll locked & finalized.",
-            isSuccess: true,
-          );
-        }
+      final details = await _payrollService.getPayrollRunDetails(runId);
+      if (mounted && details != null) {
+        setState(() {
+          _selectedRun = details;
+          _runDetailsLoading = false;
+        });
       }
-      await _loadData();
-      if (_tabController.index == 1) await _loadAuditLogs();
+    } catch (e) {
+      debugPrint('Error loading run details: $e');
+      if (mounted) setState(() => _runDetailsLoading = false);
+    }
+  }
+
+  Future<void> _handleRerunDraft() async {
+    if (_selectedRun == null) return;
+    setState(() => _isRerunning = true);
+    final runId = int.tryParse(_selectedRun!.id) ?? 1;
+
+    try {
+      final res = await _payrollService.rerunPayrollRun(runId);
+      if (mounted) {
+        setState(() {
+          if (res != null) _selectedRun = res;
+          _isRerunning = false;
+        });
+        context.showToast('Draft run recalculation complete!', isSuccess: true);
+        _refreshRunsList();
+      }
     } catch (e) {
       if (mounted) {
-        context.showExceptionToast(e, fallback: 'Action failed. Please try again.');
+        setState(() => _isRerunning = false);
+        context.showExceptionToast(e, fallback: 'Failed to rerun draft');
       }
-    } finally {
-      if (mounted) setState(() => _lockingId = null);
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Build
-  // ─────────────────────────────────────────────────────────────────────────
+  Future<void> _handleApproveRun() async {
+    if (_selectedRun == null) return;
+    if (_selectedRun!.status != PayrollStatus.draft) {
+      if (_selectedRun!.status == PayrollStatus.approved) {
+        _openMarkPaidModal();
+        return;
+      }
+      return;
+    }
+
+    final confirmed = await CustomDialog.show(
+      context: context,
+      title: 'Approve & Lock Payroll Run',
+      message:
+          'Approve and finalize "${_selectedRun!.batchName ?? 'Run #${_selectedRun!.id}'}"? This will lock all employee calculations and mark the run as approved.',
+      positiveButtonText: 'Approve Run',
+      positiveButtonColor: const Color(0xFF4F46E5),
+      negativeButtonText: 'Cancel',
+      icon: Icons.lock_outline,
+      onPositivePressed: () {},
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isApproving = true);
+    final runId = int.tryParse(_selectedRun!.id) ?? 1;
+
+    try {
+      final res = await _payrollService.approvePayrollRun(runId);
+      if (mounted) {
+        setState(() {
+          if (res != null) {
+            _selectedRun = res;
+          } else {
+            _selectedRun = PayrollRun(
+              id: _selectedRun!.id,
+              batchName: _selectedRun!.batchName,
+              runType: _selectedRun!.runType,
+              payPeriod: _selectedRun!.payPeriod,
+              periodStart: _selectedRun!.periodStart,
+              periodEnd: _selectedRun!.periodEnd,
+              status: PayrollStatus.approved,
+              totalEmployees: _selectedRun!.totalEmployees,
+              totalGrossPayout: _selectedRun!.totalGrossPayout,
+              totalDeductions: _selectedRun!.totalDeductions,
+              totalNetPayout: _selectedRun!.totalNetPayout,
+              processedDate: _selectedRun!.processedDate,
+              isLocked: true,
+              summary: _selectedRun!.summary,
+              employees: _selectedRun!.employees,
+            );
+          }
+          _isApproving = false;
+        });
+        context.showToast('Payroll run approved and locked!', isSuccess: true);
+        _refreshRunsList();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isApproving = false);
+        context.showExceptionToast(e, fallback: 'Failed to approve run');
+      }
+    }
+  }
+
+  void _openMarkPaidModal() {
+    if (_selectedRun == null) return;
+    MarkPaidDialog.show(
+      context,
+      run: _selectedRun!,
+      payrollService: _payrollService,
+      onPaidConfirmed: (paidRun) {
+        setState(() => _selectedRun = paidRun);
+        _refreshRunsList();
+      },
+    );
+  }
+
+  Future<void> _refreshRunsList() async {
+    final updated = await _payrollService.getPayrollRuns();
+    if (mounted) setState(() => _runs = updated);
+  }
+
+  void _openSettingsDialog() {
+    PayrollSettingsDialog.show(
+      context,
+      initialSettings: _setupStatus.settings ?? const PayrollSettings(),
+      payrollService: _payrollService,
+      onSettingsSaved: (newSettings) {
+        setState(() {
+          _setupStatus = PayrollSetupStatus(
+            isConfigured: true,
+            packagesCount: _setupStatus.packagesCount,
+            settings: newSettings,
+          );
+        });
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final user = context.watch<AuthService>().user;
-    final isEmployee = user != null && user.isEmployee;
+    final media = MediaQuery.of(context);
+    final isLandscape = widget.isLandscape ??
+        (media.orientation == Orientation.landscape || media.size.width >= 900);
+    final needsSetup = (_setupStatus.packagesCount == 0 || !_setupStatus.isConfigured) && _runs.isEmpty;
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            // Top Bar: Pay Period Selector (no Run Payroll)
-            PayPeriodSelector(
-              selectedPeriod: _selectedPeriod,
-              availablePeriods: _payrollService.availablePayPeriods,
-              onPeriodChanged: _onPeriodChanged,
-              status: _payrollRun?.status ?? PayrollStatus.draft,
-              onProcessTap: null, // Run Payroll removed
-              isCompact: true,
-            ),
-
-            const SizedBox(height: 10),
-
-            // Metrics Header Banner
-            if (_payrollRun != null)
-              Row(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF4F46E5)))
+          : SafeArea(
+              top: false,
+              bottom: true,
+              child: Column(
                 children: [
+                  _buildHeader(isDark, isLandscape),
                   Expanded(
-                    child: PayrollMetricBadge(
-                      title: 'Total Net Payout',
-                      value: _payrollRun!.formattedTotalNet,
-                      icon: Icons.payments_outlined,
-                      color: const Color(0xFF6366F1),
-                      subtitle: '${_payrollRun!.totalEmployees} Processed Staff',
-                      isCompact: true,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: PayrollMetricBadge(
-                      title: 'Gross Payroll',
-                      value: _payrollRun!.formattedTotalGross,
-                      icon: Icons.account_balance_outlined,
-                      color: const Color(0xFF10B981),
-                      subtitle: 'Basic + Allowances',
-                      isCompact: true,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: PayrollMetricBadge(
-                      title: 'Total Deductions',
-                      value: _payrollRun!.formattedTotalDeductions,
-                      icon: Icons.remove_circle_outline,
-                      color: const Color(0xFFEF4444),
-                      subtitle: 'LOP Deductions',
-                      isCompact: true,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: PayrollMetricBadge(
-                      title: 'Status',
-                      value: _payrollRun!.status.label,
-                      icon: Icons.verified_outlined,
-                      color: const Color(0xFF8B5CF6),
-                      subtitle: _payrollRun!.isLocked ? 'Period Locked' : 'In Progress',
-                      isCompact: true,
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildRunsTab(needsSetup, isLandscape),
+                        _buildPackagesTab(isLandscape),
+                        _buildAssignmentsTab(isLandscape),
+                      ],
                     ),
                   ),
                 ],
               ),
+            ),
+    );
+  }
 
-            const SizedBox(height: 10),
+  // ===========================================================================
+  // TOP HEADER & NAVIGATION
+  // ===========================================================================
 
-            // ── Full-Page Pill Tab Bar (Matching DAR) ────────────────────
+  Widget _buildHeader(bool isDark, bool isLandscape) {
+    if (isLandscape) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        child: Row(
+          children: [
+            // Tab Switcher
             Container(
-              margin: const EdgeInsets.only(top: 4, bottom: 12),
-              padding: const EdgeInsets.all(4),
+              height: 40,
+              width: 380,
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isDark ? const Color(0xFF30363D) : Colors.grey[300]!,
-                ),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0)),
               ),
+              padding: const EdgeInsets.all(3),
               child: TabBar(
                 controller: _tabController,
-                labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
                 indicator: BoxDecoration(
-                  color: isDark ? const Color(0xFF2D3139) : Colors.white,
-                  borderRadius: BorderRadius.circular(8),
+                  color: isDark ? const Color(0xFF21262D) : Colors.white,
+                  borderRadius: BorderRadius.circular(7),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
+                      color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
                       blurRadius: 4,
-                      offset: const Offset(0, 2),
+                      offset: const Offset(0, 1),
                     ),
                   ],
                 ),
-                dividerColor: Colors.transparent,
-                labelColor: isDark ? Colors.white : const Color(0xFF5B60F6),
-                unselectedLabelColor: isDark
-                    ? const Color(0xFF94A3B8)
-                    : const Color(0xFF64748B),
-                labelStyle: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-                unselectedLabelStyle: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-                tabs: [
-                  Tab(
-                    height: 38,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.receipt_long_outlined, size: 16),
-                        SizedBox(width: 8),
-                        Text("Salary Slips"),
-                      ],
-                    ),
-                  ),
-                  Tab(
-                    height: 38,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.history_rounded, size: 16),
-                        const SizedBox(width: 8),
-                        const Text("Audit Trail"),
-                        if (_auditLogs.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF5B60F6),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '${_auditLogs.length}',
-                              style: GoogleFonts.poppins(
-                                fontSize: 10,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
+                indicatorSize: TabBarIndicatorSize.tab,
+                labelColor: const Color(0xFF4F46E5),
+                unselectedLabelColor: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
+                labelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700),
+                unselectedLabelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
+                tabs: _buildTabList(),
               ),
             ),
-
-            // ── Tab Views ────────────────────────────────────────────────
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildPayrollTab(isDark, isEmployee),
-                  _buildAuditTab(isDark),
-                ],
+            const Spacer(),
+            // Actions
+            ElevatedButton.icon(
+              onPressed: _openRunPayrollSheet,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4F46E5),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+                elevation: 0,
               ),
+              icon: const Icon(Icons.play_arrow_rounded, size: 17),
+              label: Text('Run Payroll', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700)),
+            ),
+            const SizedBox(width: 8),
+            _buildIconActionButton(
+              icon: Icons.settings_outlined,
+              tooltip: 'Payroll Settings',
+              onTap: _openSettingsDialog,
+              isDark: isDark,
+            ),
+            const SizedBox(width: 6),
+            _buildIconActionButton(
+              icon: Icons.refresh_rounded,
+              tooltip: 'Refresh Payroll Data',
+              onTap: _loadAllPayrollData,
+              isDark: isDark,
             ),
           ],
         ),
+      );
+    } else {
+      // Tablet Portrait: Clean Minimal Single Row with Tabs & Actions
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 38,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: isDark ? const Color(0xFF383E47) : const Color(0xFFE2E8F0)),
+                ),
+                padding: const EdgeInsets.all(3),
+                child: TabBar(
+                  controller: _tabController,
+                  dividerColor: Colors.transparent,
+                  indicator: BoxDecoration(
+                    color: isDark ? const Color(0xFF21262D) : Colors.white,
+                    borderRadius: BorderRadius.circular(7),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  labelColor: const Color(0xFF4F46E5),
+                  unselectedLabelColor: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF64748B),
+                  labelStyle: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w700),
+                  unselectedLabelStyle: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w500),
+                  tabs: _buildTabList(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton.icon(
+              onPressed: _openRunPayrollSheet,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4F46E5),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                elevation: 0,
+              ),
+              icon: const Icon(Icons.play_arrow_rounded, size: 16),
+              label: Text('Run Payroll', style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w700)),
+            ),
+            const SizedBox(width: 6),
+            _buildIconActionButton(
+              icon: Icons.settings_outlined,
+              tooltip: 'Settings',
+              onTap: _openSettingsDialog,
+              isDark: isDark,
+            ),
+            const SizedBox(width: 4),
+            _buildIconActionButton(
+              icon: Icons.refresh_rounded,
+              tooltip: 'Refresh',
+              onTap: _loadAllPayrollData,
+              isDark: isDark,
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  List<Widget> _buildTabList() {
+    return [
+      Tab(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.receipt_long_outlined, size: 14),
+              const SizedBox(width: 5),
+              const Text('Runs'),
+              if (_runs.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${_runs.length}',
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF4F46E5)),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      const Tab(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.layers_outlined, size: 14),
+              SizedBox(width: 5),
+              Text('Packages'),
+            ],
+          ),
+        ),
+      ),
+      const Tab(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.people_outline, size: 14),
+              SizedBox(width: 5),
+              Text('Assignments'),
+            ],
+          ),
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildIconActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF21262D) : Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: isDark ? const Color(0xFF383E47) : const Color(0xFFE2E8F0)),
+      ),
+      child: IconButton(
+        onPressed: onTap,
+        icon: Icon(icon, size: 18, color: isDark ? const Color(0xFFE6EDF3) : const Color(0xFF475569)),
+        tooltip: tooltip,
+        padding: EdgeInsets.zero,
       ),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Tab 1: Salary Slips (dual pane)
-  // ─────────────────────────────────────────────────────────────────────────
+  void _openRunPayrollSheet() {
+    RunPayrollSheet.show(
+      context,
+      payrollService: _payrollService,
+      employees: _assignments,
+      onRunCreated: (newRun) {
+        setState(() {
+          _runs.insert(0, newRun);
+          _selectedRun = newRun;
+        });
+        _loadRunDetails(int.tryParse(newRun.id) ?? 1);
+      },
+    );
+  }
 
-  Widget _buildPayrollTab(bool isDark, bool isEmployee) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  void _openPayslip(dynamic emp) {
+    final runId = int.tryParse(_selectedRun?.id ?? '1') ?? 1;
+    ItemizedPayslipSheet.show(
+      context,
+      runId: runId,
+      employeeId: emp.employeeId,
+      initialEmployee: emp,
+      run: _selectedRun,
+      payrollService: _payrollService,
+    );
+  }
+
+  void _openAssignDialog(EmployeePackageAssignment emp) {
+    AssignPackageDialog.show(
+      context,
+      employee: emp,
+      packages: _packages,
+      payrollService: _payrollService,
+      onAssigned: () async {
+        final updated = await _payrollService.getAssignments();
+        if (mounted) setState(() => _assignments = updated);
+      },
+    );
+  }
+
+  // ===========================================================================
+  // TAB 0: RUNS
+  // ===========================================================================
+
+  Widget _buildRunsTab(bool needsSetup, bool isLandscape) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final summary = _selectedRun?.summary ?? const PayrollRunSummary();
+
+    final filteredEmployees = (_selectedRun?.employees ?? []).where((emp) {
+      if (_employeeSearch.isEmpty) return true;
+      final q = _employeeSearch.toLowerCase().trim();
+      return emp.employeeName.toLowerCase().contains(q) ||
+          emp.employeeCode.toLowerCase().contains(q) ||
+          emp.department.toLowerCase().contains(q);
+    }).toList();
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
       children: [
-        // Left Pane: Employee List (42%)
-        Expanded(
-          flex: 42,
-          child: Container(
-            padding: const EdgeInsets.all(10),
+        if (needsSetup) ...[
+          PayrollSetupBanner(onConfigureSettings: _openSettingsDialog),
+          const SizedBox(height: 10),
+        ],
+
+        if (_runs.isEmpty) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF161B22) : Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
-              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: isDark ? const Color(0xFF383E47) : const Color(0xFFD0D7DE)),
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Search
                 Container(
-                  height: 34,
+                  width: 56,
+                  height: 56,
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
-                    ),
+                    color: isDark ? const Color(0xFF312E81) : const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(28),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (val) => setState(() => _searchQuery = val),
-                    style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Search staff...',
-                      hintStyle: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[500]),
-                      icon: const Icon(Icons.search, size: 14, color: Colors.grey),
-                      border: InputBorder.none,
-                      isDense: true,
-                    ),
-                  ),
+                  child: Icon(Icons.receipt_long_outlined, size: 30, color: isDark ? const Color(0xFFA5B4FC) : const Color(0xFF4F46E5)),
                 ),
-
-                const SizedBox(height: 6),
-
-                // Dept Chips (dynamic)
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _departments.map((dept) {
-                      final isSelected = _selectedDept == dept;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: ChoiceChip(
-                          label: Text(dept),
-                          selected: isSelected,
-                          onSelected: (sel) {
-                            if (sel) setState(() => _selectedDept = dept);
-                          },
-                          labelStyle: GoogleFonts.poppins(
-                            fontSize: 9,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                            color: isSelected
-                                ? Colors.white
-                                : (isDark ? Colors.grey[300] : Colors.grey[800]),
-                          ),
-                          selectedColor: const Color(0xFF4338CA),
-                          backgroundColor:
-                              isDark ? const Color(0xFF0D1117) : const Color(0xFFF1F5F9),
-                          visualDensity:
-                              const VisualDensity(horizontal: -4, vertical: -4),
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-                        ),
-                      );
-                    }).toList(),
-                  ),
+                const SizedBox(height: 16),
+                Text(
+                  'No Payroll Runs Yet',
+                  style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: isDark ? const Color(0xFFF0F6FC) : const Color(0xFF0F172A)),
                 ),
-
                 const SizedBox(height: 8),
-                const Divider(height: 1),
-                const SizedBox(height: 6),
-
-                // Employee List
-                Expanded(
-                  child: _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _filteredPayslips.isEmpty
-                          ? Center(
-                              child: Text(
-                                'No staff slips found',
-                                style: GoogleFonts.poppins(
-                                    fontSize: 11, color: Colors.grey),
-                              ),
-                            )
-                          : ListView.builder(
-                              itemCount: _filteredPayslips.length,
-                              itemBuilder: (context, index) {
-                                final slip = _filteredPayslips[index];
-                                final isSelected = _selectedPayslip?.id == slip.id;
-                                final isLocked = slip.status.isLocked;
-
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 4),
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? const Color(0xFF4338CA).withValues(
-                                            alpha: isDark ? 0.25 : 0.08)
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? const Color(0xFF4338CA)
-                                          : (isDark
-                                              ? const Color(0xFF21262D)
-                                              : const Color(0xFFF1F5F9)),
-                                    ),
-                                  ),
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: ListTile(
-                                      dense: true,
-                                      visualDensity: const VisualDensity(
-                                          vertical: -3, horizontal: -2),
-                                      leading: CircleAvatar(
-                                        radius: 12,
-                                        backgroundColor: const Color(0xFF4338CA)
-                                            .withValues(alpha: 0.15),
-                                        child: Text(
-                                          slip.employeeName.isNotEmpty
-                                              ? slip.employeeName[0]
-                                              : 'E',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w700,
-                                            color: const Color(0xFF4338CA),
-                                          ),
-                                        ),
-                                      ),
-                                      title: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              slip.employeeName,
-                                              style: GoogleFonts.poppins(
-                                                fontSize: 11,
-                                                fontWeight: isSelected
-                                                    ? FontWeight.w700
-                                                    : FontWeight.w500,
-                                                color: isDark
-                                                    ? Colors.white
-                                                    : const Color(0xFF1E293B),
-                                              ),
-                                            ),
-                                          ),
-                                          if (isLocked)
-                                            const Icon(Icons.lock,
-                                                size: 10, color: Color(0xFF4338CA)),
-                                        ],
-                                      ),
-                                      subtitle: Text(
-                                        '${slip.designation} • LOP: -Rs.${slip.lopDeduction.toStringAsFixed(0)} (${slip.lopDays.toStringAsFixed(0)} d)',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 9,
-                                          color: isDark
-                                              ? Colors.grey[400]
-                                              : Colors.grey[600],
-                                        ),
-                                      ),
-                                      trailing: Text(
-                                        slip.formattedNetPay,
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                          color: const Color(0xFF10B981),
-                                        ),
-                                      ),
-                                      onTap: () =>
-                                          setState(() => _selectedPayslip = slip),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
+                Text(
+                  'You have not executed any payroll runs yet. Execute "Run Payroll" to calculate employee pay for this cycle.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(fontSize: 13, color: isDark ? const Color(0xFF8B949E) : const Color(0xFF6E7681)),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: _openRunPayrollSheet,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4F46E5),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 0,
+                  ),
+                  icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                  label: Text('Run Payroll', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700)),
                 ),
               ],
             ),
           ),
-        ),
+        ] else ...[
+          // KPI Summary Cards
+          PayrollSummaryCards(summary: summary),
+          const SizedBox(height: 10),
 
-        const SizedBox(width: 10),
-
-        // Right Pane: Payslip Detail (58%)
-        Expanded(
-          flex: 58,
-          child: _selectedPayslip == null
-              ? Container(
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF161B22) : Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    'Select an employee to view salary slip',
-                    style: GoogleFonts.poppins(color: Colors.grey),
-                  ),
-                )
-              : _buildDetailPane(isDark, isEmployee),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDetailPane(bool isDark, bool isEmployee) {
-    final slip = _selectedPayslip!;
-    final isLocked = slip.status.isLocked;
-    final isPaid = slip.status == PayrollStatus.paid;
-    final isBeingLocked = _lockingId == slip.employeeId;
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF161B22) : Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header row: Name + actions
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          slip.employeeName,
-                          style: GoogleFonts.poppins(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: isDark ? Colors.white : const Color(0xFF1E293B),
+          // Main Table/Cards Container
+          Material(
+            color: isDark ? const Color(0xFF161B22) : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: isDark ? const Color(0xFF383E47) : const Color(0xFFD0D7DE)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Responsive Toolbar
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final searchField = SizedBox(
+                        height: 38,
+                        child: TextField(
+                          onChanged: (v) => setState(() => _employeeSearch = v),
+                          style: GoogleFonts.inter(fontSize: 12, color: isDark ? const Color(0xFFF0F6FC) : const Color(0xFF0F172A)),
+                          decoration: InputDecoration(
+                            hintText: 'Search staff by name, code or department...',
+                            hintStyle: GoogleFonts.inter(fontSize: 12, color: isDark ? const Color(0xFF8B949E) : const Color(0xFF94A3B8)),
+                            prefixIcon: Icon(Icons.search, size: 16, color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)),
+                            filled: true,
+                            fillColor: isDark ? const Color(0xFF21262D) : const Color(0xFFF8FAFC),
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: isDark ? const Color(0xFF383E47) : const Color(0xFFD0D7DE)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+                            ),
                           ),
                         ),
-                        if (isLocked) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF4338CA).withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(5),
+                      );
+
+                      final runSwitcher = _runs.isEmpty
+                          ? const SizedBox.shrink()
+                          : SizedBox(
+                              width: 220,
+                              child: AppCustomDropdown<String>(
+                                hintText: 'Select Run',
+                                initialValue: _selectedRun?.id,
+                                isDense: true,
+                                prefixIcon: Icons.receipt_long_outlined,
+                                items: _runs.map((r) {
+                                  return AppDropdownItem<String>(
+                                    value: r.id,
+                                    label: '#${r.id} • ${r.batchName ?? 'Batch'}',
+                                    badge: r.status.name.toUpperCase(),
+                                    badgeColor: r.status == PayrollStatus.paid
+                                        ? const Color(0xFF10B981)
+                                        : r.status == PayrollStatus.approved
+                                            ? const Color(0xFF3B82F6)
+                                            : const Color(0xFF6B7280),
+                                    badgeTextColor: Colors.white,
+                                    icon: Icons.receipt_outlined,
+                                  );
+                                }).toList(),
+                                onChanged: (v) {
+                                  if (v != null) {
+                                    final id = int.tryParse(v) ?? 1;
+                                    final r = _runs.firstWhere((e) => e.id == v, orElse: () => _runs.first);
+                                    setState(() => _selectedRun = r);
+                                    _loadRunDetails(id);
+                                  }
+                                },
+                              ),
+                            );
+
+                      Widget? lifecycleWidget;
+                      if (_selectedRun?.status == PayrollStatus.draft) {
+                        lifecycleWidget = Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: _isRerunning ? null : _handleRerunDraft,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: isDark ? const Color(0xFFE6EDF3) : const Color(0xFF334155),
+                                side: BorderSide(color: isDark ? const Color(0xFF383E47) : const Color(0xFFD0D7DE)),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              ),
+                              icon: const Icon(Icons.refresh, size: 14),
+                              label: const Text('Recalculate'),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                            ElevatedButton.icon(
+                              onPressed: _isApproving ? null : _handleApproveRun,
+                              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4F46E5), foregroundColor: Colors.white),
+                              icon: const Icon(Icons.shield_outlined, size: 14),
+                              label: const Text('Review & Approve'),
+                            ),
+                          ],
+                        );
+                      } else if (_selectedRun?.status == PayrollStatus.approved) {
+                        lifecycleWidget = ElevatedButton.icon(
+                          onPressed: _openMarkPaidModal,
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), foregroundColor: Colors.white),
+                          icon: const Icon(Icons.account_balance_wallet_outlined, size: 14),
+                          label: const Text('Disburse & Mark Paid'),
+                        );
+                      } else if (_selectedRun?.status == PayrollStatus.paid) {
+                        lifecycleWidget = Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.5) : const Color(0xFFECFDF5),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.check_circle, size: 14, color: Color(0xFF10B981)),
+                              const SizedBox(width: 4),
+                              Text('Paid & Disbursed', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF065F46))),
+                            ],
+                          ),
+                        );
+                      }
+
+                      if (isLandscape) {
+                        // Wide toolbar in landscape using responsive Wrap to guarantee zero overflow
+                        return Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 12,
+                          runSpacing: 10,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(Icons.lock,
-                                    size: 9, color: Color(0xFF4338CA)),
-                                const SizedBox(width: 3),
-                                Text(
-                                  slip.status.label.toUpperCase(),
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w700,
-                                    color: const Color(0xFF4338CA),
+                                Text('Staff Payslips Breakdown', style: GoogleFonts.inter(fontSize: 13.5, fontWeight: FontWeight.w700)),
+                                Text('Showing ${filteredEmployees.length} employee records for this cycle', style: GoogleFonts.inter(fontSize: 11, color: Colors.grey)),
+                              ],
+                            ),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                SizedBox(width: 200, child: searchField),
+                                if (_runs.isNotEmpty)
+                                  SizedBox(width: 210, child: runSwitcher),
+                                if (lifecycleWidget != null) lifecycleWidget,
+                              ],
+                            ),
+                          ],
+                        );
+                      } else {
+                        // Portrait toolbar
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Staff Payslips Breakdown',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: isDark ? const Color(0xFFF0F6FC) : const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    Text(
+                                      '${filteredEmployees.length} employee entries',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (lifecycleWidget != null) lifecycleWidget,
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(flex: 3, child: searchField),
+                                if (_runs.isNotEmpty) ...[
+                                  const SizedBox(width: 8),
+                                  Expanded(flex: 2, child: runSwitcher),
+                                ],
+                              ],
+                            ),
+                          ],
+                        );
+                      }
+                    },
+                  ),
+                ),
+                Divider(height: 1, color: isDark ? const Color(0xFF383E47) : const Color(0xFFE2E8F0)),
+
+                // Table or Responsive Cards
+                if (_runDetailsLoading)
+                  const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
+                else if (filteredEmployees.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(40),
+                    child: Center(
+                      child: Text(
+                        'No employee records in this payroll run.',
+                        style: TextStyle(color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)),
+                      ),
+                    ),
+                  )
+                else if (isLandscape)
+                  // Landscape Data Table
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 850),
+                      child: Table(
+                        columnWidths: const {
+                          0: FlexColumnWidth(2.2),
+                          1: FlexColumnWidth(1.4),
+                          2: FlexColumnWidth(1.4),
+                          3: FlexColumnWidth(2.0),
+                          4: FlexColumnWidth(1.4),
+                          5: FlexColumnWidth(1.5),
+                          6: FlexColumnWidth(1.2),
+                        },
+                        children: [
+                          TableRow(
+                            decoration: BoxDecoration(color: isDark ? const Color(0xFF21262D) : const Color(0xFFF8FAFC)),
+                            children: [
+                              Padding(padding: const EdgeInsets.all(12), child: Text('EMPLOYEE', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)))),
+                              Padding(padding: const EdgeInsets.all(12), child: Text('DEPARTMENT', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)))),
+                              Padding(padding: const EdgeInsets.all(12), child: Text('GROSS EARNINGS', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)))),
+                              Padding(padding: const EdgeInsets.all(12), child: Text('ADJUSTMENTS', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)))),
+                              Padding(padding: const EdgeInsets.all(12), child: Text('DEDUCTIONS', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)))),
+                              Padding(padding: const EdgeInsets.all(12), child: Text('NET TAKE-HOME', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)))),
+                              Padding(padding: const EdgeInsets.all(12), child: Text('ACTION', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)))),
+                            ],
+                          ),
+                          ...filteredEmployees.map((emp) {
+                            final lop = emp.lopLine;
+                            final ot = emp.otLine;
+                            return TableRow(
+                              decoration: BoxDecoration(border: Border(top: BorderSide(color: isDark ? const Color(0xFF383E47) : const Color(0xFFE5E7EB)))),
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 14,
+                                        backgroundColor: isDark ? const Color(0xFF1E1B4B) : const Color(0xFFEEF2FF),
+                                        child: Text(
+                                          emp.employeeName.isNotEmpty ? emp.employeeName[0].toUpperCase() : 'E',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: isDark ? const Color(0xFFC7D2FE) : const Color(0xFF4F46E5),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              emp.employeeName,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                                color: isDark ? const Color(0xFFF0F6FC) : const Color(0xFF0F172A),
+                                              ),
+                                            ),
+                                            Text(
+                                              emp.employeeCode,
+                                              style: GoogleFonts.inter(fontSize: 10, color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Text(
+                                    emp.department,
+                                    style: GoogleFonts.inter(fontSize: 11.5, color: isDark ? const Color(0xFFD0D7DE) : const Color(0xFF334155)),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Text(
+                                    '₹${_formatINR(emp.grossPay)}',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: isDark ? const Color(0xFFF0F6FC) : const Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(10),
+                                  child: Wrap(
+                                    spacing: 4,
+                                    runSpacing: 4,
+                                    children: [
+                                      if (lop != null)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: isDark ? const Color(0xFF4C0519).withValues(alpha: 0.6) : const Color(0xFFFFF1F2),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: isDark ? const Color(0xFFBE123C) : const Color(0xFFFECDD3)),
+                                          ),
+                                          child: Text(
+                                            'LOP: -₹${_formatINR(lop.amount)}',
+                                            style: TextStyle(
+                                              fontSize: 9.5,
+                                              color: isDark ? const Color(0xFFFDA4AF) : const Color(0xFFBE123C),
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      if (ot != null)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.6) : const Color(0xFFECFDF5),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0)),
+                                          ),
+                                          child: Text(
+                                            'OT: +₹${_formatINR(ot.amount)}',
+                                            style: TextStyle(
+                                              fontSize: 9.5,
+                                              color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF047857),
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Text(
+                                    '-₹${_formatINR(emp.totalDeductions)}',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: isDark ? const Color(0xFFFB7185) : const Color(0xFFF43F5E),
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Text(
+                                    '₹${_formatINR(emp.netPay)}',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      color: isDark ? const Color(0xFF34D399) : const Color(0xFF10B981),
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: OutlinedButton(
+                                    onPressed: () => _openPayslip(emp),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: isDark ? const Color(0xFF58A6FF) : const Color(0xFF4F46E5),
+                                      side: BorderSide(color: isDark ? const Color(0xFF388BFD) : const Color(0xFF4F46E5)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                    ),
+                                    child: const Text('View Slip', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  // Portrait Responsive Cards List
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(10),
+                    itemCount: filteredEmployees.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 8),
+                    itemBuilder: (ctx, idx) {
+                      final emp = filteredEmployees[idx];
+                      final lop = emp.lopLine;
+                      final ot = emp.otLine;
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF21262D) : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: isDark ? const Color(0xFF383E47) : const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: isDark ? const Color(0xFF1E1B4B) : const Color(0xFFEEF2FF),
+                                  child: Text(
+                                    emp.employeeName.isNotEmpty ? emp.employeeName[0].toUpperCase() : 'E',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: isDark ? const Color(0xFFC7D2FE) : const Color(0xFF4F46E5),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        emp.employeeName,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: isDark ? const Color(0xFFF0F6FC) : const Color(0xFF0F172A),
+                                        ),
+                                      ),
+                                      Text(
+                                        '${emp.department} • ${emp.employeeCode}',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10.5,
+                                          color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.6) : const Color(0xFFECFDF5),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        'NET PAY',
+                                        style: TextStyle(
+                                          fontSize: 8.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF047857),
+                                        ),
+                                      ),
+                                      Text(
+                                        '₹${_formatINR(emp.netPay)}',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: isDark ? const Color(0xFFA7F3D0) : const Color(0xFF065F46),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    Text(
-                      '${slip.designation} (${slip.employeeId}) • ${slip.payPeriod}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 10,
-                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                            const SizedBox(height: 8),
+                            Divider(height: 1, color: isDark ? const Color(0xFF383E47) : const Color(0xFFE2E8F0)),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildSmallStat('GROSS', '₹${_formatINR(emp.grossPay)}', isBold: true),
+                                ),
+                                Expanded(
+                                  child: _buildSmallStat(
+                                    'DEDUCTIONS',
+                                    '-₹${_formatINR(emp.totalDeductions)}',
+                                    color: isDark ? const Color(0xFFFB7185) : const Color(0xFFF43F5E),
+                                    isBold: true,
+                                  ),
+                                ),
+                                if (lop != null || ot != null)
+                                  Expanded(
+                                    child: Wrap(
+                                      spacing: 4,
+                                      runSpacing: 2,
+                                      children: [
+                                        if (lop != null)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                            decoration: BoxDecoration(
+                                              color: isDark ? const Color(0xFF4C0519).withValues(alpha: 0.6) : const Color(0xFFFFF1F2),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: isDark ? const Color(0xFFBE123C) : const Color(0xFFFECDD3)),
+                                            ),
+                                            child: Text(
+                                              'LOP: -₹${_formatINR(lop.amount)}',
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                color: isDark ? const Color(0xFFFDA4AF) : const Color(0xFFBE123C),
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        if (ot != null)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                            decoration: BoxDecoration(
+                                              color: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.6) : const Color(0xFFECFDF5),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0)),
+                                            ),
+                                            child: Text(
+                                              'OT: +₹${_formatINR(ot.amount)}',
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF047857),
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                OutlinedButton(
+                                  onPressed: () => _openPayslip(emp),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: isDark ? const Color(0xFF58A6FF) : const Color(0xFF4F46E5),
+                                    side: BorderSide(color: isDark ? const Color(0xFF388BFD) : const Color(0xFF4F46E5)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                  ),
+                                  child: const Text('View Slip', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ===========================================================================
+  // TAB 1: SALARY PACKAGES
+  // ===========================================================================
+
+  Widget _buildPackagesTab(bool isLandscape) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final filtered = _packages.where((p) {
+      if (_packageSearch.isEmpty) return true;
+      final q = _packageSearch.toLowerCase();
+      return p.name.toLowerCase().contains(q) || (p.description ?? '').toLowerCase().contains(q);
+    }).toList();
+
+    return LayoutBuilder(
+      builder: (_, constraints) {
+        final isWide = isLandscape || constraints.maxWidth >= 850;
+        final directoryWidth = isWide ? 340.0 : (constraints.maxWidth * 0.38).clamp(240.0, 300.0);
+
+        return Padding(
+          padding: EdgeInsets.fromLTRB(16, isLandscape ? 12 : 4, 16, 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Directory Panel
+              SizedBox(
+                width: directoryWidth,
+                child: Material(
+                  color: isDark ? const Color(0xFF161B22) : Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: isDark ? const Color(0xFF383E47) : const Color(0xFFD0D7DE)),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Packages (${filtered.length})',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? const Color(0xFFF0F6FC) : const Color(0xFF0F172A),
+                              ),
+                            ),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                CreatePackageDialog.show(
+                                  context,
+                                  payrollService: _payrollService,
+                                  onPackageSaved: (p) => setState(() => _packages.add(p)),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF4F46E5),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                                elevation: 0,
+                              ),
+                              icon: const Icon(Icons.add, size: 14),
+                              label: const Text('New', style: TextStyle(fontSize: 11)),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: TextField(
+                          onChanged: (v) => setState(() => _packageSearch = v),
+                          style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFFF0F6FC) : Colors.black87),
+                          decoration: InputDecoration(
+                            hintText: 'Search packages...',
+                            hintStyle: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF8B949E) : const Color(0xFF94A3B8)),
+                            prefixIcon: Icon(Icons.search, size: 16, color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)),
+                            filled: true,
+                            fillColor: isDark ? const Color(0xFF21262D) : const Color(0xFFF8FAFC),
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: isDark ? const Color(0xFF383E47) : const Color(0xFFE2E8F0)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: filtered.length,
+                          separatorBuilder: (context, index) => Divider(height: 1, color: isDark ? const Color(0xFF383E47) : const Color(0xFFE2E8F0)),
+                          itemBuilder: (ctx, idx) {
+                            final pkg = filtered[idx];
+                            final isSel = _selectedPackage?.id == pkg.id;
+                            return Container(
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  left: BorderSide(
+                                    color: isSel ? const Color(0xFF6366F1) : Colors.transparent,
+                                    width: 3.5,
+                                  ),
+                                ),
+                              ),
+                              child: Material(
+                                color: isSel
+                                    ? (isDark ? const Color(0xFF312E81).withValues(alpha: 0.35) : const Color(0xFFEEF2FF))
+                                    : Colors.transparent,
+                                child: ListTile(
+                                  dense: true,
+                                  title: Text(
+                                    pkg.name,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12.5,
+                                      fontWeight: isSel ? FontWeight.w800 : FontWeight.w600,
+                                      color: isDark ? const Color(0xFFF0F6FC) : const Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    '₹${_formatINR(pkg.monthlyGross)}/mo • ${pkg.components.length} Items',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
+                                    ),
+                                  ),
+                                  trailing: Icon(Icons.chevron_right, size: 16, color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)),
+                                  onTap: () => setState(() => _selectedPackage = pkg),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              // Action buttons
-              Row(
-                children: [
-                  // Lock / Unlock button (admin only)
-                  if (!isEmployee) ...[
-                    _buildTabletLockBtn(slip, isDark, isBeingLocked, isPaid),
-                    const SizedBox(width: 8),
-                  ],
-                  // Download PDF button
-                  ElevatedButton.icon(
-                    onPressed: _downloadSelectedPdf,
-                    icon: const Icon(Icons.picture_as_pdf, size: 14),
-                    label: Text(
-                      'Download PDF',
-                      style: GoogleFonts.poppins(
-                          fontSize: 11, fontWeight: FontWeight.w600),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4338CA),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6)),
-                    ),
-                  ),
-                ],
+              const SizedBox(width: 14),
+
+              // Details Panel
+              Expanded(
+                child: _selectedPackage == null
+                    ? Center(
+                        child: Text(
+                          'Select a package to view breakdown.',
+                          style: TextStyle(color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)),
+                        ),
+                      )
+                    : Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF161B22) : Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: isDark ? const Color(0xFF383E47) : const Color(0xFFD0D7DE)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _selectedPackage!.name,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                          color: isDark ? const Color(0xFFF0F6FC) : const Color(0xFF0F172A),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      if (_selectedPackage!.description != null)
+                                        Text(
+                                          _selectedPackage!.description!,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 12,
+                                            color: isDark ? const Color(0xFF8B949E) : Colors.grey,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                OutlinedButton.icon(
+                                  onPressed: () {
+                                    CreatePackageDialog.show(
+                                      context,
+                                      payrollService: _payrollService,
+                                      initialPackage: _selectedPackage,
+                                      onPackageSaved: (updated) {
+                                        setState(() {
+                                          final idx = _packages.indexWhere((p) => p.id == updated.id);
+                                          if (idx >= 0) _packages[idx] = updated;
+                                          _selectedPackage = updated;
+                                        });
+                                      },
+                                    );
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: isDark ? const Color(0xFF58A6FF) : const Color(0xFF4F46E5),
+                                    side: BorderSide(color: isDark ? const Color(0xFF388BFD) : const Color(0xFF4F46E5)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                                  ),
+                                  icon: const Icon(Icons.edit_outlined, size: 14),
+                                  label: const Text('Edit', style: TextStyle(fontSize: 11.5)),
+                                ),
+                                const SizedBox(width: 6),
+                                OutlinedButton.icon(
+                                  onPressed: () async {
+                                    if (_selectedPackage == null) return;
+                                    final ok = await CustomDialog.show(
+                                      context: context,
+                                      title: 'Delete Package',
+                                      message: 'Are you sure you want to delete "${_selectedPackage!.name}"?',
+                                      positiveButtonText: 'Delete',
+                                      negativeButtonText: 'Cancel',
+                                      isDestructive: true,
+                                      icon: Icons.delete_outline_rounded,
+                                      iconColor: const Color(0xFFEF4444),
+                                      onPositivePressed: () {},
+                                    );
+                                    if (ok == true) {
+                                      final pId = int.tryParse(_selectedPackage!.id) ?? 0;
+                                      await _payrollService.deletePackage(pId);
+                                      setState(() {
+                                        _packages.removeWhere((p) => p.id == _selectedPackage!.id);
+                                        _selectedPackage = _packages.isNotEmpty ? _packages.first : null;
+                                      });
+                                      if (mounted) {
+                                        context.showToast('Package deleted successfully', isSuccess: true);
+                                      }
+                                    }
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFFEF4444),
+                                    side: const BorderSide(color: Color(0xFFEF4444)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                                  ),
+                                  icon: const Icon(Icons.delete_outline_rounded, size: 14),
+                                  label: const Text('Delete', style: TextStyle(fontSize: 11.5)),
+                                ),
+                              ],
+                            ),
+                            Divider(height: 22, color: isDark ? const Color(0xFF383E47) : const Color(0xFFE2E8F0)),
+
+                            // Stats Grid: 4 in a row for Landscape, 2x2 for Portrait
+                            if (isWide)
+                              Row(
+                                children: [
+                                  Expanded(child: _buildMetricCard('MONTHLY GROSS', '₹${_formatINR(_selectedPackage!.monthlyGross)}', isDark, isBold: true)),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: _buildMetricCard('ANNUAL CTC', '₹${_formatINR(_selectedPackage!.annualCtc)}', isDark, isBold: true)),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: _buildMetricCard('OVERTIME', _selectedPackage!.overtimeEnabled ? '₹${_selectedPackage!.overtimeRate.toStringAsFixed(0)}/hr' : 'Disabled', isDark)),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: _buildMetricCard('LOP DIVISOR', _selectedPackage!.lopEnabled ? (_selectedPackage!.lopDayBasis == 'fixed_30' ? 'Fixed 30' : _selectedPackage!.lopDayBasis == 'fixed_26' ? 'Fixed 26' : _selectedPackage!.lopDayBasis == 'working_days' ? 'Working Days' : 'Calendar Days') : 'Disabled', isDark)),
+                                ],
+                              )
+                            else
+                              Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(child: _buildMetricCard('MONTHLY GROSS', '₹${_formatINR(_selectedPackage!.monthlyGross)}', isDark, isBold: true)),
+                                      const SizedBox(width: 8),
+                                      Expanded(child: _buildMetricCard('ANNUAL CTC', '₹${_formatINR(_selectedPackage!.annualCtc)}', isDark, isBold: true)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(child: _buildMetricCard('OVERTIME', _selectedPackage!.overtimeEnabled ? '₹${_selectedPackage!.overtimeRate.toStringAsFixed(0)}/hr' : 'Disabled', isDark)),
+                                      const SizedBox(width: 8),
+                                      Expanded(child: _buildMetricCard('LOP DIVISOR', _selectedPackage!.lopEnabled ? (_selectedPackage!.lopDayBasis == 'fixed_30' ? 'Fixed 30' : _selectedPackage!.lopDayBasis == 'fixed_26' ? 'Fixed 26' : _selectedPackage!.lopDayBasis == 'working_days' ? 'Working Days' : 'Calendar Days') : 'Disabled', isDark)),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            const SizedBox(height: 18),
+
+                            Text(
+                              'Components Breakdown',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? const Color(0xFFF0F6FC) : const Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Expanded(
+                              child: ListView(
+                                children: _selectedPackage!.components.map((c) {
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? const Color(0xFF21262D) : const Color(0xFFF9FAFB),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: isDark ? const Color(0xFF383E47) : const Color(0xFFE5E7EB)),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              c.name,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                                color: isDark ? const Color(0xFFF0F6FC) : const Color(0xFF0F172A),
+                                              ),
+                                            ),
+                                            Text(
+                                              c.isEarning
+                                                  ? 'Earning (+) • Monthly'
+                                                  : c.isEmployerContribution
+                                                      ? 'Employer Cost (CTC) • Monthly'
+                                                      : c.isBenefit
+                                                          ? 'Benefit (Perk) • Monthly'
+                                                          : 'Deduction (-) • Monthly',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w600,
+                                                color: c.isEarning
+                                                    ? (isDark ? const Color(0xFF34D399) : const Color(0xFF047857))
+                                                    : c.isEmployerContribution
+                                                        ? (isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB))
+                                                        : c.isBenefit
+                                                            ? (isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED))
+                                                            : (isDark ? const Color(0xFFFB7185) : const Color(0xFFBE123C)),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        Text(
+                                          '₹${c.value.toStringAsFixed(0)}',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w800,
+                                            color: isDark ? const Color(0xFFF0F6FC) : const Color(0xFF0F172A),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
               ),
             ],
           ),
+        );
+      },
+    );
+  }
 
-          const SizedBox(height: 8),
+  // ===========================================================================
+  // TAB 2: ASSIGNMENTS
+  // ===========================================================================
 
-          // Attendance & Bank summary chips
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(6),
+  Widget _buildAssignmentsTab(bool isLandscape) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final depts = <String>{'All'};
+    for (final a in _assignments) {
+      if (a.department.isNotEmpty) depts.add(a.department);
+    }
+
+    final filtered = _assignments.where((a) {
+      final matchesSearch = _assignmentSearch.isEmpty ||
+          a.name.toLowerCase().contains(_assignmentSearch.toLowerCase()) ||
+          a.code.toLowerCase().contains(_assignmentSearch.toLowerCase()) ||
+          a.department.toLowerCase().contains(_assignmentSearch.toLowerCase());
+      final matchesDept = _assignmentDept == 'All' || a.department == _assignmentDept;
+      return matchesSearch && matchesDept;
+    }).toList();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = isLandscape || constraints.maxWidth >= 880;
+
+        return Padding(
+          padding: EdgeInsets.fromLTRB(16, isLandscape ? 12 : 4, 16, 14),
+          child: Material(
+            color: isDark ? const Color(0xFF161B22) : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: isDark ? const Color(0xFF383E47) : const Color(0xFFD0D7DE)),
             ),
-            child: Row(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
               children: [
-                _buildTabletMeta('Present Days',
-                    '${(slip.presentDays as num).toStringAsFixed(0)}/${slip.totalWorkingDays}',
-                    isDark),
-                _buildTabletMeta('Unpaid Leaves', '${slip.unpaidLeaves} d', isDark),
-                _buildTabletMeta(
-                    'Overtime', '${slip.overtimeHours} hrs', isDark),
-                _buildTabletMeta('PAN', slip.panNumber, isDark),
-                _buildTabletMeta('Bank', slip.bankAccount, isDark),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          // Detailed Salary Breakdown
-          Expanded(
-            child: SingleChildScrollView(
-              child: SalaryBreakdownCard(
-                breakdown: slip.breakdown,
-                payslip: slip,
-                isCompact: true,
-                showHeader: true,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabletLockBtn(
-      Payslip slip, bool isDark, bool isBeingLocked, bool isPaid) {
-    final isLocked = slip.status.isLocked;
-    final lockColor =
-        isLocked ? const Color(0xFF4338CA) : const Color(0xFFF59E0B);
-
-    return OutlinedButton.icon(
-      onPressed:
-          (isPaid || isBeingLocked) ? null : () => _toggleLock(slip, true),
-      icon: isBeingLocked
-          ? SizedBox(
-              width: 12,
-              height: 12,
-              child: CircularProgressIndicator(strokeWidth: 1.5, color: lockColor),
-            )
-          : Icon(
-              isLocked ? Icons.lock_open_outlined : Icons.lock_outlined,
-              size: 13,
-            ),
-      label: Text(
-        isLocked ? 'Unlock' : 'Lock',
-        style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600),
-      ),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: isPaid ? Colors.grey : lockColor,
-        side: BorderSide(color: isPaid ? Colors.grey : lockColor),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      ),
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Tab 2: Audit Trail
-  // ─────────────────────────────────────────────────────────────────────────
-
-  Widget _buildAuditTab(bool isDark) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF161B22) : Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
-        ),
-      ),
-      child: Column(
-        children: [
-          // Audit header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-            child: Row(
-              children: [
-                const Icon(Icons.history, size: 14, color: Color(0xFF4338CA)),
-                const SizedBox(width: 6),
-                Text(
-                  'Audit Trail — $_selectedPeriod',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.white : const Color(0xFF1E293B),
-                  ),
-                ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: _loadAuditLogs,
-                  child:
-                      const Icon(Icons.refresh, size: 16, color: Color(0xFF4338CA)),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: _isLoadingAudit
-                ? const Center(child: CircularProgressIndicator())
-                : _auditLogs.isEmpty
-                    ? _buildAuditEmptyState(isDark)
-                    : _buildAuditTable(isDark),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAuditEmptyState(bool isDark) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.history_toggle_off_outlined, size: 48, color: Colors.grey[300]),
-          const SizedBox(height: 10),
-          Text(
-            'No audit records found',
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.grey[400] : Colors.grey[600],
-            ),
-          ),
-          Text(
-            'Actions like lock, unlock, adjustments will appear here',
-            style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey[500]),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAuditTable(bool isDark) {
-    // Column headers matching web Payroll.jsx audit table
-    return SingleChildScrollView(
-      child: Table(
-        columnWidths: const {
-          0: FlexColumnWidth(2.5), // Timestamp
-          1: FlexColumnWidth(1.8), // Action
-          2: FlexColumnWidth(2),   // Performed By
-          3: FlexColumnWidth(2),   // Employee
-          4: FlexColumnWidth(3.5), // Details
-        },
-        children: [
-          // Header row
-          TableRow(
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
-            ),
-            children: ['Timestamp', 'Action', 'Performed By', 'Employee', 'Details']
-                .map((h) => Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 10),
-                      child: Text(
-                        h.toUpperCase(),
-                        style: GoogleFonts.poppins(
-                          fontSize: 8,
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? Colors.grey[400] : Colors.grey[600],
-                          letterSpacing: 0.4,
+                // Toolbar
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: isWide
+                      ? Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 12,
+                          runSpacing: 10,
+                          children: [
+                            Text(
+                              'Staff Package Assignments (${filtered.length})',
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? const Color(0xFFF0F6FC) : const Color(0xFF0F172A),
+                              ),
+                            ),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 220,
+                                  height: 38,
+                                  child: TextField(
+                                    onChanged: (v) => setState(() => _assignmentSearch = v),
+                                    style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFFF0F6FC) : Colors.black87),
+                                    decoration: InputDecoration(
+                                      hintText: 'Search staff...',
+                                      hintStyle: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF8B949E) : const Color(0xFF94A3B8)),
+                                      prefixIcon: Icon(Icons.search, size: 16, color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)),
+                                      filled: true,
+                                      fillColor: isDark ? const Color(0xFF21262D) : const Color(0xFFF8FAFC),
+                                      isDense: true,
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(color: isDark ? const Color(0xFF383E47) : const Color(0xFFE2E8F0)),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 150,
+                                  child: AppCustomDropdown<String>(
+                                    hintText: 'Department',
+                                    initialValue: _assignmentDept,
+                                    isDense: true,
+                                    prefixIcon: Icons.business_outlined,
+                                    items: depts.map((d) => AppDropdownItem<String>(
+                                      value: d,
+                                      label: d,
+                                      icon: Icons.business_outlined,
+                                    )).toList(),
+                                    onChanged: (v) {
+                                      if (v != null) setState(() => _assignmentDept = v);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Staff Package Assignments (${filtered.length})',
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? const Color(0xFFF0F6FC) : const Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 38,
+                                    child: TextField(
+                                      onChanged: (v) => setState(() => _assignmentSearch = v),
+                                      style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFFF0F6FC) : Colors.black87),
+                                      decoration: InputDecoration(
+                                        hintText: 'Search staff...',
+                                        hintStyle: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF8B949E) : const Color(0xFF94A3B8)),
+                                        prefixIcon: Icon(Icons.search, size: 16, color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)),
+                                        filled: true,
+                                        fillColor: isDark ? const Color(0xFF21262D) : const Color(0xFFF8FAFC),
+                                        isDense: true,
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                          borderSide: BorderSide(color: isDark ? const Color(0xFF383E47) : const Color(0xFFE2E8F0)),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                          borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 140,
+                                  child: AppCustomDropdown<String>(
+                                    hintText: 'Department',
+                                    initialValue: _assignmentDept,
+                                    isDense: true,
+                                    prefixIcon: Icons.business_outlined,
+                                    items: depts.map((d) => AppDropdownItem<String>(
+                                      value: d,
+                                      label: d,
+                                      icon: Icons.business_outlined,
+                                    )).toList(),
+                                    onChanged: (v) {
+                                      if (v != null) setState(() => _assignmentDept = v);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                      ),
-                    ))
-                .toList(),
-          ),
-          ..._auditLogs.map((log) {
-            final colors = _auditActionColor(log.action);
-            return TableRow(
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: isDark
-                        ? const Color(0xFF21262D)
-                        : const Color(0xFFF1F5F9),
-                  ),
                 ),
-              ),
-              children: [
-                // Timestamp
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 10),
-                  child: Text(
-                    log.formattedTime,
-                    style: GoogleFonts.poppins(
-                      fontSize: 9,
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    ),
-                  ),
-                ),
-                // Action badge
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 10),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: colors.bg,
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Text(
-                      log.action,
-                      style: GoogleFonts.poppins(
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
-                        color: colors.fg,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ),
-                ),
-                // Performed By
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 10),
-                  child: Text(
-                    log.performedByName,
-                    style: GoogleFonts.poppins(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : const Color(0xFF1E293B),
-                    ),
-                  ),
-                ),
-                // Employee
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 10),
-                  child: Text(
-                    log.employeeName ?? '—',
-                    style: GoogleFonts.poppins(
-                      fontSize: 10,
-                      color: isDark ? Colors.grey[300] : Colors.grey[700],
-                    ),
-                  ),
-                ),
-                // Details
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 10),
-                  child: Text(
-                    log.details,
-                    style: GoogleFonts.poppins(
-                      fontSize: 9,
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                Divider(height: 1, color: isDark ? const Color(0xFF383E47) : const Color(0xFFE2E8F0)),
+
+                // Grid (in Landscape) or Card List (in Portrait)
+                Expanded(
+                  child: isWide
+                      ? GridView.builder(
+                          padding: const EdgeInsets.all(14),
+                          itemCount: filtered.length,
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisExtent: 96,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 10,
+                          ),
+                          itemBuilder: (ctx, idx) {
+                            final emp = filtered[idx];
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF21262D) : const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: isDark ? const Color(0xFF383E47) : const Color(0xFFE2E8F0)),
+                              ),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 17,
+                                    backgroundColor: emp.isAssigned
+                                        ? (isDark ? const Color(0xFF1E1B4B) : const Color(0xFFEEF2FF))
+                                        : (isDark ? const Color(0xFF451A03) : const Color(0xFFFFFBEB)),
+                                    child: Text(
+                                      emp.name.isNotEmpty ? emp.name[0].toUpperCase() : 'S',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        color: emp.isAssigned
+                                            ? (isDark ? const Color(0xFFC7D2FE) : const Color(0xFF4F46E5))
+                                            : (isDark ? const Color(0xFFFDE68A) : const Color(0xFFD97706)),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          emp.name,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: isDark ? const Color(0xFFF0F6FC) : const Color(0xFF0F172A),
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          '${emp.designation} • ${emp.code}',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 10.5,
+                                            color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        if (emp.isAssigned)
+                                          Text(
+                                            '${emp.packageName} (₹${_formatINR(emp.grossSalary)}/mo)',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: isDark ? const Color(0xFF818CF8) : const Color(0xFF4F46E5),
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          )
+                                        else
+                                          Text(
+                                            'No Package Assigned',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontStyle: FontStyle.italic,
+                                              color: isDark ? const Color(0xFFFBBF24) : Colors.orange,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ElevatedButton(
+                                    onPressed: () => _openAssignDialog(emp),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: emp.isAssigned
+                                          ? (isDark ? const Color(0xFF312E81).withValues(alpha: 0.4) : const Color(0xFFEEF2FF))
+                                          : const Color(0xFF4F46E5),
+                                      foregroundColor: emp.isAssigned
+                                          ? (isDark ? const Color(0xFFA5B4FC) : const Color(0xFF4F46E5))
+                                          : Colors.white,
+                                      side: emp.isAssigned && isDark ? const BorderSide(color: Color(0xFF4338CA)) : null,
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                      elevation: 0,
+                                    ),
+                                    child: Text(emp.isAssigned ? 'Change' : 'Assign', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.all(12),
+                          itemCount: filtered.length,
+                          separatorBuilder: (context, index) => const SizedBox(height: 8),
+                          itemBuilder: (ctx, idx) {
+                            final emp = filtered[idx];
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF21262D) : const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: isDark ? const Color(0xFF383E47) : const Color(0xFFE2E8F0)),
+                              ),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 16,
+                                        backgroundColor: emp.isAssigned
+                                            ? (isDark ? const Color(0xFF1E1B4B) : const Color(0xFFEEF2FF))
+                                            : (isDark ? const Color(0xFF451A03) : const Color(0xFFFFFBEB)),
+                                        child: Text(
+                                          emp.name.isNotEmpty ? emp.name[0].toUpperCase() : 'S',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            color: emp.isAssigned
+                                                ? (isDark ? const Color(0xFFC7D2FE) : const Color(0xFF4F46E5))
+                                                : (isDark ? const Color(0xFFFDE68A) : const Color(0xFFD97706)),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              emp.name,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                color: isDark ? const Color(0xFFF0F6FC) : const Color(0xFF0F172A),
+                                              ),
+                                            ),
+                                            Text(
+                                              '${emp.department} • ${emp.code}',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 11,
+                                                color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (emp.isAssigned)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: isDark ? const Color(0xFF312E81).withValues(alpha: 0.35) : const Color(0xFFEEF2FF),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(color: isDark ? const Color(0xFF6366F1) : const Color(0xFFC7D2FE)),
+                                          ),
+                                          child: Text(
+                                            '${emp.packageName} • ₹${_formatINR(emp.grossSalary)}/mo',
+                                            style: TextStyle(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: isDark ? const Color(0xFFA5B4FC) : const Color(0xFF4F46E5),
+                                            ),
+                                          ),
+                                        )
+                                      else
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: isDark ? const Color(0xFF78350F).withValues(alpha: 0.4) : const Color(0xFFFFFBEB),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(color: isDark ? const Color(0xFFB45309) : const Color(0xFFFDE68A)),
+                                          ),
+                                          child: Text(
+                                            'No Package',
+                                            style: TextStyle(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: isDark ? const Color(0xFFFDE68A) : const Color(0xFFD97706),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        emp.designation,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 11.5,
+                                          color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
+                                        ),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: () => _openAssignDialog(emp),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: emp.isAssigned
+                                              ? (isDark ? const Color(0xFF312E81).withValues(alpha: 0.4) : const Color(0xFFEEF2FF))
+                                              : const Color(0xFF4F46E5),
+                                          foregroundColor: emp.isAssigned
+                                              ? (isDark ? const Color(0xFFA5B4FC) : const Color(0xFF4F46E5))
+                                              : Colors.white,
+                                          side: emp.isAssigned && isDark ? const BorderSide(color: Color(0xFF4338CA)) : null,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                          elevation: 0,
+                                        ),
+                                        child: Text(emp.isAssigned ? 'Change Package' : 'Assign Package', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
                 ),
               ],
-            );
-          }),
-        ],
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Helpers
-  // ─────────────────────────────────────────────────────────────────────────
-
-  Widget _buildTabletMeta(String label, String value, bool isDark) {
-    return Expanded(
+  Widget _buildMetricCard(String label, String value, bool isDark, {bool isBold = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF21262D) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: isDark ? const Color(0xFF383E47) : const Color(0xFFE2E8F0)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label.toUpperCase(),
-            style: GoogleFonts.poppins(
-              fontSize: 7,
-              fontWeight: FontWeight.w700,
-              color: isDark ? Colors.grey[400] : Colors.grey[600],
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w600,
+              color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
             ),
           ),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white : const Color(0xFF1E293B),
+          const SizedBox(height: 3),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
+                color: isDark ? const Color(0xFFF0F6FC) : const Color(0xFF0F172A),
+              ),
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
     );
   }
 
-  ({Color bg, Color fg}) _auditActionColor(String action) {
-    switch (action.toUpperCase()) {
-      case 'LOCK':
-        return (bg: const Color(0xFFE0E7FF), fg: const Color(0xFF4338CA));
-      case 'UNLOCK':
-        return (bg: const Color(0xFFFEF3C7), fg: const Color(0xFFD97706));
-      case 'PAY':
-        return (bg: const Color(0xFFD1FAE5), fg: const Color(0xFF059669));
-      case 'PACKAGE_CREATE':
-      case 'PACKAGE_REVISION_CREATE':
-        return (bg: const Color(0xFFEDE9FE), fg: const Color(0xFF7C3AED));
-      case 'PACKAGE_UPDATE':
-        return (bg: const Color(0xFFFCE7F3), fg: const Color(0xFF9D174D));
-      case 'PACKAGE_DELETE':
-        return (bg: const Color(0xFFFEE2E2), fg: const Color(0xFFDC2626));
-      case 'PACKAGE_ASSIGN':
-        return (bg: const Color(0xFFDBEAFE), fg: const Color(0xFF1D4ED8));
-      case 'PACKAGE_UNASSIGN':
-        return (bg: const Color(0xFFFFEDD5), fg: const Color(0xFFEA580C));
-      case 'ADJUSTMENT_UPDATE':
-        return (bg: const Color(0xFFE0F2FE), fg: const Color(0xFF0369A1));
-      default:
-        return (bg: const Color(0xFFF1F5F9), fg: const Color(0xFF475569));
-    }
+  Widget _buildSmallStat(String label, String value, {Color? color, bool isBold = false}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 9.5,
+            color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 1),
+        Text(
+          value,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
+            color: color ?? (isDark ? const Color(0xFFF0F6FC) : const Color(0xFF0F172A)),
+          ),
+        ),
+      ],
+    );
   }
 }
-
-// [mod:2026-02-25T14:00:00+05:30]
-
-// [rev:2026-08-25T09:00:00+05:30]
