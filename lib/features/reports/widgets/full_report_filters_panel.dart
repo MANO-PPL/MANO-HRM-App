@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application/features/reports/widgets/custom_month_picker_dialog.dart';
+import 'package:flutter_application/features/reports/widgets/custom_dropdown_selector.dart';
+import 'package:flutter_application/features/reports/core/report_models.dart';
 
 class FullReportFiltersPanel extends StatelessWidget {
   final bool isEmployee;
@@ -10,6 +12,9 @@ class FullReportFiltersPanel extends StatelessWidget {
 
   final DateTime selectedDate;
   final ValueChanged<DateTime> onDateChanged;
+
+  final ReportWeekOption? selectedWeek;
+  final ValueChanged<ReportWeekOption>? onWeekChanged;
 
   final bool useCustomDateRange;
   final ValueChanged<bool> onUseCustomRangeChanged;
@@ -31,6 +36,7 @@ class FullReportFiltersPanel extends StatelessWidget {
   final List<Map<String, dynamic>> employees;
   final String? selectedEmployeeId;
   final ValueChanged<String?>? onEmployeeChanged;
+  final String? employeeName;
 
   final bool isGenerating;
   final bool isExporting;
@@ -41,10 +47,13 @@ class FullReportFiltersPanel extends StatelessWidget {
   const FullReportFiltersPanel({
     super.key,
     this.isEmployee = false,
+    this.employeeName,
     required this.selectedReportType,
     required this.onReportTypeChanged,
     required this.selectedDate,
     required this.onDateChanged,
+    this.selectedWeek,
+    this.onWeekChanged,
     this.useCustomDateRange = false,
     required this.onUseCustomRangeChanged,
     required this.startDate,
@@ -67,19 +76,35 @@ class FullReportFiltersPanel extends StatelessWidget {
     this.onOpenHistory,
   });
 
-  static const List<Map<String, String>> reportTypeOptions = [
-    {'id': 'attendance_detailed', 'label': 'Detailed Attendance Log'},
-    {'id': 'attendance_matrix_monthly', 'label': 'Monthly Attendance Matrix'},
-    {'id': 'matrix_monthly', 'label': 'Monthly Attendance Report'},
-    {'id': 'attendance_summary', 'label': 'Monthly Summary Report'},
-    {'id': 'matrix_daily', 'label': 'Daily Attendance Report'},
-    {'id': 'matrix_weekly', 'label': 'Weekly Attendance Report'},
-    {'id': 'lateness_report', 'label': 'Lateness Report'},
-  ];
+  static List<Map<String, String>> getReportTypeOptions(bool isEmployee) {
+    const all = [
+      {'id': 'matrix_daily', 'label': 'Daily Attendance Report', 'group': 'Attendance Reports'},
+      {'id': 'matrix_weekly', 'label': 'Weekly Attendance Report', 'group': 'Attendance Reports'},
+      {'id': 'matrix_monthly', 'label': 'Monthly Attendance Report', 'group': 'Attendance Reports'},
+      {'id': 'attendance_summary', 'label': 'Monthly Summary Report', 'group': 'Summary'},
+      {'id': 'employee_master', 'label': 'Employee Master Data', 'group': 'Employee Data'},
+    ];
+    if (isEmployee) {
+      return all.where((opt) => opt['id'] != 'employee_master').toList();
+    }
+    return all;
+  }
+
+  static const Map<String, List<String>> reportTypeColumnKeys = {
+    'matrix_daily': ['timeIn', 'timeOut', 'status', 'workedHours', 'late'],
+    'matrix_weekly': ['position', 'workedHours', 'timeIn', 'timeOut', 'employeeCode', 'daysInMonth', 'presentDays', 'shift', 'status', 'requiredHours', 'late', 'location', 'attendanceDays'],
+    'matrix_monthly': ['position', 'workedHours', 'timeIn', 'timeOut', 'employeeCode', 'daysInMonth', 'presentDays', 'shift', 'status', 'requiredHours', 'late', 'location', 'attendanceDays'],
+    'attendance_summary': ['workedHours', 'requiredHours', 'late', 'attendanceDays'],
+    'employee_master': ['employeeCode', 'position', 'location'],
+  };
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final options = getReportTypeOptions(isEmployee);
+    final String effectiveValue = (options.any((opt) => opt['id'] == selectedReportType)
+        ? selectedReportType
+        : (options.isNotEmpty ? (options.first['id'] ?? selectedReportType) : selectedReportType));
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -143,33 +168,22 @@ class FullReportFiltersPanel extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
-          // 1. Report Type Dropdown
-          _buildFieldLabel("REPORT TYPE", isDark),
-          const SizedBox(height: 5),
-          _buildDropdownContainer(
-            isDark: isDark,
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: selectedReportType,
-                isExpanded: true,
-                dropdownColor: isDark ? const Color(0xFF161B22) : Colors.white,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
-                ),
-                icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
-                items: reportTypeOptions.map((opt) {
-                  return DropdownMenuItem<String>(
-                    value: opt['id'],
-                    child: Text(opt['label']!),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  if (val != null) onReportTypeChanged(val);
-                },
-              ),
-            ),
+          // 1. Report Type Dropdown (Custom)
+          CustomDropdownSelector<String>(
+            label: "Report Type",
+            placeholder: "Select Report Type",
+            icon: Icons.description_outlined,
+            selectedValue: effectiveValue,
+            options: options.map((opt) {
+              return DropdownOption<String>(
+                value: opt['id']!,
+                label: opt['label']!,
+                subtitle: opt['group'],
+                icon: _getReportIcon(opt['id']!),
+              );
+            }).toList(),
+            onSelected: onReportTypeChanged,
+            isSearchable: true,
           ),
           const SizedBox(height: 12),
 
@@ -204,48 +218,26 @@ class FullReportFiltersPanel extends StatelessWidget {
           ),
           const SizedBox(height: 4),
 
-          if (!useCustomDateRange)
-            // Month Picker
-            InkWell(
-              onTap: () async {
-                final picked = await CustomMonthPickerDialog.show(
-                  context,
-                  initialDate: selectedDate,
-                );
-                if (picked != null) onDateChanged(picked);
-              },
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF21262D) : const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+          if (!useCustomDateRange) ...[
+            if (selectedReportType == 'matrix_weekly')
+              Row(
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: _buildMonthPickerButton(context, isDark),
                   ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.calendar_month_rounded, size: 16, color: Color(0xFF6366F1)),
-                        const SizedBox(width: 8),
-                        Text(
-                          DateFormat('MMMM yyyy').format(selectedDate),
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey),
-                  ],
-                ),
-              ),
-            )
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 6,
+                    child: _buildWeekDropdown(context, isDark),
+                  ),
+                ],
+              )
+            else if (selectedReportType == 'matrix_daily')
+              _buildDailyDatePickerButton(context, isDark)
+            else
+              _buildMonthPickerButton(context, isDark),
+          ]
           else
             // Date Range (Start & End)
             Row(
@@ -277,73 +269,90 @@ class FullReportFiltersPanel extends StatelessWidget {
             ),
           const SizedBox(height: 12),
 
-          // 3. Admin / HR Entity Filters
-          if (!isEmployee) ...[
-            _buildFieldLabel("DEPARTMENT", isDark),
-            const SizedBox(height: 5),
-            _buildDropdownContainer(
-              isDark: isDark,
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: selectedDept,
-                  isExpanded: true,
-                  dropdownColor: isDark ? const Color(0xFF161B22) : Colors.white,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
-                  ),
-                  icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
-                  items: departments.map((d) {
-                    return DropdownMenuItem<String>(
-                      value: d,
-                      child: Text(d),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null && onDeptChanged != null) onDeptChanged!(val);
-                  },
+          // 3. Employee / Admin Entity Filters
+          if (isEmployee) ...[
+            _buildFieldLabel("EMPLOYEE", isDark),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF6366F1).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.22),
                 ),
               ),
+              child: Row(
+                children: [
+                  const Icon(Icons.person_outline_rounded,
+                      size: 16, color: Color(0xFF6366F1)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      employeeName ?? 'My Reports',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF6366F1),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ] else ...[
+            CustomDropdownSelector<String>(
+              label: "Department",
+              placeholder: "All Departments",
+              icon: Icons.business_outlined,
+              selectedValue: selectedDept,
+              options: departments.map((d) {
+                return DropdownOption<String>(
+                  value: d,
+                  label: d,
+                  icon: d == 'All Departments' ? Icons.domain_rounded : Icons.business_outlined,
+                );
+              }).toList(),
+              onSelected: (val) {
+                if (onDeptChanged != null) onDeptChanged!(val);
+              },
+              isSearchable: true,
             ),
             const SizedBox(height: 12),
 
             if (employees.isNotEmpty) ...[
-              _buildFieldLabel("EMPLOYEE (OPTIONAL)", isDark),
-              const SizedBox(height: 5),
-              _buildDropdownContainer(
-                isDark: isDark,
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String?>(
-                    value: selectedEmployeeId,
-                    isExpanded: true,
-                    dropdownColor: isDark ? const Color(0xFF161B22) : Colors.white,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                    ),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
-                    items: [
-                      const DropdownMenuItem<String?>(
-                        value: null,
-                        child: Text("All Employees"),
-                      ),
-                      ...employees.map((emp) {
-                        final id = emp['user_id']?.toString() ?? emp['id']?.toString() ?? '';
-                        final name = emp['user_name'] ?? emp['name'] ?? id;
-                        final code = emp['employee_id'] ?? emp['emp_id'] ?? '';
-                        return DropdownMenuItem<String?>(
-                          value: id,
-                          child: Text("$name ${code.isNotEmpty ? '($code)' : ''}"),
-                        );
-                      }),
-                    ],
-                    onChanged: (val) {
-                      if (onEmployeeChanged != null) onEmployeeChanged!(val);
-                    },
+              CustomDropdownSelector<String>(
+                label: "Employee",
+                placeholder: "All Employees",
+                icon: Icons.person_search_rounded,
+                selectedValue: selectedEmployeeId ?? '',
+                options: [
+                  const DropdownOption<String>(
+                    value: '',
+                    label: "All Employees",
+                    subtitle: "Show all workforce records",
+                    icon: Icons.people_outline_rounded,
                   ),
-                ),
+                  ...employees.map((emp) {
+                    final id = emp['user_id']?.toString() ?? emp['id']?.toString() ?? '';
+                    final name = emp['user_name'] ?? emp['name'] ?? id;
+                    final code = emp['employee_id'] ?? emp['emp_id'] ?? '';
+                    return DropdownOption<String>(
+                      value: id,
+                      label: name,
+                      subtitle: code.isNotEmpty ? 'ID: $code' : null,
+                      icon: Icons.person_outline_rounded,
+                    );
+                  }),
+                ],
+                onSelected: (val) {
+                  if (onEmployeeChanged != null) {
+                    onEmployeeChanged!(val.isEmpty ? null : val);
+                  }
+                },
+                isSearchable: true,
               ),
               const SizedBox(height: 12),
             ],
@@ -352,41 +361,51 @@ class FullReportFiltersPanel extends StatelessWidget {
           // 4. Column Customization Checkbox Chips
           _buildFieldLabel("EXPORT COLUMNS", isDark),
           const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: exportColumns.entries.map((entry) {
-              final key = entry.key;
-              final isChecked = entry.value;
-              final label = _formatColumnName(key);
+          Builder(
+            builder: (context) {
+              final allowedKeys = reportTypeColumnKeys[selectedReportType];
+              final entries = allowedKeys != null
+                  ? exportColumns.entries.where((e) => allowedKeys.contains(e.key)).toList()
+                  : exportColumns.entries.toList();
+              final listToRender = entries.isNotEmpty ? entries : exportColumns.entries.toList();
 
-              return FilterChip(
-                label: Text(
-                  label,
-                  style: GoogleFonts.poppins(
-                    fontSize: 10,
-                    fontWeight: isChecked ? FontWeight.bold : FontWeight.w500,
-                    color: isChecked
-                        ? const Color(0xFF6366F1)
-                        : (isDark ? Colors.white60 : Colors.black54),
-                  ),
-                ),
-                selected: isChecked,
-                selectedColor: const Color(0xFF6366F1).withValues(alpha: 0.15),
-                backgroundColor: isDark ? const Color(0xFF21262D) : const Color(0xFFF1F5F9),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(
-                    color: isChecked
-                        ? const Color(0xFF6366F1).withValues(alpha: 0.4)
-                        : Colors.transparent,
-                  ),
-                ),
-                onSelected: (val) {
-                  if (onColumnToggled != null) onColumnToggled!(key, val);
-                },
+              return Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: listToRender.map((entry) {
+                  final key = entry.key;
+                  final isChecked = entry.value;
+                  final label = _formatColumnName(key);
+
+                  return FilterChip(
+                    label: Text(
+                      label,
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        fontWeight: isChecked ? FontWeight.bold : FontWeight.w500,
+                        color: isChecked
+                            ? const Color(0xFF6366F1)
+                            : (isDark ? Colors.white60 : Colors.black54),
+                      ),
+                    ),
+                    selected: isChecked,
+                    selectedColor: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                    backgroundColor: isDark ? const Color(0xFF21262D) : const Color(0xFFF1F5F9),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(
+                        color: isChecked
+                            ? const Color(0xFF6366F1).withValues(alpha: 0.4)
+                            : Colors.transparent,
+                      ),
+                    ),
+                    onSelected: (val) {
+                      if (onColumnToggled != null) onColumnToggled!(key, val);
+                    },
+                  );
+                }).toList(),
               );
-            }).toList(),
+            },
           ),
           const SizedBox(height: 14),
 
@@ -479,19 +498,6 @@ class FullReportFiltersPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildDropdownContainer({required Widget child, required bool isDark}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF21262D) : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
-        ),
-      ),
-      child: child,
-    );
-  }
 
   Widget _buildDatePickerTile({
     required BuildContext context,
@@ -529,7 +535,7 @@ class FullReportFiltersPanel extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              DateFormat('dd MMM yyyy').format(date),
+              DateFormat('d MMMM yyyy').format(date),
               style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600),
             ),
           ],
@@ -580,24 +586,161 @@ class FullReportFiltersPanel extends StatelessWidget {
 
   String _formatColumnName(String key) {
     switch (key) {
+      case 'shift':
+        return 'Shift';
       case 'clock_in_out':
       case 'timeIn':
-        return 'Clock In/Out';
+        return 'Time In';
+      case 'timeOut':
+        return 'Time Out';
       case 'status':
         return 'Status';
       case 'work_duration':
       case 'workedHours':
-        return 'Work Hours';
+        return 'Worked Hours';
       case 'required_hours':
       case 'requiredHours':
         return 'Required Hours';
       case 'late_minutes':
       case 'late':
-        return 'Late Time';
+        return 'Lateness Info';
       case 'location':
-        return 'Location';
+        return 'Locations';
+      case 'attendanceDays':
+        return 'Attendance Summary';
       default:
         return key.replaceAll('_', ' ').toUpperCase();
     }
+  }
+
+  static IconData _getReportIcon(String id) {
+    switch (id) {
+      case 'matrix_daily':
+        return Icons.today_rounded;
+      case 'matrix_weekly':
+        return Icons.view_week_rounded;
+      case 'matrix_monthly':
+        return Icons.calendar_view_month_rounded;
+      case 'attendance_summary':
+        return Icons.summarize_outlined;
+      case 'employee_master':
+        return Icons.badge_outlined;
+      default:
+        return Icons.description_outlined;
+    }
+  }
+
+  Widget _buildDailyDatePickerButton(BuildContext context, bool isDark) {
+    return InkWell(
+      onTap: () async {
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: selectedDate,
+          firstDate: DateTime(2020),
+          lastDate: DateTime(2035),
+        );
+        if (picked != null) onDateChanged(picked);
+      },
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF21262D) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.today_rounded, size: 16, color: Color(0xFF6366F1)),
+                const SizedBox(width: 8),
+                Text(
+                  DateFormat('dd MMMM yyyy').format(selectedDate),
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
+              ],
+            ),
+            const Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMonthPickerButton(BuildContext context, bool isDark) {
+    return InkWell(
+      onTap: () async {
+        final picked = await CustomMonthPickerDialog.show(
+          context,
+          initialDate: selectedDate,
+        );
+        if (picked != null) onDateChanged(picked);
+      },
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF21262D) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.calendar_month_rounded, size: 16, color: Color(0xFF6366F1)),
+                const SizedBox(width: 8),
+                Text(
+                  DateFormat('MMMM yyyy').format(selectedDate),
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
+              ],
+            ),
+            const Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWeekDropdown(BuildContext context, bool isDark) {
+    final weeks = ReportWeekOption.getWeeksOfMonth(selectedDate);
+    final currentWeek = selectedWeek ?? (weeks.isNotEmpty ? weeks.first : null);
+    final weekOptions = weeks.map((w) {
+      return DropdownOption<String>(
+        value: w.value,
+        label: w.label,
+        icon: Icons.view_week_rounded,
+      );
+    }).toList();
+
+    return CustomDropdownSelector<String>(
+      label: "",
+      placeholder: "Select Week",
+      icon: Icons.view_week_rounded,
+      selectedValue: currentWeek?.value ?? (weeks.isNotEmpty ? weeks.first.value : ''),
+      options: weekOptions,
+      onSelected: (val) {
+        if (onWeekChanged != null) {
+          final found = weeks.firstWhere((w) => w.value == val, orElse: () => weeks.first);
+          onWeekChanged!(found);
+        }
+      },
+    );
   }
 }
