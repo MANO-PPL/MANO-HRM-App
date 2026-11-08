@@ -10,6 +10,7 @@ import 'package:flutter_application/shared/models/user_model.dart';
 import 'package:flutter_application/shared/constants/api_constants.dart';
 import 'package:flutter_application/shared/widgets/custom_dialog.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
+import 'package:flutter_application/shared/widgets/pfp_viewer_dialog.dart';
 
 class ProfileAvatar extends StatefulWidget {
   final double size;
@@ -255,7 +256,19 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
       clipBehavior: Clip.none, // Allow badge to overlap slightly if needed
       children: [
         GestureDetector(
-          onTap: imageUrl != null ? () => _openViewer(imageUrl!) : null, // Pass resolved URL
+          onTap: () {
+            PfpViewerDialog.show(
+              context,
+              imageUrl: imageUrl,
+              name: user?.name ?? 'My Profile',
+              subtitle: user?.role != null && user!.role.isNotEmpty
+                  ? '${user.role[0].toUpperCase()}${user.role.substring(1)}'
+                  : 'Employee',
+              heroTag: 'profile-avatar-${user?.id ?? "me"}',
+              canEdit: widget.canEdit,
+              onEdit: _showEditOptions,
+            );
+          },
           child: Hero(
             tag: 'profile-avatar-${user?.id ?? "me"}',
             child: Container(
@@ -305,35 +318,7 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
     );
   }
 
-  void _openViewer(String imageUrl) { // Accept resolved URL
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.9),
-      builder: (context) => Stack(
-        children: [
-          Center(
-            child: InteractiveViewer(
-              child: CachedNetworkImage(
-                imageUrl: imageUrl,
-                placeholder: (context, url) => const CircularProgressIndicator(),
-                errorWidget: (context, url, err) => const Icon(Icons.error, color: Colors.white),
-              ),
-            ),
-          ),
-          Positioned(
-             top: 40, right: 20,
-             child: Material(
-               color: Colors.transparent,
-               child: IconButton(
-                 icon: const Icon(Icons.close, color: Colors.white, size: 30),
-                 onPressed: () => Navigator.pop(context),
-               ),
-             ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
 
   Widget _buildInitials(String initials) {

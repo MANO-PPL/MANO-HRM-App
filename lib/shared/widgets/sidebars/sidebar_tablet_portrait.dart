@@ -13,7 +13,7 @@ class SidebarTabletPortrait extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      width: 280,
+      width: 250,
       backgroundColor: Colors.transparent,
       elevation: 0,
       child: GlassContainer(
@@ -61,10 +61,10 @@ class _SidebarContent extends StatelessWidget {
             children: [
               // Sidebar Header
               Container(
-                height: 55,
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 alignment: Alignment.centerLeft,
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                margin: const EdgeInsets.only(top: 4, bottom: 4),
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
@@ -78,14 +78,14 @@ class _SidebarContent extends StatelessWidget {
                   children: [
                     Image.asset(
                       'assets/mano.png',
-                      height: 40,
-                      errorBuilder: (context, error, stackTrace) => Icon(Icons.change_history, color: Theme.of(context).primaryColor, size: 28),
+                      height: 30,
+                      errorBuilder: (context, error, stackTrace) => Icon(Icons.change_history, color: Theme.of(context).primaryColor, size: 22),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Text(
                       'MANO',
                       style: GoogleFonts.poppins(
-                        fontSize: 22,
+                        fontSize: 19,
                         fontWeight: FontWeight.bold,
                         color: Theme.of(context).brightness == Brightness.dark
                             ? Colors.white

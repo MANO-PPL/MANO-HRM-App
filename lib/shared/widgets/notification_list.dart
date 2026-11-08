@@ -322,7 +322,7 @@ class _NotificationListState extends State<NotificationList> {
     if (diff.inMinutes < 1) return 'Just now';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
     if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return DateFormat('MMM dd').format(time);
+    return DateFormat('d MMMM yyyy').format(time);
   }
 
   Color _getTypeColor(String type) {

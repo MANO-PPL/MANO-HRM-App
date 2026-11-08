@@ -11,6 +11,8 @@ import 'package:flutter_application/features/notifications/views/notifications_m
 import 'package:flutter_application/shared/services/notification_service.dart';
 import 'package:flutter_application/shared/widgets/toast_helper.dart';
 import 'package:flutter_application/features/collaboration/core/chat_service.dart';
+import 'package:flutter_application/shared/widgets/pfp_viewer_dialog.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final bool showDrawerButton;
@@ -45,20 +47,20 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         child: SafeArea(
           bottom: false,
           child: Container(
-            height: isMobilePortrait ? 50 : 56,
+            height: isMobilePortrait ? 42 : 44,
             padding: EdgeInsets.fromLTRB(
-              isMobile ? 2 : (MediaQuery.of(context).size.width < 900 ? 8 : 24),
+              isMobile ? 2 : (MediaQuery.of(context).size.width < 900 ? 6 : 12),
               0,
-              isMobile ? 4 : 24,
+              isMobile ? 4 : 12,
               0,
             ),
             child: Row(
               children: [
                 if (showDrawerButton)
                   IconButton(
-                    padding: isMobilePortrait ? const EdgeInsets.all(2) : (isMobile ? const EdgeInsets.all(4) : const EdgeInsets.all(8)),
-                    constraints: isMobile ? const BoxConstraints(minWidth: 32, minHeight: 32) : null,
-                    icon: Icon(Icons.menu, size: isMobilePortrait ? 22 : 24, color: Theme.of(context).iconTheme.color),
+                    padding: isMobilePortrait ? const EdgeInsets.all(2) : (isMobile ? const EdgeInsets.all(3) : const EdgeInsets.all(4)),
+                    constraints: isMobile ? const BoxConstraints(minWidth: 30, minHeight: 30) : const BoxConstraints(minWidth: 32, minHeight: 32),
+                    icon: Icon(Icons.menu, size: isMobilePortrait ? 19 : 20, color: Theme.of(context).iconTheme.color),
                     onPressed: () => Scaffold.of(context).openDrawer(),
                   ),
                 
@@ -72,7 +74,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                       return Text(
                         displayTitle,
                         style: GoogleFonts.poppins(
-                          fontSize: isMobilePortrait ? 16 : 18,
+                          fontSize: isMobilePortrait ? 15 : 16.5,
                           fontWeight: FontWeight.w600,
                           color: Theme.of(context).textTheme.titleLarge?.color,
                         ),
@@ -210,7 +212,19 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 
                       return InkWell(
                         onTap: () {
-                          navigationNotifier.value = PageType.profile;
+                          PfpViewerDialog.show(
+                            context,
+                            imageUrl: user?.profileImage,
+                            name: name,
+                            subtitle: user?.role != null && user!.role.isNotEmpty
+                                ? '${user.role[0].toUpperCase()}${user.role.substring(1)}'
+                                : 'Employee',
+                            heroTag: 'appbar-user-pfp-mobile',
+                            canEdit: true,
+                            onViewProfile: () {
+                              navigationNotifier.value = PageType.profile;
+                            },
+                          );
                         },
                         borderRadius: BorderRadius.circular(20),
                         child: Padding(
@@ -220,15 +234,55 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                                shape: BoxShape.circle,
                                border: Border.all(color: const Color(0xFF5B60F6).withValues(alpha: 0.2)),
                             ),
-                            child: CircleAvatar(
-                              radius: 14,
-                              backgroundColor: const Color(0xFF5B60F6).withValues(alpha: 0.1),
-                              backgroundImage: (user?.profileImage != null && user!.profileImage!.isNotEmpty)
-                                  ? NetworkImage(user.profileImage!)
-                                  : null,
-                              child: (user?.profileImage == null || user!.profileImage!.isEmpty)
-                                  ? Text(initials, style: GoogleFonts.poppins(color: const Color(0xFF5B60F6), fontWeight: FontWeight.bold, fontSize: 11))
-                                  : null,
+                            child: SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: ClipOval(
+                                child: (user?.profileImage != null && user!.profileImage!.isNotEmpty)
+                                    ? CachedNetworkImage(
+                                        imageUrl: user.profileImage!,
+                                        fit: BoxFit.cover,
+                                        placeholder: (context, url) => Container(
+                                          color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
+                                          child: Center(
+                                            child: Text(
+                                              initials,
+                                              style: GoogleFonts.poppins(
+                                                color: const Color(0xFF5B60F6),
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        errorWidget: (context, url, error) => Container(
+                                          color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
+                                          child: Center(
+                                            child: Text(
+                                              initials,
+                                              style: GoogleFonts.poppins(
+                                                color: const Color(0xFF5B60F6),
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    : Container(
+                                        color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
+                                        child: Center(
+                                          child: Text(
+                                            initials,
+                                            style: GoogleFonts.poppins(
+                                              color: const Color(0xFF5B60F6),
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                              ),
                             ),
                           ),
                         ),
@@ -272,6 +326,18 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
+                                    _buildDropdownItem(context, icon: Icons.photo_camera_front_outlined, text: 'View Profile Photo', onTap: () {
+                                       Navigator.pop(context);
+                                       PfpViewerDialog.show(
+                                         context,
+                                         imageUrl: user?.profileImage,
+                                         name: name,
+                                         subtitle: role,
+                                         heroTag: 'appbar-user-pfp-desktop',
+                                         canEdit: true,
+                                         onViewProfile: () => navigationNotifier.value = PageType.profile,
+                                       );
+                                    }),
                                     _buildDropdownItem(context, icon: Icons.person_outline, text: 'View Profile', onTap: () {
                                        navigationNotifier.value = PageType.profile;
                                        Navigator.pop(context);
@@ -324,20 +390,73 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                                 ],
                               ),
                               const SizedBox(width: 12),
-                              Container(
-                                decoration: BoxDecoration(
-                                   shape: BoxShape.circle,
-                                   border: Border.all(color: const Color(0xFF5B60F6).withValues(alpha: 0.2)),
-                                ),
-                                child: CircleAvatar(
-                                  radius: 18,
-                                  backgroundColor: const Color(0xFF5B60F6).withValues(alpha: 0.1),
-                                  backgroundImage: (user?.profileImage != null && user!.profileImage!.isNotEmpty)
-                                      ? NetworkImage(user.profileImage!)
-                                      : null,
-                                  child: (user?.profileImage == null || user!.profileImage!.isEmpty)
-                                      ? Text(initials, style: GoogleFonts.poppins(color: const Color(0xFF5B60F6), fontWeight: FontWeight.bold, fontSize: 13))
-                                      : null,
+                              GestureDetector(
+                                onTap: () {
+                                  PfpViewerDialog.show(
+                                    context,
+                                    imageUrl: user?.profileImage,
+                                    name: name,
+                                    subtitle: role,
+                                    heroTag: 'appbar-user-pfp-desktop',
+                                    canEdit: true,
+                                    onViewProfile: () => navigationNotifier.value = PageType.profile,
+                                  );
+                                },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                     shape: BoxShape.circle,
+                                     border: Border.all(color: const Color(0xFF5B60F6).withValues(alpha: 0.2)),
+                                  ),
+                                  child: SizedBox(
+                                    width: 36,
+                                    height: 36,
+                                    child: ClipOval(
+                                      child: (user?.profileImage != null && user!.profileImage!.isNotEmpty)
+                                          ? CachedNetworkImage(
+                                              imageUrl: user.profileImage!,
+                                              fit: BoxFit.cover,
+                                              placeholder: (context, url) => Container(
+                                                color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
+                                                child: Center(
+                                                  child: Text(
+                                                    initials,
+                                                    style: GoogleFonts.poppins(
+                                                      color: const Color(0xFF5B60F6),
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 13,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              errorWidget: (context, url, error) => Container(
+                                                color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
+                                                child: Center(
+                                                  child: Text(
+                                                    initials,
+                                                    style: GoogleFonts.poppins(
+                                                      color: const Color(0xFF5B60F6),
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 13,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            )
+                                          : Container(
+                                              color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
+                                              child: Center(
+                                                child: Text(
+                                                  initials,
+                                                  style: GoogleFonts.poppins(
+                                                    color: const Color(0xFF5B60F6),
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
@@ -382,7 +501,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 
   @override
-  Size get preferredSize => const Size.fromHeight(56);
+  Size get preferredSize => const Size.fromHeight(44);
 }
 
 // commit-marker: 2026-02-27T18:00:00+05:30

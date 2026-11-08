@@ -13,7 +13,7 @@ class SidebarTabletLandscape extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassContainer(
-      width: 260,
+      width: 250,
       height: double.infinity,
       blur: 0,
       color: Theme.of(context).brightness == Brightness.dark
@@ -64,8 +64,8 @@ class _SidebarContent extends StatelessWidget {
             children: [
               // Fixed Sidebar Header (Aligned with AppBar)
               Container(
-                height: 56,
-                margin: const EdgeInsets.only(bottom: 8),
+                height: 52,
+                margin: const EdgeInsets.only(bottom: 4),
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
@@ -76,27 +76,32 @@ class _SidebarContent extends StatelessWidget {
                     ),
                   ),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 alignment: Alignment.centerLeft,
                 child: Row(
                   children: [
                     Image.asset(
                       'assets/mano.png',
-                      height: 36,
+                      height: 28,
                       errorBuilder: (context, error, stackTrace) => Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(color: const Color(0xFF5B60F6).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                        child: const Icon(Icons.change_history, color: Color(0xFF5B60F6), size: 22),
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF5B60F6).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(Icons.change_history, color: Color(0xFF5B60F6), size: 18),
                       ),
                     ),
                     const SizedBox(width: 10),
                     Text(
                       'MANO',
                       style: GoogleFonts.poppins(
-                        fontSize: 20,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: const Color(0xFF5B60F6),
-                        letterSpacing: 1.0,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : Theme.of(context).primaryColor,
+                        letterSpacing: 0.8,
                       ),
                     ),
                   ],
@@ -140,7 +145,7 @@ class _SidebarContent extends StatelessWidget {
                               : (Theme.of(context).brightness == Brightness.dark
                                   ? const Color(0xFF161B22)
                                   : const Color(0xFFF8FAFC)),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             color: Theme.of(context).brightness == Brightness.dark
                                 ? const Color(0xFF30363D)
@@ -151,7 +156,7 @@ class _SidebarContent extends StatelessWidget {
                           children: [
                             Icon(
                               Icons.bug_report_outlined,
-                              size: 18,
+                              size: 19,
                               color: currentPage == PageType.feedback
                                   ? (Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF4338CA))
                                   : (Theme.of(context).brightness == Brightness.dark ? Colors.grey[400] : Colors.grey[700]),
@@ -160,7 +165,7 @@ class _SidebarContent extends StatelessWidget {
                             Text(
                               "Bugs & Feedback",
                               style: GoogleFonts.poppins(
-                                fontSize: 12,
+                                fontSize: 12.5,
                                 fontWeight: currentPage == PageType.feedback ? FontWeight.w600 : FontWeight.w500,
                                 color: currentPage == PageType.feedback
                                     ? (Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF4338CA))
@@ -173,9 +178,9 @@ class _SidebarContent extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      "v1.0.0",
+                      "v1.1.0",
                       style: GoogleFonts.firaCode(
-                        fontSize: 10,
+                        fontSize: 9.5,
                         color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[600] : Colors.grey[400],
                       ),
                     ),
@@ -193,38 +198,38 @@ class _SidebarContent extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 1.5),
+      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
       child: Material(
         color: isActive
-            ? (isDark ? const Color(0xFF21262D) : const Color(0xFFF6F8FA))
+            ? (isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFF4338CA).withValues(alpha: 0.1))
             : Colors.transparent,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(10),
         child: InkWell(
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(10),
           onTap: () {
             navigateTo(page);
             if (onLinkTap != null) onLinkTap!();
           },
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9.5),
             child: Row(
               children: [
                 Icon(
                   page.icon,
-                  size: 17,
+                  size: 20,
                   color: isActive
-                      ? (isDark ? const Color(0xFF58A6FF) : const Color(0xFF0969DA))
+                      ? (isDark ? Colors.white : const Color(0xFF4338CA))
                       : (isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B)),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     page.getTitle(isEmployee),
                     style: GoogleFonts.poppins(
-                      fontSize: 11.5,
-                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                      fontSize: 12.5,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                       color: isActive
-                          ? (isDark ? const Color(0xFF58A6FF) : const Color(0xFF0969DA))
+                          ? (isDark ? Colors.white : const Color(0xFF4338CA))
                           : (isDark ? const Color(0xFFC9D1D9) : const Color(0xFF334155)),
                     ),
                   ),
