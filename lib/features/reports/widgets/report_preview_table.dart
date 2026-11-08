@@ -1,10 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_application/features/reports/core/report_models.dart';
 
 enum PreviewCellType {
   normal,
   present,
   absent,
+  missedPunch,
   halfDay,
   leave,
   late,
@@ -29,8 +32,14 @@ class _ProcessedPreviewCell {
 class ReportPreviewTable extends StatefulWidget {
   final List<String> columns;
   final List<List<dynamic>> rows;
+  final Map<String, bool>? columnsConfig;
   final String searchQuery;
   final String? reportTitle;
+  final String? dateSubtitle;
+  final String? selectedReportType;
+  final ReportWeekOption? selectedWeek;
+  final List<ReportWeekOption>? availableWeeks;
+  final ValueChanged<ReportWeekOption>? onWeekChanged;
   final VoidCallback? onExportExcel;
   final VoidCallback? onExportCsv;
   final VoidCallback? onExportPdf;
@@ -40,8 +49,14 @@ class ReportPreviewTable extends StatefulWidget {
     super.key,
     required this.columns,
     required this.rows,
+    this.columnsConfig,
     this.searchQuery = '',
     this.reportTitle,
+    this.dateSubtitle,
+    this.selectedReportType,
+    this.selectedWeek,
+    this.availableWeeks,
+    this.onWeekChanged,
     this.onExportExcel,
     this.onExportCsv,
     this.onExportPdf,
@@ -57,10 +72,11 @@ class _ReportPreviewTableState extends State<ReportPreviewTable> {
   final TextEditingController _localSearchController = TextEditingController();
   String _effectiveSearch = '';
   List<List<_ProcessedPreviewCell>> _processedRows = [];
+  List<int> _visibleIndices = [];
 
-  // Pagination State
+  // Pagination State: default to -1 (All rows) to show complete dataset
   int _currentPage = 1;
-  int _pageSize = 25;
+  int _pageSize = -1;
 
   @override
   void initState() {
@@ -73,7 +89,8 @@ class _ReportPreviewTableState extends State<ReportPreviewTable> {
   @override
   void didUpdateWidget(covariant ReportPreviewTable oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.columns != oldWidget.columns ||
+    if (!mapEquals(widget.columnsConfig, oldWidget.columnsConfig) ||
+        widget.columns != oldWidget.columns ||
         widget.rows != oldWidget.rows ||
         widget.searchQuery != oldWidget.searchQuery) {
       if (widget.searchQuery != oldWidget.searchQuery) {
@@ -91,6 +108,127 @@ class _ReportPreviewTableState extends State<ReportPreviewTable> {
     super.dispose();
   }
 
+  String? _matchColumnToKey(String header) {
+    final h = header.toLowerCase().trim();
+
+    if (h == 'time in' ||
+        h == 'in punch' ||
+        h == 'clock in' ||
+        h == 'in' ||
+        h.contains('time in') ||
+        h.contains('clock_in')) {
+      return 'timeIn';
+    }
+    if (h == 'time out' ||
+        h == 'out punch' ||
+        h == 'clock out' ||
+        h == 'out' ||
+        h.contains('time out') ||
+        h.contains('clock_out')) {
+      return 'timeOut';
+    }
+    if (h == 'shift' || h.contains('shift')) {
+      return 'shift';
+    }
+    if (h == 'status' || h == 'attendance status' || h.contains('status')) {
+      return 'status';
+    }
+    if (h == 'work hours' ||
+        h == 'worked hours' ||
+        h == 'work hr' ||
+        h == 'worked' ||
+        h == 'total hours' ||
+        h.contains('work_duration') ||
+        h.contains('worked') ||
+        h.contains('shortfall') ||
+        h.contains('excess')) {
+      return 'workedHours';
+    }
+    if (h == 'required hours' ||
+        h == 'req hr' ||
+        h == 'required' ||
+        h.contains('required_hours') ||
+        h.contains('expected hours')) {
+      return 'requiredHours';
+    }
+    if (h == 'late' ||
+        h == 'late in' ||
+        h == 'lateness' ||
+        h == 'late count' ||
+        h == 'late days' ||
+        h.contains('late_minutes') ||
+        h.contains('lateness') ||
+        h.contains('late')) {
+      return 'late';
+    }
+    if (h == 'location' || h == 'branch' || h.contains('location')) {
+      return 'location';
+    }
+    if (h == 'emp id' ||
+        h == 'code' ||
+        h == 'emp code' ||
+        h == 'employee code' ||
+        h == 'emp_id') {
+      return 'employeeCode';
+    }
+    if (h == 'designation' || h == 'position' || h == 'role') {
+      return 'position';
+    }
+    if (h == 'days in month' || h == 'total days') {
+      return 'daysInMonth';
+    }
+    if (h == 'present days') {
+      return 'presentDays';
+    }
+    if (h == 'present' ||
+        h == 'absent' ||
+        h == 'half day' ||
+        h == 'half_day' ||
+        h == 'leaves' ||
+        h == 'on leave' ||
+        h == 'holiday' ||
+        h == 'attendance' ||
+        h.contains('attendance summary')) {
+      return 'attendanceDays';
+    }
+
+    return null;
+  }
+
+  bool _isColumnVisible(String header) {
+    final cfg = widget.columnsConfig;
+    if (cfg == null || cfg.isEmpty) return true;
+
+    final key = _matchColumnToKey(header);
+    if (key == null) return true;
+
+    if (cfg.containsKey(key) && cfg[key] == false) {
+      return false;
+    }
+
+    if (key == 'timeIn' || key == 'timeOut') {
+      if (cfg['clock_in_out'] == false) return false;
+    }
+    if (key == 'workedHours' && cfg['work_duration'] == false) {
+      return false;
+    }
+    if (key == 'late' && cfg['late_minutes'] == false) {
+      return false;
+    }
+
+    return true;
+  }
+
+  List<int> _computeVisibleIndices() {
+    final List<int> indices = [];
+    for (int i = 0; i < widget.columns.length; i++) {
+      if (_isColumnVisible(widget.columns[i])) {
+        indices.add(i);
+      }
+    }
+    return indices;
+  }
+
   void _precomputeRows() {
     final q = _effectiveSearch.toLowerCase().trim();
 
@@ -99,14 +237,15 @@ class _ReportPreviewTableState extends State<ReportPreviewTable> {
       return row.any((cell) => cell?.toString().toLowerCase().contains(q) == true);
     }).toList();
 
+    _visibleIndices = _computeVisibleIndices();
+
     final List<List<_ProcessedPreviewCell>> list = [];
     for (final row in filtered) {
       final List<_ProcessedPreviewCell> cellList = [];
-      for (int cIdx = 0; cIdx < row.length; cIdx++) {
-        final cellVal = row[cIdx]?.toString() ?? '-';
+      for (final cIdx in _visibleIndices) {
+        final cellVal = (cIdx < row.length ? row[cIdx]?.toString() : null) ?? '-';
         final colHeader = cIdx < widget.columns.length ? widget.columns[cIdx] : '';
         final isText = _isTextColumn(colHeader);
-
         final type = _detectCellType(cellVal, colHeader);
 
         cellList.add(_ProcessedPreviewCell(
@@ -133,6 +272,9 @@ class _ReportPreviewTableState extends State<ReportPreviewTable> {
     }
     if (valLower == 'absent' || valLower == '0.0' || valLower == '0' || valLower == 'a') {
       return PreviewCellType.absent;
+    }
+    if (valLower.contains('missed') || valLower == 'mp') {
+      return PreviewCellType.missedPunch;
     }
     if (valLower.contains('half') || valLower == 'hd' || valLower == 'half_day') {
       return PreviewCellType.halfDay;
@@ -198,7 +340,7 @@ class _ReportPreviewTableState extends State<ReportPreviewTable> {
           _buildExcelRibbonToolbar(isDark),
 
           // ── 2. Empty State or Spreadsheet View ──────────────────────────
-          if (widget.columns.isEmpty || _processedRows.isEmpty)
+          if (widget.columns.isEmpty || _processedRows.isEmpty || _visibleIndices.isEmpty)
             _buildEmptyState(isDark)
           else
             _buildSpreadsheetTable(isDark),
@@ -237,61 +379,105 @@ class _ReportPreviewTableState extends State<ReportPreviewTable> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               // Title & Badge
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF107C41).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF107C41).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.table_chart_rounded, size: 16, color: Color(0xFF107C41)),
                     ),
-                    child: const Icon(Icons.table_chart_rounded, size: 16, color: Color(0xFF107C41)),
-                  ),
-                  const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Excel Spreadsheet View",
-                        style: GoogleFonts.poppins(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Excel Spreadsheet View",
+                            style: GoogleFonts.poppins(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Row(
+                            children: [
+                              Text(
+                                reportName,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF6366F1),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (widget.dateSubtitle != null && widget.dateSubtitle!.isNotEmpty) ...[
+                                Text(
+                                  " • ",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white38 : Colors.black38,
+                                  ),
+                                ),
+                                Flexible(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      widget.dateSubtitle!,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF6366F1),
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF161B22) : Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1),
                         ),
                       ),
-                      Text(
-                        reportName,
+                      child: Text(
+                        "$totalRecords Records",
                         style: GoogleFonts.poppins(
                           fontSize: 9.5,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF6366F1),
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? const Color(0xFF8B949E) : const Color(0xFF475569),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF161B22) : Colors.white,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1),
-                      ),
                     ),
-                    child: Text(
-                      "$totalRecords Records",
-                      style: GoogleFonts.poppins(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? const Color(0xFF8B949E) : const Color(0xFF475569),
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
+
+          // Optional Quick Week Switcher for matrix_weekly
+          if (widget.selectedReportType == 'matrix_weekly' &&
+              widget.availableWeeks != null &&
+              widget.availableWeeks!.isNotEmpty)
+            _buildWeekSwitcherBar(isDark),
 
           const SizedBox(height: 8),
 
@@ -333,6 +519,75 @@ class _ReportPreviewTableState extends State<ReportPreviewTable> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildWeekSwitcherBar(bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 2),
+      height: 32,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: widget.availableWeeks!.length,
+        separatorBuilder: (_, index) => const SizedBox(width: 6),
+        itemBuilder: (context, idx) {
+          final w = widget.availableWeeks![idx];
+          final isSelected = widget.selectedWeek?.value == w.value;
+          return InkWell(
+            onTap: () {
+              if (widget.onWeekChanged != null) widget.onWeekChanged!(w);
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? const Color(0xFF6366F1)
+                    : (isDark ? const Color(0xFF161B22) : Colors.white),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isSelected
+                      ? const Color(0xFF6366F1)
+                      : (isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1)),
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.view_week_rounded,
+                    size: 13,
+                    color: isSelected
+                        ? Colors.white
+                        : (isDark ? Colors.white70 : const Color(0xFF475569)),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    w.label,
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      color: isSelected
+                          ? Colors.white
+                          : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -382,7 +637,8 @@ class _ReportPreviewTableState extends State<ReportPreviewTable> {
 
     const double rowNumColWidth = 42.0;
     const double minColWidth = 135.0;
-    final double dataColsWidth = widget.columns.length * minColWidth;
+    final visibleCols = _visibleIndices.map((i) => widget.columns[i]).toList();
+    final double dataColsWidth = visibleCols.length * minColWidth;
 
     const excelNavy = Color(0xFF1F4E78);
     const excelHeaderBorder = Color(0xFF2563EB);
@@ -482,7 +738,7 @@ class _ReportPreviewTableState extends State<ReportPreviewTable> {
                         ),
                       ),
                       child: Row(
-                        children: widget.columns.map((col) {
+                        children: visibleCols.map((col) {
                           final isText = _isTextColumn(col);
                           return Container(
                             width: minColWidth,
@@ -536,7 +792,7 @@ class _ReportPreviewTableState extends State<ReportPreviewTable> {
                           children: row.asMap().entries.map((cEntry) {
                             final cIdx = cEntry.key;
                             final cell = cEntry.value;
-                            final colHeader = cIdx < widget.columns.length ? widget.columns[cIdx] : '';
+                            final colHeader = cIdx < visibleCols.length ? visibleCols[cIdx] : '';
 
                             return _buildExcelCell(
                               cell: cell,
@@ -588,6 +844,11 @@ class _ReportPreviewTableState extends State<ReportPreviewTable> {
           textColor = isDark ? const Color(0xFFF87171) : const Color(0xFFB91C1C);
           weight = FontWeight.bold;
           break;
+        case PreviewCellType.missedPunch:
+          cellBg = isDark ? const Color(0xFF78350F).withValues(alpha: 0.35) : const Color(0xFFFEF3C7);
+          textColor = isDark ? const Color(0xFFFBBF24) : const Color(0xFFB45309);
+          weight = FontWeight.bold;
+          break;
         case PreviewCellType.halfDay:
           cellBg = isDark ? const Color(0xFF713F12).withValues(alpha: 0.35) : const Color(0xFFFEF9C3);
           textColor = isDark ? const Color(0xFFFACC15) : const Color(0xFF854D0E);
@@ -604,8 +865,8 @@ class _ReportPreviewTableState extends State<ReportPreviewTable> {
           weight = FontWeight.bold;
           break;
         case PreviewCellType.holiday:
-          cellBg = isDark ? const Color(0xFF78350F).withValues(alpha: 0.35) : const Color(0xFFFEF3C7);
-          textColor = isDark ? const Color(0xFFFBBF24) : const Color(0xFFB45309);
+          cellBg = isDark ? const Color(0xFF0369A1).withValues(alpha: 0.35) : const Color(0xFFE0F2FE);
+          textColor = isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7);
           weight = FontWeight.bold;
           break;
         case PreviewCellType.weekOff:
@@ -681,42 +942,77 @@ class _ReportPreviewTableState extends State<ReportPreviewTable> {
           ),
           Row(
             children: [
-              // Page size selector
-              Container(
-                height: 26,
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF161B22) : Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1),
+              // Custom Page size selector
+              PopupMenuButton<int>(
+                initialValue: _pageSize,
+                tooltip: "Rows per page",
+                offset: const Offset(0, -145),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(
+                    color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
                   ),
                 ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<int>(
-                    value: _pageSize,
-                    isDense: true,
-                    dropdownColor: isDark ? const Color(0xFF161B22) : Colors.white,
-                    style: GoogleFonts.poppins(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                color: isDark ? const Color(0xFF161B22) : Colors.white,
+                onSelected: (val) {
+                  setState(() {
+                    _pageSize = val;
+                    _currentPage = 1;
+                  });
+                },
+                itemBuilder: (ctx) => [15, 25, 50, -1].map((val) {
+                  final label = val == -1 ? "All rows" : "$val / page";
+                  final isSel = _pageSize == val;
+                  return PopupMenuItem<int>(
+                    value: val,
+                    height: 32,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          label,
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+                            color: isSel
+                                ? const Color(0xFF6366F1)
+                                : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                          ),
+                        ),
+                        if (isSel)
+                          const Icon(Icons.check_rounded, size: 14, color: Color(0xFF6366F1)),
+                      ],
                     ),
-                    icon: const Icon(Icons.arrow_drop_down, size: 16),
-                    items: const [
-                      DropdownMenuItem(value: 15, child: Text("15 / pg")),
-                      DropdownMenuItem(value: 25, child: Text("25 / pg")),
-                      DropdownMenuItem(value: 50, child: Text("50 / pg")),
-                      DropdownMenuItem(value: -1, child: Text("All")),
+                  );
+                }).toList(),
+                child: Container(
+                  height: 28,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF21262D) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _pageSize == -1 ? "All" : "$_pageSize / pg",
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 14,
+                        color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
+                      ),
                     ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() {
-                          _pageSize = val;
-                          _currentPage = 1;
-                        });
-                      }
-                    },
                   ),
                 ),
               ),

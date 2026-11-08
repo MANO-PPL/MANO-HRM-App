@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_application/features/reports/core/report_models.dart';
 
@@ -67,9 +67,9 @@ class ReportStatsBanner extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-          childAspectRatio: 1.8,
+          crossAxisSpacing: 5,
+          mainAxisSpacing: 5,
+          childAspectRatio: 2.35,
         ),
         itemCount: items.length,
         itemBuilder: (context, idx) => _buildStatCard(items[idx], isDark, isSmall: true),
@@ -93,10 +93,10 @@ class ReportStatsBanner extends StatelessWidget {
     final Color bg = item['bg'] as Color;
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: isSmall ? 8 : 12, vertical: isSmall ? 8 : 10),
+      padding: EdgeInsets.symmetric(horizontal: isSmall ? 6 : 12, vertical: isSmall ? 4 : 10),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF161B22) : Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
         ),
@@ -104,14 +104,14 @@ class ReportStatsBanner extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            padding: EdgeInsets.all(isSmall ? 5 : 7),
+            padding: EdgeInsets.all(isSmall ? 3.5 : 7),
             decoration: BoxDecoration(
               color: bg,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(6),
             ),
-            child: Icon(item['icon'] as IconData, size: isSmall ? 15 : 18, color: color),
+            child: Icon(item['icon'] as IconData, size: isSmall ? 12 : 18, color: color),
           ),
-          SizedBox(width: isSmall ? 6 : 10),
+          SizedBox(width: isSmall ? 5 : 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -120,16 +120,17 @@ class ReportStatsBanner extends StatelessWidget {
                 Text(
                   item['label'] as String,
                   style: GoogleFonts.poppins(
-                    fontSize: isSmall ? 8.5 : 9.5,
+                    fontSize: isSmall ? 8 : 9.5,
                     fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3,
+                    letterSpacing: 0.2,
                     color: isDark ? const Color(0xFF8B949E) : const Color(0xFF64748B),
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   item['value'] as String,
                   style: GoogleFonts.poppins(
-                    fontSize: isSmall ? 14 : 16,
+                    fontSize: isSmall ? 12.5 : 16,
                     fontWeight: FontWeight.bold,
                     color: color,
                   ),
