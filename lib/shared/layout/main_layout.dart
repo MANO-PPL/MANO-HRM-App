@@ -41,12 +41,9 @@ class MainLayout extends StatelessWidget {
                 builder: (context, currentPage, _) {
                   return Scaffold(
                     backgroundColor: isDark ? const Color(0xFF0D1117) : Colors.transparent,
-                    appBar: PreferredSize(
-                      preferredSize: const Size.fromHeight(kToolbarHeight),
-                      child: CustomAppBar(
-                        showDrawerButton: false,
-                        title: currentPage.title,
-                      ),
+                    appBar: CustomAppBar(
+                      showDrawerButton: false,
+                      title: currentPage.title,
                     ),
                     body: SafeArea(
                       top: false,

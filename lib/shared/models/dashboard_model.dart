@@ -30,12 +30,14 @@ class DashboardStats {
   final int totalEmployees;
   final int absentToday;
   final int lateCheckins;
+  final double avgHours;
 
   DashboardStats({
     required this.presentToday,
     required this.totalEmployees,
     required this.absentToday,
     required this.lateCheckins,
+    this.avgHours = 0.0,
   });
 
   factory DashboardStats.fromJson(Map<String, dynamic> json) {
@@ -44,6 +46,7 @@ class DashboardStats {
       totalEmployees: json['totalEmployees'] ?? 0,
       absentToday: json['absentToday'] ?? 0,
       lateCheckins: json['lateCheckins'] ?? 0,
+      avgHours: (json['avgHours'] is num) ? (json['avgHours'] as num).toDouble() : 0.0,
     );
   }
 }

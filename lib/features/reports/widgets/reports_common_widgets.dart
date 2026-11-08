@@ -64,7 +64,7 @@ class _GlassDateRangePickerState extends State<GlassDateRangePicker> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fmt = DateFormat('MMM dd, yyyy');
+    final fmt = DateFormat('d MMMM yyyy');
 
     return Dialog(
       backgroundColor: Colors.transparent,

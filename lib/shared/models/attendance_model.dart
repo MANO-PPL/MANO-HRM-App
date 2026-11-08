@@ -35,22 +35,24 @@ class AttendanceRecord {
 
   factory AttendanceRecord.fromJson(Map<String, dynamic> json) {
     return AttendanceRecord(
-      attendanceId: json['attendance_id'] ?? 0,
-      userId: json['user_id'],
-      timeIn: _parseDate(json['time_in']),
-      timeOut: _parseDate(json['time_out']),
-      timeInLat: _toDouble(json['time_in_lat']),
-      timeInLng: _toDouble(json['time_in_lng']),
-      timeOutLat: _toDouble(json['time_out_lat']),
-      timeOutLng: _toDouble(json['time_out_lng']),
-      timeInAddress: json['time_in_address'],
-      timeOutAddress: json['time_out_address'],
+      attendanceId: json['attendance_id'] ?? json['attendanceId'] ?? json['id'] ?? 0,
+      userId: json['user_id'] ?? json['userId'],
+      timeIn: _parseDate(json['time_in'] ?? json['timeIn'] ?? json['clock_in'] ?? json['clockIn'] ?? json['in']),
+      timeOut: _parseDate(json['time_out'] ?? json['timeOut'] ?? json['clock_out'] ?? json['clockOut'] ?? json['out']),
+      timeInLat: _toDouble(json['time_in_lat'] ?? json['timeInLat'] ?? json['latitude']),
+      timeInLng: _toDouble(json['time_in_lng'] ?? json['timeInLng'] ?? json['longitude']),
+      timeOutLat: _toDouble(json['time_out_lat'] ?? json['timeOutLat']),
+      timeOutLng: _toDouble(json['time_out_lng'] ?? json['timeOutLng']),
+      timeInAddress: json['time_in_address'] ?? json['timeInAddress'] ?? json['location'],
+      timeOutAddress: json['time_out_address'] ?? json['timeOutAddress'],
       timeInImage: _parseImageUrl(
         json['time_in_image'] ?? 
         json['time_in_image_url'] ?? 
         json['timeInImage'] ?? 
         json['time_in_photo'] ?? 
-        json['time_in_image_key']
+        json['time_in_image_key'] ??
+        json['image_url'] ??
+        json['verification_image']
       ), 
       timeOutImage: _parseImageUrl(
         json['time_out_image'] ?? 
@@ -59,7 +61,7 @@ class AttendanceRecord {
         json['time_out_photo'] ?? 
         json['time_out_image_key']
       ),
-      lateMinutes: json['late_minutes'] ?? 0,
+      lateMinutes: json['late_minutes'] ?? json['lateMinutes'] ?? 0,
       status: json['status'] ?? 'Draft',
     );
   }

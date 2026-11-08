@@ -11,6 +11,7 @@ class ApiConstants {
   static const String me = '/auth/me';
   static const String profile = '/profile'; // POST to update avatar
   static const String profileMe = '/profile/me';
+  static const String profilePreferences = '/profile/preferences';
   static const String captchaGenerate = '/auth/captcha/generate';
   static const String forgotPassword = '/auth/forgot-password';
   static const String verifyOtp = '/auth/verify-otp';
@@ -64,6 +65,8 @@ class ApiConstants {
   // Policies & Shifts
   static const String policyConfig = '/policies/config';
   static const String policyShifts = '/policies/shifts'; // GET, POST, PUT /:id, DELETE /:id
+  static const String policyShiftUsers = '/policies/shift-users'; // GET
+  static const String policyUsersShift = '/policies/users'; // PUT /policies/users/:userId/shift
   static const String policyAutomation = '/policies/automation'; // GET, POST
   static const String myShift = '/attendance/my-shift'; // GET - employee's assigned shift policy
 
@@ -106,7 +109,12 @@ class ApiConstants {
   static const String darEventsUpdate = '/dar/events/update'; // append /:id
   static const String darEventsDelete = '/dar/events/delete'; // append /:id
   static const String darSettingsList = '/dar/settings/list';
+  static const String darSettingsUpdate = '/dar/settings/update';
   static const String darRequestsCreate = '/dar/requests/create';
+  static const String darRequestsList = '/dar/requests/list';
+  static const String darRequestsMyRequests = '/dar/requests/my-requests';
+  static const String darRequestsApprove = '/dar/requests/approve'; // append /:id
+  static const String darRequestsReject = '/dar/requests/reject';   // append /:id
 
   // Labour / Site Worker Management
   static const String labourSites = '/labour/sites';
@@ -125,9 +133,11 @@ class ApiConstants {
 
   // Payroll
   static const String payrollDashboard = '/payroll/dashboard';
+  static const String payrollSetupStatus = '/payroll/setup-status';
+  static const String payrollSettings = '/payroll/settings';
   static const String payrollFinalize = '/payroll/finalize';
   static const String payrollRuns = '/payroll/runs';
-  static const String payrollSettings = '/payroll/settings';
+  static const String payrollAssignments = '/payroll/assignments';
   // Per-employee payroll (append /:employeeId/...)
   static const String payrollEmployee = '/payroll/employees';
   // Per-entry payroll (append /:entryId/...)
