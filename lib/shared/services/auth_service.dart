@@ -839,6 +839,21 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  // Update User Preferences (Theme, Notifications, Column preferences)
+  Future<bool> updatePreferences(Map<String, dynamic> preferences) async {
+    try {
+      final response = await _dio.patch(
+        ApiConstants.profilePreferences,
+        data: preferences,
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("AuthService.updatePreferences error: $e");
+      return false;
+    }
+  }
+
+
   // Expose Dio client for other services to reuse auth headers/interceptors
   Dio get dio => _dio;
 }

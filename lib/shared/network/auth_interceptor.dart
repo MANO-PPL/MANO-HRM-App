@@ -70,18 +70,22 @@ class AuthInterceptor extends QueuedInterceptor {
     ErrorLogger.logApiError(err, contextTag: 'api_interceptor');
 
     // Network connectivity notifications
+    final isOnline = NetworkMonitor().isOnline;
     if (err.type == DioExceptionType.connectionTimeout ||
         err.type == DioExceptionType.sendTimeout ||
         err.type == DioExceptionType.receiveTimeout) {
       onNetworkIssue?.call(
-        "Slow or unstable connection. Please check your internet and try again.",
+        isOnline
+            ? "Server is taking too long to respond. Please try again shortly."
+            : "Slow or unstable connection. Please check your internet and try again.",
         isSlow: true,
       );
-    } else if ((err.type == DioExceptionType.connectionError ||
-            err.error is SocketException) &&
-        NetworkMonitor().isOnline) {
+    } else if (err.type == DioExceptionType.connectionError ||
+        err.error is SocketException) {
       onNetworkIssue?.call(
-        "No internet connection. Please check your Wi-Fi or mobile data.",
+        isOnline
+            ? "Server is currently unreachable. Please check if the backend server is running."
+            : "No internet connection. Please check your Wi-Fi or mobile data.",
         isSlow: false,
       );
     }

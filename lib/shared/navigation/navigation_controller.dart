@@ -122,6 +122,9 @@ void navigateTo(PageType page) {
 void navigateToPolicies({String tab = 'shifts'}) {
   if (tab == 'leave_policies' || tab == 'leaves' || tab == 'leave' || tab == 'policies') {
     policiesTabNotifier.value = 'leave_policies';
+  } else if (tab == 'salary_packages' || tab == 'packages') {
+    navigationNotifier.value = PageType.payroll;
+    return;
   } else {
     policiesTabNotifier.value = tab;
   }

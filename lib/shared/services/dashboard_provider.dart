@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application/shared/services/admin_service.dart';
 import 'package:flutter_application/shared/models/dashboard_model.dart';
@@ -6,6 +6,9 @@ import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/features/attendance/core/attendance_service.dart';
 import 'package:flutter_application/features/employees/core/employee_model.dart';
 import 'package:flutter_application/shared/constants/api_constants.dart';
+
+import 'package:flutter_application/features/holidays/core/holiday_service.dart';
+import 'package:flutter_application/features/holidays/core/holiday_model.dart';
 
 class DashboardProvider extends ChangeNotifier {
   final AuthService _authService;
@@ -25,6 +28,7 @@ class DashboardProvider extends ChangeNotifier {
       _cache.clear();
       _data = null;
       _userWorkLocations = [];
+      _upcomingHolidays = [];
       _lastUserId = currentUserId;
       fetchDashboardData(forceRefresh: true);
     }
@@ -56,6 +60,9 @@ class DashboardProvider extends ChangeNotifier {
 
   List<EmployeeWorkLocation> _userWorkLocations = [];
   List<EmployeeWorkLocation> get userWorkLocations => _userWorkLocations;
+
+  List<Holiday> _upcomingHolidays = [];
+  List<Holiday> get upcomingHolidays => _upcomingHolidays;
 
   // Initial empty data to prevent null checks everywhere if needed
   DashboardStats get stats => _data?.stats ?? DashboardStats(presentToday: 0, totalEmployees: 0, absentToday: 0, lateCheckins: 0);
@@ -123,24 +130,60 @@ class DashboardProvider extends ChangeNotifier {
         int presentCount = 0;
         int absentCount = 0;
         int lateCount = 0;
+        double totalHours = 0.0;
 
         for (var rec in records) {
-          if (rec.status.toUpperCase() == 'PRESENT') {
+          final isPresent = rec.status.toUpperCase() == 'PRESENT' || rec.timeIn != null;
+          if (isPresent) {
             presentCount++;
-            if (rec.lateMinutes > 0) {
+            if (rec.lateMinutes > 0 || rec.status.toUpperCase() == 'LATE') {
               lateCount++;
             }
           } else if (rec.status.toUpperCase() == 'ABSENT') {
             absentCount++;
           }
+          if (rec.timeIn != null && rec.timeOut != null) {
+            try {
+              final inTime = DateTime.parse(rec.timeIn!);
+              final outTime = DateTime.parse(rec.timeOut!);
+              final diffMinutes = outTime.difference(inTime).inMinutes;
+              if (diffMinutes > 0) {
+                totalHours += diffMinutes / 60.0;
+              }
+            } catch (_) {}
+          }
         }
+
+        final double avgHours = presentCount > 0 ? (totalHours / presentCount) : 0.0;
 
         final employeeStats = DashboardStats(
           presentToday: presentCount,      // Map to "Present Days" in UI
           totalEmployees: 0,
           absentToday: absentCount,        // Map to "Absent Days" in UI
           lateCheckins: lateCount,         // Map to "Late Arrivals" in UI
+          avgHours: double.parse(avgHours.toStringAsFixed(1)),
         );
+
+        // Fetch upcoming holidays
+        try {
+          final holidayService = HolidayService(_authService.dio);
+          final allHols = await holidayService.getHolidays();
+          final today = DateTime.now();
+          final todayMidnight = DateTime(today.year, today.month, today.day);
+          final upcoming = allHols.where((h) {
+            try {
+              final parsed = DateTime.parse(h.date);
+              return !parsed.isBefore(todayMidnight);
+            } catch (_) {
+              return false;
+            }
+          }).toList();
+          upcoming.sort((a, b) => a.date.compareTo(b.date));
+          _upcomingHolidays = upcoming.take(3).toList();
+        } catch (e) {
+          debugPrint("Failed to fetch upcoming holidays for dashboard: $e");
+          _upcomingHolidays = [];
+        }
 
         final result = DashboardData(
           stats: employeeStats,

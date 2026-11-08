@@ -4,6 +4,13 @@ bool _asBool(dynamic val, {bool defaultValue = false}) {
   if (val == null) return defaultValue;
   if (val is bool) return val;
   if (val is num) return val != 0;
+  if (val is Map) {
+    if (val.containsKey('required')) return _asBool(val['required'], defaultValue: defaultValue);
+    if (val.containsKey('enabled')) return _asBool(val['enabled'], defaultValue: defaultValue);
+    if (val.containsKey('value')) return _asBool(val['value'], defaultValue: defaultValue);
+    if (val.isEmpty) return defaultValue;
+    return true;
+  }
   if (val is String) {
     final s = val.toLowerCase().trim();
     if (s == 'true' || s == '1' || s == 'yes' || s == 'on' || s == 'active') return true;
@@ -49,13 +56,20 @@ class Shift {
     required this.policyRules,
   });
 
+  bool get isAssigned {
+    if (id == null || id == 0) return false;
+    final lowerName = name.toLowerCase().trim();
+    if (lowerName == 'open shift' || lowerName == 'no shift' || lowerName.isEmpty) return false;
+    return true;
+  }
+
   int get correctionDeadline => policyRules.correctionDeadline;
-  bool get entrySelfie => policyRules.entryRequirements.selfie;
-  bool get entryGeofence => policyRules.entryRequirements.geofence;
-  bool get exitSelfie => policyRules.exitRequirements.selfie;
-  bool get exitGeofence => policyRules.exitRequirements.geofence;
+  bool get entrySelfie => isAssigned ? policyRules.entryRequirements.selfie : false;
+  bool get entryGeofence => isAssigned ? policyRules.entryRequirements.geofence : false;
+  bool get exitSelfie => isAssigned ? policyRules.exitRequirements.selfie : false;
+  bool get exitGeofence => isAssigned ? policyRules.exitRequirements.geofence : false;
   bool get checkpointEnabled => policyRules.checkpointRequirements.enabled;
-  bool get checkpointSelfie => policyRules.checkpointRequirements.selfie;
+  bool get checkpointSelfie => isAssigned ? policyRules.checkpointRequirements.selfie : false;
   double get overtimeBuffer => policyRules.overtime.buffer;
   double get overtimeMaxHours => policyRules.overtime.maxOvertime;
 
