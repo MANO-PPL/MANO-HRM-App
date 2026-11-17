@@ -12,6 +12,7 @@ import 'package:flutter_application/shared/widgets/toast_helper.dart';
 import 'package:flutter_application/shared/navigation/navigation_controller.dart';
 import 'package:flutter_application/shared/widgets/loading_screen.dart';
 import 'package:flutter_application/shared/widgets/chatbot_fab.dart';
+import 'package:flutter_application/shared/services/context_service.dart';
 import 'package:flutter_application/main.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -42,6 +43,17 @@ class LoginScreenState extends State<LoginScreen> {
   // Captcha State
   String? captchaId;
   String? captchaValue;
+  bool _serverDemandedCaptcha = false;
+
+  bool get isCaptchaEnabled {
+    if (_serverDemandedCaptcha) return true;
+    try {
+      final cs = Provider.of<ContextService>(context, listen: false);
+      return cs.captchaEnabled;
+    } catch (_) {
+      return true; // Fail-safe default (R13)
+    }
+  }
 
   @override
   void initState() {
@@ -50,6 +62,14 @@ class LoginScreenState extends State<LoginScreen> {
     ChatbotOverlayManager.destroyAll();
     _loadSavedIdentifier();
     forceStartLocation();
+
+    // R13: Sync system context slice with a 3s timeout; never blocks login
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        Provider.of<ContextService>(context, listen: false)
+            .syncSystemContext(timeout: const Duration(seconds: 3));
+      } catch (_) {}
+    });
   }
 
   Future<void> _loadSavedIdentifier() async {
@@ -126,7 +146,7 @@ class LoginScreenState extends State<LoginScreen> {
   Future<void> handleLogin() async {
     if (!formKey.currentState!.validate()) return;
 
-    if (captchaId == null || captchaValue == null || captchaValue!.isEmpty) {
+    if (isCaptchaEnabled && (captchaId == null || captchaValue == null || captchaValue!.isEmpty)) {
       _showError('Please complete CAPTCHA verification');
       return;
     }
@@ -138,8 +158,8 @@ class LoginScreenState extends State<LoginScreen> {
       await auth.login(
         identifierController.text.trim(),
         passwordController.text,
-        captchaId!,
-        captchaValue!,
+        captchaId ?? '',
+        captchaValue ?? '',
         rememberMe: rememberMe,
       );
 
@@ -155,6 +175,11 @@ class LoginScreenState extends State<LoginScreen> {
         (route) => false,
       );
     } catch (e) {
+      if (e.toString().contains('CAPTCHA_REQUIRED')) {
+        setState(() {
+          _serverDemandedCaptcha = true;
+        });
+      }
       if (mounted) {
         context.showExceptionToast(e);
         captchaKey.currentState?.loadCaptcha();
@@ -166,8 +191,6 @@ class LoginScreenState extends State<LoginScreen> {
     }
   }
 
-
-
   void _showError(String msg) {
     if (mounted) {
       context.showToast(msg, isError: true);
@@ -175,13 +198,22 @@ class LoginScreenState extends State<LoginScreen> {
   }
 
   Widget buildCaptcha() {
-    return WordCaptcha(key: captchaKey, onCaptchaChanged: onCaptchaChanged);
+    return Consumer<ContextService>(
+      builder: (context, cs, _) {
+        final enabled = _serverDemandedCaptcha || cs.captchaEnabled;
+        if (!enabled) return const SizedBox.shrink();
+        return WordCaptcha(key: captchaKey, onCaptchaChanged: onCaptchaChanged);
+      },
+    );
   }
 
 
 
   @override
   Widget build(BuildContext context) {
+    // Listen to ContextService so the login screen reactively updates on dynamic context changes
+    Provider.of<ContextService>(context);
+
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.manual,
       overlays: [SystemUiOverlay.top],

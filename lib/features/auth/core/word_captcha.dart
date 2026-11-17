@@ -73,7 +73,7 @@ class WordCaptchaState extends State<WordCaptcha> {
       if (mounted) {
         setState(() {
            _isLoading = false;
-           _errorMessage = e.toString();
+           _errorMessage = e.toString().replaceFirst('Exception: ', '');
         });
       }
     }

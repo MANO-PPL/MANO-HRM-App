@@ -28,7 +28,11 @@ import 'package:flutter_application/shared/services/chatbot_service.dart'; // Im
 import 'package:flutter_application/shared/widgets/chatbot_fab.dart'; // Import ChatbotOverlayManager
 import 'package:flutter_application/shared/services/socket_service.dart';
 import 'package:flutter_application/features/collaboration/core/chat_service.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_application/shared/services/context_storage.dart';
+import 'package:flutter_application/shared/services/context_service.dart';
+import 'package:flutter_application/shared/services/context_lifecycle_observer.dart';
+import 'package:flutter_application/shared/widgets/update_gate.dart';
 
 import 'package:flutter_application/shared/utils/error_logger.dart';
 
@@ -37,6 +41,18 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Must re-initialise Firebase in the background isolate
   await Firebase.initializeApp();
   debugPrint('FCM background message received: ${message.messageId}');
+
+  // R6: Handle silent ContextAPI bump in background isolate
+  if (message.data['type'] == 'CONTEXT_BUMP') {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('context_dirty_at', DateTime.now().millisecondsSinceEpoch);
+      debugPrint('FCM context bump recorded in background isolate: scope=${message.data['scope']} v=${message.data['version']}');
+    } catch (e) {
+      debugPrint('FCM background error recording dirty flag: $e');
+    }
+    return; // Silent push - do not display user notification
+  }
 
   // Eagerly initialize local notification settings inside the background isolate
   await LocalNotificationService.initialize();
@@ -93,23 +109,46 @@ void main() async {
   final permissionService = PermissionService();
   await permissionService.requestInitialPermissions();
 
+  // Initialize namespaced persistent storage and cache app package info (Stage M1, M2)
+  final prefs = await SharedPreferences.getInstance();
+  final contextStorage = ContextStorage(prefs);
+  await contextStorage.init();
+  await AuthService.cachePackageMetadata();
+
   final authService = AuthService();
   await authService.init();
 
-  // Optional: Start fetching notifications immediately if auth is ready,
-  // but usually better to wait for auth check in AuthWrapper.
+  final contextService = ContextService(
+    storage: contextStorage,
+    dioProvider: () => authService.dio,
+  );
+  authService.setContextHooks(contextService);
+
+  final socketService = SocketService(authService, contextService);
+
+  final lifecycleObserver = ContextLifecycleObserver(
+    contextService: contextService,
+    socketService: socketService,
+  );
+  lifecycleObserver.register();
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider<AuthService>.value(value: authService),
+        ChangeNotifierProvider<SocketService>.value(value: socketService),
         ChangeNotifierProvider<NetworkMonitor>.value(value: NetworkMonitor()),
-        ChangeNotifierProxyProvider<AuthService, SocketService>(
-          create: (context) => SocketService(context.read<AuthService>()),
-          update: (context, auth, previous) {
-            final service = previous ?? SocketService(auth);
-            service.updateAuth(auth);
-            return service;
+        ChangeNotifierProxyProvider<AuthService, ContextService>(
+          create: (_) => contextService,
+          update: (_, auth, previous) {
+            final cs = previous ?? contextService;
+            final user = auth.user;
+            if (user != null) {
+              cs.onIdentityChanged(int.tryParse(user.id), user.orgId);
+            } else {
+              cs.onLogout();
+            }
+            return cs;
           },
         ),
         ChangeNotifierProxyProvider2<AuthService, SocketService, NotificationService>(
@@ -126,10 +165,13 @@ void main() async {
         ChangeNotifierProvider<DashboardProvider>(
           create: (_) => DashboardProvider(authService),
         ),
-        ChangeNotifierProxyProvider<AuthService, AttendanceProvider>(
-          create: (context) => AttendanceProvider(context.read<AuthService>()),
-          update: (context, auth, previous) =>
-              previous ?? AttendanceProvider(auth),
+        ChangeNotifierProxyProvider2<AuthService, ContextService, AttendanceProvider>(
+          create: (context) => AttendanceProvider(
+            context.read<AuthService>(),
+            context.read<ContextService>(),
+          ),
+          update: (context, auth, cs, previous) =>
+              previous ?? AttendanceProvider(auth, cs),
         ),
         ChangeNotifierProxyProvider<AuthService, LeaveProvider>(
           create: (context) => LeaveProvider(context.read<AuthService>()),
@@ -255,6 +297,12 @@ class _AttendanceAppState extends State<AttendanceApp> with WidgetsBindingObserv
             theme: _buildTheme(Brightness.light),
             darkTheme: _buildTheme(Brightness.dark),
             themeMode: currentMode,
+            builder: (context, child) {
+              return UpdateGate(
+                contextService: context.read<ContextService>(),
+                child: child ?? const SizedBox.shrink(),
+              );
+            },
             // Check for existing session or show login
             home: const AuthWrapper(),
           ),

@@ -355,7 +355,7 @@ class LoginMobilePortrait extends StatelessWidget {
                           SizedBox(
                             height: 52,
                             child: ElevatedButton(
-                              onPressed: (controller.isLoading || controller.captchaValue == null || controller.captchaValue!.isEmpty)
+                              onPressed: (controller.isLoading || (controller.isCaptchaEnabled && (controller.captchaValue == null || controller.captchaValue!.isEmpty)))
                                   ? null
                                   : controller.handleLogin,
                               style: ElevatedButton.styleFrom(
