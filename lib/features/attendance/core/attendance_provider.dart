@@ -9,10 +9,11 @@ import 'package:flutter_application/shared/services/auth_service.dart';
 import 'package:flutter_application/features/policy_engine/core/shift_model.dart';
 import 'package:flutter_application/features/attendance/core/attendance_record.dart';
 import 'package:flutter_application/features/attendance/core/attendance_service.dart';
-
+import 'package:flutter_application/shared/services/context_service.dart';
 
 class AttendanceProvider with ChangeNotifier {
   final AuthService _authService;
+  final ContextService? _contextService;
   late final AttendanceService _attendanceService;
   // Cache: "userId_YYYY-MM-DD" -> List<AttendanceRecord>
   final Map<String, List<AttendanceRecord>> _recordsCache = {};
@@ -56,7 +57,7 @@ class AttendanceProvider with ChangeNotifier {
     return DateTime.now().isBefore(deadline);
   }
 
-  AttendanceProvider(this._authService) {
+  AttendanceProvider(this._authService, [this._contextService]) {
     _attendanceService = AttendanceService(_authService.dio);
     _lastUserId = _authService.user?.employeeId;
     _authService.addListener(_onAuthChanged);
@@ -199,6 +200,33 @@ class AttendanceProvider with ChangeNotifier {
   }
 
   Future<void> fetchShiftPolicy() async {
+    // 1. Try resolving from ContextService memory (R5, R13)
+    final contextShift = _contextService?.effectiveShift;
+    if (contextShift != null) {
+      final policy = Shift(
+        id: contextShift.shiftId,
+        name: contextShift.name,
+        startTime: contextShift.startTime,
+        endTime: contextShift.endTime,
+        gracePeriodMins: contextShift.graceMinutes,
+        isOvertimeEnabled: false,
+        overtimeThresholdHours: 8.0,
+        policyRules: {
+          'entry_requirements': contextShift.entryRequirements,
+          'exit_requirements': contextShift.exitRequirements,
+          'crosses_midnight': contextShift.crossesMidnight,
+        },
+      );
+      if (_shiftPolicy?.id != policy.id ||
+          _shiftPolicy?.startTime != policy.startTime ||
+          _shiftPolicy?.endTime != policy.endTime) {
+        _shiftPolicy = policy;
+        notifyListeners();
+      }
+      return;
+    }
+
+    // 2. Fallback to existing legacy endpoint if context baseline is empty or expired (R5)
     try {
       final policy = await _attendanceService.getMyShiftPolicy();
       if (_shiftPolicy != policy) {

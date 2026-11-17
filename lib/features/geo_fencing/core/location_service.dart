@@ -1,5 +1,7 @@
-﻿import 'package:dio/dio.dart';
+import 'dart:math';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:flutter_application/shared/constants/api_constants.dart';
 import 'package:flutter_application/features/geo_fencing/core/location_model.dart';
 
@@ -7,6 +9,29 @@ class LocationService {
   final Dio _dio;
 
   LocationService(this._dio);
+
+  /// Evaluates GPS coordinates against an assigned location's radius using the soft-block tolerance rule (Stage M5).
+  /// Outside the cached radius by no more than max(accuracy, 25.0) meters is treated as inside.
+  static ({bool isInside, bool isSoftTolerated, double distanceMeters}) evaluateGeofence({
+    required double userLat,
+    required double userLng,
+    required double accuracy,
+    required double targetLat,
+    required double targetLng,
+    required double radiusMeters,
+  }) {
+    final distance = Geolocator.distanceBetween(userLat, userLng, targetLat, targetLng);
+    if (distance <= radiusMeters) {
+      return (isInside: true, isSoftTolerated: false, distanceMeters: distance);
+    }
+
+    final tolerance = max(accuracy, 25.0);
+    if (distance <= radiusMeters + tolerance) {
+      return (isInside: true, isSoftTolerated: true, distanceMeters: distance);
+    }
+
+    return (isInside: false, isSoftTolerated: false, distanceMeters: distance);
+  }
 
   // 1. Get All Work Locations
   Future<List<WorkLocation>> getLocations() async {

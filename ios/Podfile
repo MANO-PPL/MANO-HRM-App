@@ -1,5 +1,5 @@
 # Uncomment this line to define a global platform for your project
-platform :ios, '14.0'
+platform :ios, '15.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -41,7 +41,8 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+      config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
       
       # Enable permission_handler permissions
       config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
@@ -51,6 +52,19 @@ post_install do |installer|
         'PERMISSION_NOTIFICATIONS=1',
         'PERMISSION_PHOTOS=1'
       ]
+    end
+  end
+
+  # Fix CocoaPods frameworks.sh unbound variable bug
+  frameworks_script = File.join(__dir__, 'Pods', 'Target Support Files', 'Pods-Runner', 'Pods-Runner-frameworks.sh')
+  if File.exist?(frameworks_script)
+    content = File.read(frameworks_script)
+    unless content.include?('PODS_CONFIGURATION_BUILD_DIR')
+      patched = content.gsub(
+        "  elif [ -r \"$1\" ]; then\n    local source=\"$1\"\n  fi",
+        "  elif [ -r \"$1\" ]; then\n    local source=\"$1\"\n  elif [ -r \"${PODS_CONFIGURATION_BUILD_DIR}/$(basename \"$1\")\" ]; then\n    local source=\"${PODS_CONFIGURATION_BUILD_DIR}/$(basename \"$1\")\"\n  else\n    echo \"Warning: Framework $1 not found, skipping.\"\n    return 0\n  fi"
+      )
+      File.write(frameworks_script, patched)
     end
   end
 end

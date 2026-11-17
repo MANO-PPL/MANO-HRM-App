@@ -188,6 +188,9 @@ class AttendanceService {
     File? imageFile,
     String? lateReason,
     String? timestamp,
+    bool? isMocked,
+    String? clientGeofenceResult,
+    int? contextUserVersion,
   }) async {
     try {
       try {
@@ -223,6 +226,9 @@ class AttendanceService {
         "localTime": localTimestamp,
         "timestamp": localTimestamp,
         "timezone": deviceTimezone,
+        if (clientGeofenceResult != null) "client_geofence_result": clientGeofenceResult,
+        if (isMocked != null) "is_mocked": isMocked ? "true" : "false",
+        if (contextUserVersion != null) "context_user_version": contextUserVersion.toString(),
         if (fixedFile != null && fileName != null)
           "image": await MultipartFile.fromFile(
             fixedFile.path,
@@ -257,6 +263,9 @@ class AttendanceService {
     required double accuracy,
     File? imageFile,
     String? timestamp,
+    bool? isMocked,
+    String? clientGeofenceResult,
+    int? contextUserVersion,
   }) async {
     try {
       try {
@@ -290,6 +299,9 @@ class AttendanceService {
         "localTime": localTimestamp,
         "timestamp": localTimestamp,
         "timezone": deviceTimezone,
+        if (clientGeofenceResult != null) "client_geofence_result": clientGeofenceResult,
+        if (isMocked != null) "is_mocked": isMocked ? "true" : "false",
+        if (contextUserVersion != null) "context_user_version": contextUserVersion.toString(),
         if (fixedFile != null && fileName != null)
           "image": await MultipartFile.fromFile(
             fixedFile.path,
@@ -322,6 +334,9 @@ class AttendanceService {
     double? accuracy,
     String? note,
     File? imageFile,
+    bool? isMocked,
+    String? clientGeofenceResult,
+    int? contextUserVersion,
   }) async {
     try {
       final String localTimestamp = DateTime.now().toIso8601String();
@@ -349,6 +364,9 @@ class AttendanceService {
         "localTime": localTimestamp,
         "timestamp": localTimestamp,
         "timezone": deviceTimezone,
+        if (clientGeofenceResult != null) "client_geofence_result": clientGeofenceResult,
+        if (isMocked != null) "is_mocked": isMocked ? "true" : "false",
+        if (contextUserVersion != null) "context_user_version": contextUserVersion.toString(),
         if (fixedFile != null && fileName != null)
           "image": await MultipartFile.fromFile(
             fixedFile.path,

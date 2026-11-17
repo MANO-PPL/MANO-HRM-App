@@ -149,6 +149,11 @@ class ApiConstants {
   // Chatbot
   static const String chatbotAskInternal = '/website-chatbot/ask-internal';
 
+  // Context API Subsystem Endpoints
+  static const String contextSystem = '/context/system';
+  static const String contextMe = '/context/me';
+  static const String contextSync = '/context/sync';
+
   // Keys
   static String get recaptchaSiteKey => dotenv.env['RECAPTCHA_SITE_KEY'] ?? '';
 }

@@ -22,8 +22,12 @@ import 'package:http_parser/http_parser.dart'; // For MediaType
 import 'package:mime/mime.dart'; // If available, or manually check extensions
 import 'package:http/http.dart' as http; // For MultipartRequest
 import 'dart:convert'; // For jsonDecode
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_application/shared/services/mail_service.dart';
 import 'package:flutter_application/shared/widgets/chatbot_fab.dart';
+import 'package:flutter_application/shared/services/context_transport_hooks.dart';
+import 'package:flutter_application/shared/services/update_policy.dart';
+import 'package:flutter_application/shared/widgets/update_gate.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 const MethodChannel _settingsChannel = MethodChannel('co.mano.attendance/settings');
@@ -36,6 +40,32 @@ class AuthService extends ChangeNotifier {
   final AuthStorageService _authStorage = AuthStorageService();
   final DeviceInfoService _deviceInfo = DeviceInfoService();
 
+  static String _cachedAppVersion = '1.4.0';
+  static String _cachedAppBuild = '1';
+  static String _cachedPlatform = Platform.isIOS ? 'ios' : 'android';
+  static bool _metadataCached = false;
+
+  /// Caches PackageInfo once at boot to eliminate per-request async lookups (Stage M2)
+  static Future<void> cachePackageMetadata() async {
+    if (_metadataCached) return;
+    try {
+      final info = await PackageInfo.fromPlatform();
+      _cachedAppVersion = info.version;
+      _cachedAppBuild = info.buildNumber;
+      _cachedPlatform = Platform.isIOS ? 'ios' : 'android';
+      _metadataCached = true;
+    } catch (_) {}
+  }
+
+  static String get cachedAppVersion => _cachedAppVersion;
+  static String get cachedPlatform => _cachedPlatform;
+
+  ContextTransportHooks? _contextHooks;
+
+  void setContextHooks(ContextTransportHooks hooks) {
+    _contextHooks = hooks;
+  }
+
   static Future<String?> getSavedIdentifier() async {
     return await AuthStorageService().getSavedIdentifier();
   }
@@ -46,6 +76,9 @@ class AuthService extends ChangeNotifier {
 
   String? _accessToken;
   User? _currentUser;
+
+  // Future lock to synchronize concurrent token refreshes
+  Future<String?>? _refreshFuture;
 
   static const Set<String> _explicitRevokeCodes = {
     AuthErrorCodes.invalidRefreshToken,
@@ -205,8 +238,261 @@ class AuthService extends ChangeNotifier {
         }
       }
     });
+
+    // Setup Interceptor for ContextAPI, Version Gating, Access Token & Refresh Logic
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          // 1. If UpdateGate is currently latched as blocking, short-circuit non-exempt requests (R10)
+          final path = options.path;
+          final isExempt = path.contains('/context/system') || path.contains('/health');
+          if (UpdateGateController.instance.isBlocked && !isExempt) {
+            return handler.reject(
+              DioException(
+                requestOptions: options,
+                type: DioExceptionType.cancel,
+                error: 'App update required',
+              ),
+            );
+          }
+
+          // 2. Attach cached platform and version metadata headers (Stage M2)
+          options.headers['X-App-Version'] = _cachedAppVersion;
+          options.headers['X-App-Build'] = _cachedAppBuild;
+          options.headers['X-Platform'] = _cachedPlatform;
+
+          // 3. Attach outgoing ContextAPI known vector headers (R10)
+          if (_contextHooks != null) {
+            options.headers.addAll(_contextHooks!.outgoingHeaders());
+          }
+
+          if (_accessToken != null && options.extra['no_auth_header'] != true) {
+            options.headers['Authorization'] = 'Bearer $_accessToken';
+          }
+          return handler.next(options);
+        },
+        onResponse: (response, handler) {
+          // Delegate incoming version and delta headers to ContextHooks (skipping internal sync calls, R10)
+          if (response.requestOptions.extra['ctx'] != 'sync' && _contextHooks != null) {
+            _contextHooks!.onResponse(response.headers.map, response.data);
+          }
+          return handler.next(response);
+        },
+        onError: (DioException e, handler) async {
+          // Handle 426 Upgrade Required (R10: registered before 401 refresh logic so 426 never enters refresh loops)
+          if (e.response?.statusCode == 426) {
+            final body = e.response?.data is Map<String, dynamic> ? e.response?.data as Map<String, dynamic> : {};
+            UpdateGateController.instance.require(UpdatePolicyInfo(
+              state: UpdatePolicyState.requiredBlocking,
+              clientVersion: _cachedAppVersion,
+              minVersion: body['minVersion']?.toString() ?? '0.0.0',
+              recommendedVersion: '0.0.0',
+              storeUrl: body['storeUrl']?.toString() ?? '',
+              message: body['message']?.toString() ?? 'A new version of MANO Attendance is required.',
+            ));
+            return handler.next(e);
+          }
+
+          // Log network or api errors locally on device with sensitive credentials scrubbed
+          ErrorLogger.logApiError(
+            e,
+            contextTag: 'api_interceptor',
+          );
+
+          // Check for network connectivity or slow network issues
+          if (e.type == DioExceptionType.connectionTimeout ||
+              e.type == DioExceptionType.sendTimeout ||
+              e.type == DioExceptionType.receiveTimeout) {
+            _showNetworkToast(
+              "Slow or unstable connection. Please check your internet and try again.",
+              isSlow: true,
+            );
+          } else if ((e.type == DioExceptionType.connectionError ||
+                  e.error is SocketException) &&
+              NetworkMonitor().isOnline) {
+            _showNetworkToast(
+              "No internet connection. Please check your Wi-Fi or mobile data.",
+              isSlow: false,
+            );
+          }
+
+          final path = e.requestOptions.path;
+
+          // Guard 1: Avoid recursive refresh loops if the failed request is refresh, logout, fcm unregister, or suppressed
+          final isRefreshRequest = path.contains(ApiConstants.refresh);
+          final isLogoutOrCleanupRequest = path.contains(ApiConstants.logout) ||
+              path.contains(ApiConstants.notificationUnregisterFCM) ||
+              path.contains(ApiConstants.login) ||
+              e.requestOptions.extra['no_auth_refresh'] == true;
+
+          // Guard 2: Avoid infinite loops on genuine permission errors (e.g. 403 Forbidden retry fails again)
+          final isRetry = e.requestOptions.headers['X-Retry'] == 'true';
+
+          // Handle 401 Unauthorized (likely expired access token)
+          if (e.response?.statusCode == 401 &&
+              !_isLoggingOut &&
+              !isRefreshRequest &&
+              !isLogoutOrCleanupRequest &&
+              !isRetry) {
+            try {
+              // Await synchronized refresh future to avoid race conditions
+              final newAccessToken = await _synchronizedRefreshToken();
+              if (newAccessToken != null) {
+                final opts = e.requestOptions;
+                opts.headers['Authorization'] = 'Bearer $newAccessToken';
+                // Tag as retry to prevent loops if endpoint remains restricted
+                opts.headers['X-Retry'] = 'true';
+
+                final clonedReq = await _dio.request(
+                  opts.path,
+                  options: Options(
+                    method: opts.method,
+                    headers: opts.headers,
+                    contentType: opts.contentType,
+                    responseType: opts.responseType,
+                    extra: opts.extra,
+                  ),
+                  data: opts.data,
+                  queryParameters: opts.queryParameters,
+                );
+                return handler.resolve(clonedReq);
+              }
+            } catch (refreshError) {
+              if (refreshError is DioException) {
+                final status = refreshError.response?.statusCode;
+                final resData = refreshError.response?.data;
+                final errorCode = resData is Map ? resData['code']?.toString() : null;
+
+                if (_isExplicitSessionRevocation(status, errorCode)) {
+                  // Only force logout if the backend explicitly rejected the refresh token
+                  debugPrint("Backend explicitly rejected session ($status - $errorCode). Logging out.");
+                  await logout();
+                } else {
+                  debugPrint("Refresh failed ($status - $errorCode). Keeping session intact without revoking server token.");
+                }
+              } else {
+                debugPrint("Refresh failed due to unexpected error ($refreshError). Keeping session intact.");
+              }
+            }
+          }
+          final friendly = friendlyError(e);
+          final friendlyException = DioException(
+            requestOptions: e.requestOptions,
+            response: e.response,
+            type: e.type,
+            error: friendly,
+            message: friendly,
+          );
+          return handler.next(friendlyException);
+        },
+      ),
+    );
   }
 
+  /// Extracts the refresh token from response data or Set-Cookie header.
+  String? _extractRefreshToken(Response response) {
+    if (response.data is Map && response.data['refreshToken'] != null) {
+      final token = response.data['refreshToken'].toString().trim();
+      if (token.isNotEmpty) return token;
+    }
+    final rawCookies = response.headers['set-cookie'];
+    if (rawCookies != null) {
+      for (final cookieStr in rawCookies) {
+        final match = RegExp(r'refreshToken=([^;]+)').firstMatch(cookieStr);
+        if (match != null && match.group(1) != null) {
+          final token = match.group(1)!.trim();
+          if (token.isNotEmpty) return token;
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Programmatically injects the refresh token cookie into the PersistCookieJar.
+  Future<void> _syncRefreshTokenCookie(String token) async {
+    try {
+      final uri = Uri.parse(ApiConstants.baseUrl);
+      final cookie = Cookie('refreshToken', token)
+        ..domain = uri.host
+        ..path = '/'
+        ..httpOnly = true
+        ..secure = uri.scheme == 'https'
+        ..maxAge = 30 * 24 * 60 * 60; // 30 Days (matches backend REFRESH_TOKEN_COOKIE_MAX_AGE)
+      await _cookieJar.saveFromResponse(uri, [cookie]);
+      debugPrint("AuthService: Refresh token synced to CookieJar for ${uri.host}");
+    } catch (e) {
+      debugPrint("AuthService: Error syncing refresh token cookie: $e");
+    }
+  }
+
+  /// Safely reads the refresh token from FlutterSecureStorage with diagnostic logging.
+  /// If FlutterSecureStorage returns null/empty or throws an exception, falls back to
+  /// checking the CookieJar which already persists the session cookie in the app sandbox.
+  Future<String?> _readRefreshTokenWithDiagnostics() async {
+    String? token;
+    try {
+      token = await _storage.read(key: 'refresh_token');
+      if (token != null && token.isNotEmpty) {
+        debugPrint("AuthService: Refresh token read from SecureStorage (length: ${token.length})");
+        return token;
+      }
+    } catch (e, stack) {
+      debugPrint("AuthService: SecureStorage exception reading refresh_token: $e\n$stack");
+      await ErrorLogger.logError(
+        e,
+        type: 'secure_storage_exception',
+        extraInfo: {
+          'action': 'read_refresh_token',
+          'error': e.toString(),
+          'stack': stack.toString(),
+        },
+      );
+    }
+
+    // Fallback: Check CookieJar for the 'refreshToken' cookie
+    try {
+      final uri = Uri.parse(ApiConstants.baseUrl);
+      final cookies = await _cookieJar.loadForRequest(uri);
+      for (final cookie in cookies) {
+        if (cookie.name == 'refreshToken' && cookie.value.isNotEmpty) {
+          debugPrint("AuthService: Found candidate refresh token in CookieJar fallback.");
+          await ErrorLogger.logError(
+            'Candidate refresh token loaded from CookieJar fallback',
+            type: 'auth_recovery',
+            extraInfo: {'source': 'cookie_jar_fallback'},
+          );
+          return cookie.value;
+        }
+      }
+    } catch (cookieErr) {
+      debugPrint("AuthService: CookieJar fallback check error: $cookieErr");
+    }
+
+    debugPrint("AuthService: No refresh token found in SecureStorage or CookieJar.");
+    await ErrorLogger.logError(
+      'refresh_token is NULL or empty across all storages',
+      type: 'auth_diagnostic',
+      extraInfo: {'action': 'read_refresh_token', 'result': 'NULL'},
+    );
+    return null;
+  }
+
+  /// Wrapper around refreshToken that ensures only one active network call 
+  /// is made to the backend refresh endpoint at a time.
+  Future<String?> _synchronizedRefreshToken() async {
+    if (_refreshFuture != null) {
+      debugPrint("Token refresh already in progress. Awaiting existing request...");
+      return _refreshFuture;
+    }
+
+    _refreshFuture = refreshToken();
+    try {
+      final newToken = await _refreshFuture;
+      return newToken;
+    } finally {
+      _refreshFuture = null; // Clear lock
+    }
+  }
 
   Future<Map<String, dynamic>> login(
     String userInput,

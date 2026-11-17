@@ -1,5 +1,6 @@
 class User {
   final String id;
+  final int? orgId;
   final String name;
   final String username;
   final String email;
@@ -12,6 +13,7 @@ class User {
 
   User({
     required this.id,
+    this.orgId,
     required this.name,
     required this.username,
     required this.email,
@@ -26,6 +28,9 @@ class User {
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: (json['id'] ?? json['user_id'])?.toString() ?? '',
+      orgId: json['org_id'] is num
+          ? (json['org_id'] as num).toInt()
+          : int.tryParse(json['org_id']?.toString() ?? json['orgId']?.toString() ?? ''),
       name: json['name'] ?? json['user_name'] ?? 'User',
       username: json['username'] ?? json['user_code'] ?? '',
       email: json['email'] ?? '',
@@ -79,6 +84,7 @@ class User {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'org_id': orgId,
       'name': name,
       'username': username,
       'email': email,
